@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -8,14 +9,14 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Operator, Shift, ProductionPlanItem, Machine } from '@/lib/types';
-import { initialOperators, initialShift, initialProductionPlan, initialMachines } from '@/lib/data';
+import type { Operator, ProductionPlanItem, Machine, ShiftInfo } from '@/lib/types';
+import { initialOperators, shifts as initialShifts, initialProductionPlan, initialMachines } from '@/lib/data';
 import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminPage() {
   const [operators, setOperators] = useState<Operator[]>(initialOperators);
-  const [shift, setShift] = useState<Shift>(initialShift);
+  const [managedShifts, setManagedShifts] = useState<ShiftInfo[]>(initialShifts);
   const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>(initialProductionPlan);
   const [allMachines] = useState<Machine[]>(initialMachines);
   
@@ -27,11 +28,19 @@ export default function AdminPage() {
     const newId = `OP-${String(operators.length + 1).padStart(3, '0')}`;
     setOperators([...operators, { id: newId, name: 'New Operator', skillRating: 3, isAbsent: false }]);
   };
+  
+  const handleShiftChange = (index: number, field: keyof ShiftInfo, value: string) => {
+    setManagedShifts(currentShifts => 
+        currentShifts.map((shift, i) => 
+            i === index ? { ...shift, [field]: value } : shift
+        )
+    );
+  };
 
   const handleSaveShifts = () => {
     toast({
       title: 'Shifts Updated',
-      description: `Shift times set to ${shift.startTime} - ${shift.endTime}.`,
+      description: `All shift times have been saved successfully.`,
     });
   };
   
@@ -127,23 +136,38 @@ export default function AdminPage() {
         <TabsContent value="shifts">
           <Card>
             <CardHeader>
-              <CardTitle>Shifts</CardTitle>
-              <CardDescription>Set the default shift timings for production planning.</CardDescription>
+              <CardTitle>Shift Management</CardTitle>
+              <CardDescription>Set the timings for the day and night shifts.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="start-time">Start Time</Label>
-                  <Input id="start-time" type="time" value={shift.startTime} onChange={(e) => setShift({...shift, startTime: e.target.value})} />
+            <CardContent className="space-y-6">
+              {managedShifts.map((s, index) => (
+                <div key={s.name} className="p-4 border rounded-lg">
+                  <h3 className="text-lg font-semibold mb-2">{s.name}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor={`start-time-${index}`}>Start Time</Label>
+                      <Input
+                        id={`start-time-${index}`}
+                        type="time"
+                        value={s.startTime}
+                        onChange={(e) => handleShiftChange(index, 'startTime', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`end-time-${index}`}>End Time</Label>
+                      <Input
+                        id={`end-time-${index}`}
+                        type="time"
+                        value={s.endTime}
+                        onChange={(e) => handleShiftChange(index, 'endTime', e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="end-time">End Time</Label>
-                  <Input id="end-time" type="time" value={shift.endTime} onChange={(e) => setShift({...shift, endTime: e.target.value})} />
-                </div>
-              </div>
+              ))}
             </CardContent>
             <CardFooter>
-              <Button onClick={handleSaveShifts}>Save Shifts</Button>
+              <Button onClick={handleSaveShifts}>Save All Shifts</Button>
             </CardFooter>
           </Card>
         </TabsContent>
