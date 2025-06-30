@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, CheckCircle, Clock, Save } from 'lucide-react';
+import { CalendarIcon, CheckCircle, Clock, Save, SlidersHorizontal } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -26,6 +26,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -45,6 +53,11 @@ export default function DashboardPage() {
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
   
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
+
+  const [columnVisibility, setColumnVisibility] = useState({
+    operator: true,
+    sku: true,
+  });
 
   // Helper function to initialize entries for a round
   const getInitialEntries = useCallback((): MachineProductionData[] => {
@@ -145,6 +158,7 @@ export default function DashboardPage() {
     return loggedTotal;
   }, [productionLog]);
 
+  const footerColSpan = 1 + (columnVisibility.operator ? 1 : 0) + (columnVisibility.sku ? 1 : 0);
 
   return (
     <div className="flex flex-col h-full gap-6">
@@ -191,6 +205,34 @@ export default function DashboardPage() {
                       {roundTimes.map(time => <SelectItem key={time} value={time}>{time}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline">
+                        <SlidersHorizontal className="mr-2 h-4 w-4" />
+                        Columns
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuCheckboxItem
+                        className="capitalize"
+                        checked={columnVisibility.operator}
+                        onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, operator: !!value}))}
+                      >
+                        Operator Name
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        className="capitalize"
+                        checked={columnVisibility.sku}
+                        onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, sku: !!value}))}
+                      >
+                        SKU (Size)
+                      </DropdownMenuCheckboxItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
               </div>
               
               <div className="flex items-center gap-6">
@@ -220,8 +262,8 @@ export default function DashboardPage() {
           <TableHeader className="sticky top-0 bg-muted/50">
             <TableRow>
               <TableHead className="w-[200px]">Machine</TableHead>
-              <TableHead>Operator Name</TableHead>
-              <TableHead>SKU (Size)</TableHead>
+              {columnVisibility.operator && <TableHead>Operator Name</TableHead>}
+              {columnVisibility.sku && <TableHead>SKU (Size)</TableHead>}
               <TableHead className="w-[150px]">Quantity Produced</TableHead>
             </TableRow>
           </TableHeader>
@@ -231,22 +273,29 @@ export default function DashboardPage() {
               return (
               <TableRow key={entry.machineId}>
                 <TableCell className="font-medium">{entry.name}</TableCell>
-                <TableCell>
-                  <Select value={entry.operatorId} onValueChange={(val) => handleEntryChange(entry.machineId, 'operatorId', val)}>
-                    <SelectTrigger><SelectValue placeholder="Select Operator" /></SelectTrigger>
-                    <SelectContent>
-                      {availableOperators.map(op => <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <Input
-                    placeholder={planItem ? "Assigned from plan" : "e.g., P-215-65R17"}
-                    value={entry.sku}
-                    disabled={!!planItem}
-                    className={cn(!!planItem && 'cursor-not-allowed bg-muted/50')}
-                  />
-                </TableCell>
+                
+                {columnVisibility.operator && (
+                  <TableCell>
+                    <Select value={entry.operatorId} onValueChange={(val) => handleEntryChange(entry.machineId, 'operatorId', val)}>
+                      <SelectTrigger><SelectValue placeholder="Select Operator" /></SelectTrigger>
+                      <SelectContent>
+                        {availableOperators.map(op => <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                )}
+
+                {columnVisibility.sku && (
+                  <TableCell>
+                    <Input
+                      placeholder={planItem ? "Assigned from plan" : "e.g., P-215-65R17"}
+                      value={entry.sku}
+                      disabled={!!planItem}
+                      className={cn(!!planItem && 'cursor-not-allowed bg-muted/50')}
+                    />
+                  </TableCell>
+                )}
+
                 <TableCell>
                   <Input
                     type="number"
@@ -260,7 +309,7 @@ export default function DashboardPage() {
           </TableBody>
            <TableFooter>
                 <TableRow>
-                    <TableCell colSpan={3} className="text-right font-bold text-lg">Round Total</TableCell>
+                    <TableCell colSpan={footerColSpan} className="text-right font-bold text-lg">Round Total</TableCell>
                     <TableCell className="font-bold text-lg">{roundTotal.toLocaleString()}</TableCell>
                 </TableRow>
             </TableFooter>
