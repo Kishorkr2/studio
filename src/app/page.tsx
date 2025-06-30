@@ -93,7 +93,11 @@ export default function DashboardPage() {
 
     for (let i = startHour; i < endHour; i++) {
       const hour = i % 24;
-      times.push(`${String(hour).padStart(2, '0')}:00`);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      let displayHour = hour % 12;
+      if (displayHour === 0) displayHour = 12; // for 12 AM and 12 PM
+      
+      times.push(`${displayHour}:00 ${ampm}`);
     }
     return times;
   };
