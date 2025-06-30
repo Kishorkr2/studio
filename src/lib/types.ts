@@ -28,3 +28,8 @@ export interface MarketRequirement {
   sku: string;
   demand: number;
 }
+
+export interface ProductionPlanItem {
+  machineId: string;
+  sku: string;
+}

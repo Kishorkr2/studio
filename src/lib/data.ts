@@ -1,4 +1,4 @@
-import type { Operator, Machine, MachineProductionData, Shift } from './types';
+import type { Operator, Machine, MachineProductionData, Shift, ProductionPlanItem } from './types';
 
 export const initialOperators: Operator[] = [
   { id: 'OP-001', name: 'John Doe', skillRating: 5, isAbsent: false },
@@ -13,6 +13,13 @@ export const initialMachines: Machine[] = Array.from({ length: 26 }, (_, i) => (
   name: `TBM ${i + 1}`,
   isAvailable: Math.random() > 0.1, // 90% chance of being available
 }));
+
+export const initialProductionPlan: ProductionPlanItem[] = [
+  { machineId: 'TBM-01', sku: 'P-215-65R17' },
+  { machineId: 'TBM-02', sku: 'P-215-65R17' },
+  { machineId: 'TBM-03', sku: 'LT-245-75R16' },
+  { machineId: 'TBM-04', sku: 'P-235-60R18' },
+];
 
 export const initialProductionData: MachineProductionData[] = Array.from({ length: 26 }, (_, i) => ({
   machineId: `TBM-${String(i + 1).padStart(2, '0')}`,

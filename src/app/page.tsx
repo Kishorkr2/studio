@@ -6,14 +6,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { BellRing, CheckCircle, Truck } from 'lucide-react';
-import type { MachineProductionData } from '@/lib/types';
-import { initialProductionData } from '@/lib/data';
+import { BellRing, CheckCircle } from 'lucide-react';
+import type { MachineProductionData, ProductionPlanItem } from '@/lib/types';
+import { initialProductionData, initialProductionPlan } from '@/lib/data';
 import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   const { toast } = useToast();
-  const [productionData, setProductionData] = useState<MachineProductionData[]>(initialProductionData);
+  const [productionData, setProductionData] = useState<MachineProductionData[]>(() =>
+    initialProductionData.map(machine => {
+      const planItem = initialProductionPlan.find(p => p.machineId === machine.machineId);
+      return planItem ? { ...machine, sku: planItem.sku } : machine;
+    })
+  );
+  const [productionPlan] = useState<ProductionPlanItem[]>(initialProductionPlan);
   const [lastSubmission, setLastSubmission] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -65,7 +71,9 @@ export default function DashboardPage() {
 
       <div className="flex-1 overflow-y-auto">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {productionData.map(({ machineId, name, status, sku, quantity }) => (
+          {productionData.map(({ machineId, name, status, sku, quantity }) => {
+            const planItem = productionPlan.find(p => p.machineId === machineId);
+            return (
             <Card key={machineId} className="flex flex-col">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -85,9 +93,11 @@ export default function DashboardPage() {
                   <Label htmlFor={`sku-${machineId}`}>SKU</Label>
                   <Input
                     id={`sku-${machineId}`}
-                    placeholder="e.g., P-215-65R17"
+                    placeholder={planItem ? "Assigned from plan" : "e.g., P-215-65R17"}
                     value={sku}
                     onChange={(e) => handleInputChange(machineId, 'sku', e.target.value)}
+                    disabled={!!planItem}
+                    className={cn(!!planItem && 'cursor-not-allowed bg-muted/50')}
                   />
                 </div>
                 <div className="space-y-2">
@@ -102,7 +112,7 @@ export default function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )})}
         </div>
       </div>
     </div>
