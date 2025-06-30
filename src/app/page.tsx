@@ -131,7 +131,7 @@ export default function DashboardPage() {
     }
   }, [selectedRound, productionLog, getInitialEntries]);
   
-  const handleEntryChange = (machineId: string, field: 'operatorId' | 'quantity' | 'remark', value: string) => {
+  const handleEntryChange = (machineId: string, field: 'operatorId' | 'quantity' | 'remark' | 'sku', value: string) => {
     setEntries(prevEntries =>
       prevEntries.map(entry =>
         entry.machineId === machineId
@@ -308,10 +308,9 @@ export default function DashboardPage() {
                 {columnVisibility.sku && (
                   <TableCell>
                     <Input
-                      placeholder={planItem ? "Assigned from plan" : "e.g., P-215-65R17"}
+                      placeholder="e.g., P-215-65R17"
                       value={entry.sku}
-                      disabled={!!planItem}
-                      className={cn(!!planItem && 'cursor-not-allowed bg-muted/50')}
+                      onChange={(e) => handleEntryChange(entry.machineId, 'sku', e.target.value)}
                     />
                   </TableCell>
                 )}
