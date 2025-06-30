@@ -28,6 +28,7 @@ import {
   SidebarFooter,
   SidebarTrigger,
   SidebarInset,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
@@ -39,6 +40,30 @@ const navItems = [
   { href: '/reports', label: 'Reports', icon: LineChart },
   { href: '/admin', label: 'Admin', icon: Cog },
 ];
+
+function NavLinks() {
+  const pathname = usePathname();
+  const { isExpanded } = useSidebar();
+
+  return (
+     <SidebarMenu>
+        {navItems.map((item) => (
+          <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton
+              isActive={pathname === item.href}
+              tooltip={item.label}
+              asChild
+            >
+              <Link href={item.href}>
+                <item.icon />
+                {isExpanded && <span>{item.label}</span>}
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ))}
+      </SidebarMenu>
+  );
+}
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -53,21 +78,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarMenu>
-            {navItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <Link href={item.href} passHref legacyBehavior>
-                  <SidebarMenuButton
-                    isActive={pathname === item.href}
-                    tooltip={item.label}
-                  >
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </Link>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
+          <NavLinks/>
         </SidebarContent>
         <SidebarFooter>
           <div className="flex items-center justify-between p-2">

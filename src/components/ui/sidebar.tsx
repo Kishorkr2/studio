@@ -16,7 +16,7 @@ interface SidebarContextProps {
 
 const SidebarContext = React.createContext<SidebarContextProps | undefined>(undefined)
 
-function useSidebar() {
+export function useSidebar() {
   const context = React.useContext(SidebarContext)
   if (!context) {
     throw new Error("useSidebar must be used within a SidebarProvider")
@@ -196,12 +196,7 @@ export const SidebarMenuButton = React.forwardRef<
       )}
       {...props}
     >
-      {React.Children.map(children, child => {
-        if (React.isValidElement(child) && child.type === 'span') {
-          return isExpanded ? child : null;
-        }
-        return child;
-      })}
+      {children}
     </Button>
   )
 
