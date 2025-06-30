@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, CheckCircle, Clock, Save, BarChart, Package } from 'lucide-react';
+import { CalendarIcon, CheckCircle, Clock, Save } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -28,7 +28,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from "date-fns";
 import type { MachineProductionData, ShiftInfo, Operator, ProductionLog } from '@/lib/types';
 import { initialOperators, initialMachines, initialProductionPlan, shifts } from '@/lib/data';
@@ -105,8 +104,6 @@ export default function DashboardPage() {
     } else {
       setEntries(getInitialEntries());
     }
-    // This dependency array intentionally omits productionLog to avoid re-running when log is updated.
-    // We only want to run this when the user actively changes the round.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRound]);
   
@@ -141,13 +138,7 @@ export default function DashboardPage() {
   }, [entries]);
 
   const cumulativeTotal = useMemo(() => {
-    const savedRoundEntries = Object.values(productionLog).flat();
-    const currentRoundEntries = entries.filter(e => !productionLog[selectedRound]?.some(l => l.machineId === e.machineId));
-    
-    const savedTotal = savedRoundEntries.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
-    // This calculation is a bit complex, let's simplify. Cumulative should just be what's in the log.
-    // When the user saves, it will be added. Let's recalculate based only on the log.
-    
+    // This correctly calculates total from the log of *saved* rounds
     const loggedTotal = Object.values(productionLog)
       .flat()
       .reduce((acc, entry) => acc + (entry.quantity || 0), 0);
@@ -163,8 +154,9 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">Select date, shift, and round to enter production quantities.</p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg">
-        <div className="grid gap-2">
+      {/* Control bar with selectors, totals, and save button */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-end p-4 border rounded-lg">
+        <div className="grid gap-2 lg:col-span-1">
             <Label>Date</Label>
             <Popover>
               <PopoverTrigger asChild>
@@ -181,7 +173,7 @@ export default function DashboardPage() {
               </PopoverContent>
             </Popover>
         </div>
-        <div className="grid gap-2">
+        <div className="grid gap-2 lg:col-span-1">
             <Label>Shift</Label>
             <Select value={selectedShift.name} onValueChange={(name) => setSelectedShift(shifts.find(s => s.name === name) || shifts[0])}>
               <SelectTrigger><SelectValue placeholder="Select shift" /></SelectTrigger>
@@ -190,7 +182,7 @@ export default function DashboardPage() {
               </SelectContent>
             </Select>
         </div>
-        <div className="grid gap-2">
+        <div className="grid gap-2 lg:col-span-1">
             <Label>Production Round</Label>
              <Select value={selectedRound} onValueChange={setSelectedRound}>
               <SelectTrigger>
@@ -202,36 +194,22 @@ export default function DashboardPage() {
               </SelectContent>
             </Select>
         </div>
-      </div>
+        
+        <div className="flex gap-6 justify-around lg:col-span-1 lg:justify-self-center pt-4 lg:pt-0">
+            <div className="text-center">
+                <p className="text-sm font-medium text-muted-foreground">Round Total</p>
+                <p className="text-2xl font-bold">{roundTotal.toLocaleString()}</p>
+            </div>
+            <div className="text-center">
+                <p className="text-sm font-medium text-muted-foreground">Shift Total (Saved)</p>
+                <p className="text-2xl font-bold">{cumulativeTotal.toLocaleString()}</p>
+            </div>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="md:col-span-1">
-            <CardHeader>
-                <CardTitle className="text-lg">Round Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="flex items-center gap-4">
-                <Package className="h-10 w-10 text-primary"/>
-                <div>
-                    <p className="text-sm text-muted-foreground">Current Round Total</p>
-                    <p className="text-3xl font-bold">{roundTotal.toLocaleString()}</p>
-                </div>
-            </CardContent>
-        </Card>
-        <Card className="md:col-span-1">
-            <CardHeader>
-                <CardTitle className="text-lg">Shift Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="flex items-center gap-4">
-                <BarChart className="h-10 w-10 text-primary"/>
-                <div>
-                    <p className="text-sm text-muted-foreground">Saved Cumulative Total</p>
-                    <p className="text-3xl font-bold">{cumulativeTotal.toLocaleString()}</p>
-                </div>
-            </CardContent>
-        </Card>
-         <div className="md:col-span-1 flex items-end">
-             <Button onClick={handleSaveRound} className="w-full h-14 text-lg"><Save className="mr-2 h-5 w-5" /> Save Round Data</Button>
-         </div>
+        <Button onClick={handleSaveRound} className="w-full lg:w-auto lg:justify-self-end">
+            <Save className="mr-2 h-4 w-4" />
+            Save Round
+        </Button>
       </div>
 
 
