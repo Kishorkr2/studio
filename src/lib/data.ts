@@ -1,8 +1,8 @@
 import type { Operator, Machine, Shift, ProductionPlanItem, ShiftInfo } from './types';
 
 export const shifts: ShiftInfo[] = [
-  { name: 'Day Shift', startTime: '07:30', endTime: '19:00' },
-  { name: 'Night Shift', startTime: '19:00', endTime: '07:00' },
+  { name: 'Day Shift', startTime: '07:30', endTime: '19:30' },
+  { name: 'Night Shift', startTime: '19:30', endTime: '07:30' },
 ];
 
 export const initialOperators: Operator[] = [

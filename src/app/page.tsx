@@ -83,23 +83,22 @@ export default function DashboardPage() {
   // Function to generate round times based on shift
   const generateRoundTimes = (shift: ShiftInfo): string[] => {
     const times: string[] = [];
-    // User specified round start times
-    const roundStartHour = shift.name === 'Day Shift' ? 9 : 21; // 9 AM for Day, 9 PM for Night
+    const isDayShift = shift.name === 'Day Shift';
+    // Round start times are 9 AM for Day, 9 PM for Night
+    const roundStartHour = isDayShift ? 9 : 21; 
 
-    let [endHour] = shift.endTime.split(':').map(Number);
-    const startHour = roundStartHour;
-    
-    // Handle overnight shifts
-    let loopEndHour = endHour;
-    if (shift.name === 'Night Shift') {
-        // If the end hour is in the morning (e.g., 7) and start is in the evening (e.g., 21),
-        // we've crossed midnight.
-        if (loopEndHour < startHour) {
-            loopEndHour += 24;
-        }
+    // Day shift rounds run up to 7 PM. Night shift rounds run up to 9 AM.
+    const roundEndHour = isDayShift ? 19 : 9;
+
+    let loopEndHour = roundEndHour;
+    if (!isDayShift) { // Handle overnight shifts
+      if (loopEndHour < roundStartHour) {
+        loopEndHour += 24;
+      }
     }
 
-    for (let i = startHour; i < loopEndHour; i++) {
+    // Loop through hours inclusively
+    for (let i = roundStartHour; i <= loopEndHour; i++) {
       const hour = i % 24;
       const ampm = hour >= 12 ? 'PM' : 'AM';
       let displayHour = hour % 12;
