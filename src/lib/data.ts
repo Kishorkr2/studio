@@ -1,4 +1,4 @@
-import type { Operator, Machine, MachineProductionData, Shift, ProductionPlanItem, ShiftInfo } from './types';
+import type { Operator, Machine, Shift, ProductionPlanItem, ShiftInfo } from './types';
 
 export const shifts: ShiftInfo[] = [
   { name: 'Day Shift', startTime: '09:00', endTime: '19:00' },
@@ -13,10 +13,11 @@ export const initialOperators: Operator[] = [
   { id: 'OP-005', name: 'David Brown', skillRating: 2, isAbsent: false },
 ];
 
+// Make machine availability static to ensure predictability.
 export const initialMachines: Machine[] = Array.from({ length: 26 }, (_, i) => ({
   id: `TBM-${String(i + 1).padStart(2, '0')}`,
   name: `TBM ${i + 1}`,
-  isAvailable: Math.random() > 0.1, // 90% chance of being available
+  isAvailable: i < 23, // TBM-24, 25, 26 are unavailable
 }));
 
 export const initialProductionPlan: ProductionPlanItem[] = [
@@ -25,15 +26,6 @@ export const initialProductionPlan: ProductionPlanItem[] = [
   { machineId: 'TBM-03', sku: 'LT-245-75R16' },
   { machineId: 'TBM-04', sku: 'P-235-60R18' },
 ];
-
-export const initialProductionData: MachineProductionData[] = Array.from({ length: 26 }, (_, i) => ({
-  machineId: `TBM-${String(i + 1).padStart(2, '0')}`,
-  name: `TBM ${i + 1}`,
-  status: Math.random() > 0.1 ? 'Online' : 'Offline',
-  sku: '',
-  quantity: 0,
-}));
-
 
 export const initialShift: Shift = {
   startTime: '08:00',
