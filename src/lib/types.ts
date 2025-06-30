@@ -40,3 +40,7 @@ export interface ProductionPlanItem {
   machineId: string;
   sku: string;
 }
+
+export interface ProductionLog {
+  [roundTime: string]: MachineProductionData[];
+}
