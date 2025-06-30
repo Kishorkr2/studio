@@ -36,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast"
+import { Label } from "@/components/ui/label"
 
 const mockReportData = [
   { date: "2024-07-28", shift: "A", operator: "John Doe", tbm: "TBM-01", sku: "P-215-65R17", quantity: 150 },
@@ -47,7 +48,7 @@ const mockReportData = [
 
 export default function ReportsPage() {
     const { toast } = useToast();
-    const [date, setDate] = React.useState&lt;DateRange | undefined&gt;({
+    const [date, setDate] = React.useState<DateRange | undefined>({
         from: addDays(new Date(), -7),
         to: new Date(),
     })
@@ -152,57 +153,49 @@ export default function ReportsPage() {
   )
 }
 
-function Label({ children, ...props }: React.ComponentProps&lt;"label"&gt;) {
-    return (
-        &lt;label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" {...props}&gt;
-            {children}
-        &lt;/label&gt;
-    )
-}
-
 function DateRangePicker({
   className,
   date,
   setDate,
-}: React.HTMLAttributes&lt;HTMLDivElement&gt; &amp; { date: DateRange | undefined, setDate: (date: DateRange | undefined) =&gt; void }) {
+}: React.HTMLAttributes<HTMLDivElement> & { date: DateRange | undefined, setDate: (date: DateRange | undefined) => void }) {
   return (
-    &lt;div className={cn("grid gap-2", className)}&gt;
-      &lt;Popover&gt;
-        &lt;PopoverTrigger asChild&gt;
-          &lt;Button
+    <div className={cn("grid gap-2", className)}>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
             id="date"
             variant={"outline"}
             className={cn(
               "w-full justify-start text-left font-normal",
-              !date &amp;&amp; "text-muted-foreground"
+              !date && "text-muted-foreground"
             )}
-          &gt;
-            &lt;CalendarIcon className="mr-2 h-4 w-4" /&gt;
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
             {date?.from ? (
               date.to ? (
-                &lt;&gt;
+                <>
                   {format(date.from, "LLL dd, y")} -{" "}
                   {format(date.to, "LLL dd, y")}
-                &lt;/&gt;
+                </>
               ) : (
                 format(date.from, "LLL dd, y")
               )
             ) : (
-              &lt;span&gt;Pick a date&lt;/span&gt;
+              <span>Pick a date</span>
             )}
-          &lt;/Button&gt;
-        &lt;/PopoverTrigger&gt;
-        &lt;PopoverContent className="w-auto p-0" align="start"&gt;
-          &lt;Calendar
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
             initialFocus
             mode="range"
             defaultMonth={date?.from}
             selected={date}
             onSelect={setDate}
             numberOfMonths={2}
-          /&gt;
-        &lt;/PopoverContent&gt;
-      &lt;/Popover&gt;
-    &lt;/div&gt;
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 }
