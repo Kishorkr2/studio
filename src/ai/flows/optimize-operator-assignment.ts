@@ -68,10 +68,10 @@ const prompt = ai.definePrompt({
   - Operator absenteeism: Do not assign absent operators to any machines.
 
   Input Data:
-  Operators: {{{JSON.stringify operators}}}
-  Machines: {{{JSON.stringify machines}}}
-  Shift Times: {{{JSON.stringify shiftTimes}}}
-  Absenteeism: {{{JSON.stringify absenteeism}}}
+  Operators: {{{json operators}}}
+  Machines: {{{json machines}}}
+  Shift Times: {{{json shiftTimes}}}
+  Absenteeism: {{{json absenteeism}}}
 
   Provide the assignments in JSON format, along with a summary of the optimization process.
   Explain the reasoning for each assignment in the output when possible.
