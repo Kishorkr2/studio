@@ -18,6 +18,7 @@ export interface MachineProductionData {
   sku: string;
   quantity: number;
   operatorId?: string;
+  remark?: string;
 }
 
 export interface Shift {

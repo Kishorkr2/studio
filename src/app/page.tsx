@@ -57,6 +57,7 @@ export default function DashboardPage() {
   const [columnVisibility, setColumnVisibility] = useState({
     operator: true,
     sku: true,
+    remark: true,
   });
 
   // Helper function to initialize entries for a round
@@ -71,6 +72,7 @@ export default function DashboardPage() {
         sku: planItem?.sku || '',
         quantity: 0,
         operatorId: '',
+        remark: '',
       };
     });
   }, []);
@@ -87,25 +89,24 @@ export default function DashboardPage() {
     // Round start times are 9 AM for Day, 9 PM for Night
     const roundStartHour = isDayShift ? 9 : 21; 
 
-    // Day shift rounds run up to 7 PM. Night shift rounds run up to 9 AM.
-    const roundEndHour = isDayShift ? 19 : 9;
-
-    let loopEndHour = roundEndHour;
-    if (!isDayShift) { // Handle overnight shifts
-      if (loopEndHour < roundStartHour) {
-        loopEndHour += 24;
-      }
-    }
-
-    // Loop through hours inclusively
-    for (let i = roundStartHour; i <= loopEndHour; i++) {
-      const hour = i % 24;
+    let currentHour = roundStartHour;
+    let endLoop = false;
+    while(!endLoop) {
+      const hour = currentHour % 24;
       const ampm = hour >= 12 ? 'PM' : 'AM';
       let displayHour = hour % 12;
       if (displayHour === 0) displayHour = 12; // for 12 AM and 12 PM
       
       times.push(`${displayHour}:00 ${ampm}`);
+
+      if (isDayShift) {
+          if (hour === 19) endLoop = true;
+      } else {
+          if (hour === 9) endLoop = true;
+      }
+      currentHour++;
     }
+
     return times;
   };
 
@@ -130,7 +131,7 @@ export default function DashboardPage() {
     }
   }, [selectedRound, productionLog, getInitialEntries]);
   
-  const handleEntryChange = (machineId: string, field: 'operatorId' | 'quantity', value: string) => {
+  const handleEntryChange = (machineId: string, field: 'operatorId' | 'quantity' | 'remark', value: string) => {
     setEntries(prevEntries =>
       prevEntries.map(entry =>
         entry.machineId === machineId
@@ -241,6 +242,13 @@ export default function DashboardPage() {
                       >
                         SKU (Size)
                       </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        className="capitalize"
+                        checked={columnVisibility.remark}
+                        onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, remark: !!value}))}
+                      >
+                        Remark
+                      </DropdownMenuCheckboxItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
 
@@ -276,6 +284,7 @@ export default function DashboardPage() {
               {columnVisibility.operator && <TableHead>Operator Name</TableHead>}
               {columnVisibility.sku && <TableHead>SKU (Size)</TableHead>}
               <TableHead className="w-[150px]">Quantity Produced</TableHead>
+              {columnVisibility.remark && <TableHead>Remark</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -315,6 +324,16 @@ export default function DashboardPage() {
                     onChange={(e) => handleEntryChange(entry.machineId, 'quantity', e.target.value)}
                   />
                 </TableCell>
+                
+                {columnVisibility.remark && (
+                  <TableCell>
+                    <Input
+                      placeholder="Add remark..."
+                      value={entry.remark || ''}
+                      onChange={(e) => handleEntryChange(entry.machineId, 'remark', e.target.value)}
+                    />
+                  </TableCell>
+                )}
               </TableRow>
             )})}
           </TableBody>
@@ -322,6 +341,7 @@ export default function DashboardPage() {
                 <TableRow>
                     <TableCell colSpan={footerColSpan} className="text-right font-bold text-lg">Round Total</TableCell>
                     <TableCell className="font-bold text-lg">{roundTotal.toLocaleString()}</TableCell>
+                    {columnVisibility.remark && <TableCell />}
                 </TableRow>
             </TableFooter>
         </Table>
