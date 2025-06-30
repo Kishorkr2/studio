@@ -1,4 +1,10 @@
-import type { Operator, Machine, MachineProductionData, Shift, ProductionPlanItem } from './types';
+import type { Operator, Machine, MachineProductionData, Shift, ProductionPlanItem, ShiftInfo } from './types';
+
+export const shifts: ShiftInfo[] = [
+  { name: 'Shift A', startTime: '06:00', endTime: '14:00' },
+  { name: 'Shift B', startTime: '14:00', endTime: '22:00' },
+  { name: 'Shift C', startTime: '22:00', endTime: '06:00' },
+];
 
 export const initialOperators: Operator[] = [
   { id: 'OP-001', name: 'John Doe', skillRating: 5, isAbsent: false },

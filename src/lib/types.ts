@@ -17,9 +17,16 @@ export interface MachineProductionData {
   status: 'Online' | 'Offline';
   sku: string;
   quantity: number;
+  operatorId?: string;
 }
 
 export interface Shift {
+  startTime: string;
+  endTime: string;
+}
+
+export interface ShiftInfo {
+  name: string;
   startTime: string;
   endTime: string;
 }
