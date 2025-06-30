@@ -216,8 +216,8 @@ export default function DashboardPage() {
         <Table>
           <TableHeader className="sticky top-0 bg-muted/50">
             <TableRow>
-              <TableHead>Operator Name</TableHead>
               <TableHead className="w-[200px]">Machine</TableHead>
+              <TableHead>Operator Name</TableHead>
               <TableHead>SKU (Size)</TableHead>
               <TableHead className="w-[150px]">Quantity Produced</TableHead>
             </TableRow>
@@ -227,6 +227,7 @@ export default function DashboardPage() {
               const planItem = initialProductionPlan.find(p => p.machineId === entry.machineId);
               return (
               <TableRow key={entry.machineId}>
+                <TableCell className="font-medium">{entry.name}</TableCell>
                 <TableCell>
                   <Select value={entry.operatorId} onValueChange={(val) => handleEntryChange(entry.machineId, 'operatorId', val)}>
                     <SelectTrigger><SelectValue placeholder="Select Operator" /></SelectTrigger>
@@ -235,7 +236,6 @@ export default function DashboardPage() {
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell className="font-medium">{entry.name}</TableCell>
                 <TableCell>
                   <Input
                     placeholder={planItem ? "Assigned from plan" : "e.g., P-215-65R17"}
