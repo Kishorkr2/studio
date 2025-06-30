@@ -69,7 +69,7 @@ export default function DashboardPage() {
         machineId: machine.id,
         name: machine.name,
         status: 'Online',
-        sku: planItem?.sku || '',
+        sku: planItem?.skus?.[0] || '',
         quantity: 0,
         operatorId: '',
         remark: '',
@@ -291,7 +291,6 @@ export default function DashboardPage() {
           </TableHeader>
           <TableBody>
             {entries.map(entry => {
-              const planItem = initialProductionPlan.find(p => p.machineId === entry.machineId);
               return (
               <TableRow key={entry.machineId}>
                 <TableCell className="font-medium">{entry.name}</TableCell>

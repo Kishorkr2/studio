@@ -11,8 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Operator, ProductionPlanItem, Machine, ShiftInfo } from '@/lib/types';
 import { initialOperators, shifts as initialShifts, initialProductionPlan, initialMachines } from '@/lib/data';
-import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet } from 'lucide-react';
+import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 export default function AdminPage() {
   const [operators, setOperators] = useState<Operator[]>(initialOperators);
@@ -21,6 +22,7 @@ export default function AdminPage() {
   const [allMachines] = useState<Machine[]>(initialMachines);
   
   const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
+  const [newSku, setNewSku] = useState('');
 
   const { toast } = useToast();
 
@@ -55,8 +57,8 @@ export default function AdminPage() {
   };
 
   const handleSavePlanItem = (item: ProductionPlanItem) => {
-    if (!item.machineId || !item.sku) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Machine and SKU cannot be empty.' });
+    if (!item.machineId || item.skus.length === 0) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Machine must be selected and at least one SKU must be added.' });
       return;
     }
     
@@ -78,12 +80,26 @@ export default function AdminPage() {
   };
 
   const startEditing = (item: ProductionPlanItem) => {
-    setEditingPlan({...item});
+    setEditingPlan({...item, skus: [...item.skus]});
   };
   
   const startAdding = () => {
-    setEditingPlan({ machineId: '', sku: '' });
+    setEditingPlan({ machineId: '', skus: [] });
   };
+  
+  const handleAddSkuToPlan = () => {
+    if (newSku && editingPlan && !editingPlan.skus.includes(newSku)) {
+        setEditingPlan({ ...editingPlan, skus: [...editingPlan.skus, newSku] });
+        setNewSku('');
+    }
+  };
+
+  const handleRemoveSkuFromPlan = (skuToRemove: string) => {
+      if (editingPlan) {
+          setEditingPlan({ ...editingPlan, skus: editingPlan.skus.filter(s => s !== skuToRemove) });
+      }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -182,31 +198,46 @@ export default function AdminPage() {
               {editingPlan ? (
                 <div className="p-4 border rounded-lg space-y-4">
                   <h3 className="font-semibold text-lg">{productionPlan.some(p => p.machineId === editingPlan.machineId) ? 'Edit Plan' : 'Add Plan'}</h3>
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="machine-select">Machine</Label>
+                      <Select
+                        value={editingPlan.machineId}
+                        onValueChange={(value) => setEditingPlan({...editingPlan, machineId: value})}
+                        disabled={!!editingPlan.machineId && productionPlan.some(p => p.machineId === editingPlan.machineId)}
+                      >
+                        <SelectTrigger id="machine-select">
+                          <SelectValue placeholder="Select a machine" />
+                        </SelectTrigger>
+                        <SelectContent>
+                           {allMachines.filter(m => !productionPlan.some(p => p.machineId === m.id) || m.id === editingPlan.machineId).map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Assigned SKUs</Label>
                       <div className="space-y-2">
-                        <Label htmlFor="machine-select">Machine</Label>
-                        <Select
-                          value={editingPlan.machineId}
-                          onValueChange={(value) => setEditingPlan({...editingPlan, machineId: value})}
-                          disabled={productionPlan.some(p => p.machineId === editingPlan.machineId)}
-                        >
-                          <SelectTrigger id="machine-select">
-                            <SelectValue placeholder="Select a machine" />
-                          </SelectTrigger>
-                          <SelectContent>
-                             {allMachines.filter(m => !productionPlan.some(p => p.machineId === m.id) || m.id === editingPlan.machineId).map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex gap-2">
+                          <Input value={newSku} onChange={e => setNewSku(e.target.value)} placeholder="Enter new SKU"/>
+                          <Button onClick={handleAddSkuToPlan}><PlusCircle className="h-4 w-4 mr-2"/> Add</Button>
+                        </div>
+                        <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[40px]">
+                            {editingPlan.skus.length > 0 ? editingPlan.skus.map(sku => (
+                                <Badge key={sku} variant="secondary" className="flex items-center gap-1">
+                                    {sku}
+                                    <button onClick={() => handleRemoveSkuFromPlan(sku)} className="rounded-full hover:bg-muted-foreground/20">
+                                        <X className="h-3 w-3"/>
+                                    </button>
+                                </Badge>
+                            )) : <p className="text-sm text-muted-foreground">No SKUs added yet.</p>}
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="sku-input">SKU</Label>
-                        <Input id="sku-input" value={editingPlan.sku} onChange={(e) => setEditingPlan({...editingPlan, sku: e.target.value})} placeholder="Enter SKU"/>
-                      </div>
-                      <div className="flex gap-2">
-                         <Button onClick={() => handleSavePlanItem(editingPlan)}>Save</Button>
-                         <Button variant="outline" onClick={() => setEditingPlan(null)}>Cancel</Button>
-                      </div>
-                   </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                      <Button onClick={() => handleSavePlanItem(editingPlan)}>Save Plan</Button>
+                      <Button variant="outline" onClick={() => setEditingPlan(null)}>Cancel</Button>
+                  </div>
                 </div>
               ) : (
                 <Button onClick={startAdding}><PlusCircle className="mr-2 h-4 w-4"/>Add Plan Item</Button>
@@ -218,7 +249,7 @@ export default function AdminPage() {
                     <TableRow>
                       <TableHead>Machine ID</TableHead>
                       <TableHead>Machine Name</TableHead>
-                      <TableHead>Assigned SKU</TableHead>
+                      <TableHead>Assigned SKUs</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -227,7 +258,11 @@ export default function AdminPage() {
                       <TableRow key={item.machineId}>
                         <TableCell>{item.machineId}</TableCell>
                         <TableCell>{allMachines.find(m => m.id === item.machineId)?.name}</TableCell>
-                        <TableCell className="font-medium">{item.sku}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {item.skus.map(sku => <Badge key={sku} variant="secondary">{sku}</Badge>)}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => startEditing(item)}><Edit className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handleDeletePlanItem(item.machineId)}><Trash className="h-4 w-4" /></Button>

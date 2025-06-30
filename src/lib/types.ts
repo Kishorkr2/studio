@@ -39,7 +39,7 @@ export interface MarketRequirement {
 
 export interface ProductionPlanItem {
   machineId: string;
-  sku: string;
+  skus: string[];
 }
 
 export interface ProductionLog {

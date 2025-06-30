@@ -21,10 +21,10 @@ export const initialMachines: Machine[] = Array.from({ length: 26 }, (_, i) => (
 }));
 
 export const initialProductionPlan: ProductionPlanItem[] = [
-  { machineId: 'TBM-01', sku: 'P-215-65R17' },
-  { machineId: 'TBM-02', sku: 'P-215-65R17' },
-  { machineId: 'TBM-03', sku: 'LT-245-75R16' },
-  { machineId: 'TBM-04', sku: 'P-235-60R18' },
+  { machineId: 'TBM-01', skus: ['P-215-65R17'] },
+  { machineId: 'TBM-02', skus: ['P-215-65R17', 'P-225-60R17'] },
+  { machineId: 'TBM-03', skus: ['LT-245-75R16'] },
+  { machineId: 'TBM-04', skus: ['P-235-60R18'] },
 ];
 
 export const initialShift: Shift = {
