@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { CalendarIcon, CheckCircle, Clock, Save } from 'lucide-react';
 import {
@@ -27,6 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Card, CardContent } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import type { MachineProductionData, ShiftInfo, Operator, ProductionLog } from '@/lib/types';
@@ -154,66 +154,65 @@ export default function DashboardPage() {
       </header>
 
       {/* Control bar with selectors, totals, and save button */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 p-4 border rounded-lg">
-        <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-center">
-            <div className="grid gap-2 min-w-[180px]">
-                <Label>Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn("justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} initialFocus />
-                  </PopoverContent>
-                </Popover>
-            </div>
-            <div className="grid gap-2 min-w-[180px]">
-                <Label>Shift</Label>
-                <Select value={selectedShift.name} onValueChange={(name) => setSelectedShift(shifts.find(s => s.name === name) || shifts[0])}>
-                  <SelectTrigger><SelectValue placeholder="Select shift" /></SelectTrigger>
-                  <SelectContent>
-                    {shifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name} ({s.startTime} - {s.endTime})</SelectItem>)}
-                  </SelectContent>
-                </Select>
-            </div>
-            <div className="grid gap-2 min-w-[180px]">
-                <Label>Production Round</Label>
-                 <Select value={selectedRound} onValueChange={setSelectedRound}>
-                  <SelectTrigger>
-                    <Clock className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Select time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roundTimes.map(time => <SelectItem key={time} value={time}>{time}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-            </div>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-center gap-6 pt-4 lg:pt-0">
-            <div className="flex gap-6 justify-around">
-                <div className="text-center">
-                    <p className="text-sm font-medium text-muted-foreground">Round Total</p>
-                    <p className="text-2xl font-bold">{roundTotal.toLocaleString()}</p>
-                </div>
-                <div className="text-center">
-                    <p className="text-sm font-medium text-muted-foreground">Shift Total (Saved)</p>
-                    <p className="text-2xl font-bold">{cumulativeTotal.toLocaleString()}</p>
-                </div>
-            </div>
+      <Card>
+        <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-4">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn("w-[240px] justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} initialFocus />
+                    </PopoverContent>
+                  </Popover>
 
-            <Button onClick={handleSaveRound} className="w-full sm:w-auto">
-                <Save className="mr-2 h-4 w-4" />
-                Save Round
-            </Button>
-        </div>
-      </div>
+                  <Select value={selectedShift.name} onValueChange={(name) => setSelectedShift(shifts.find(s => s.name === name) || shifts[0])}>
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue placeholder="Select shift" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {shifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name} ({s.startTime} - {s.endTime})</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+
+                   <Select value={selectedRound} onValueChange={setSelectedRound}>
+                    <SelectTrigger className="w-[180px]">
+                      <Clock className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roundTimes.map(time => <SelectItem key={time} value={time}>{time}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+              </div>
+              
+              <div className="flex items-center gap-6">
+                  <div className="flex gap-6 text-center">
+                      <div>
+                          <p className="text-sm font-medium text-muted-foreground">Round Total</p>
+                          <p className="text-2xl font-bold text-primary">{roundTotal.toLocaleString()}</p>
+                      </div>
+                      <div>
+                          <p className="text-sm font-medium text-muted-foreground">Shift Total (Saved)</p>
+                          <p className="text-2xl font-bold text-accent">{cumulativeTotal.toLocaleString()}</p>
+                      </div>
+                  </div>
+
+                  <Button onClick={handleSaveRound} size="lg" className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white">
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Round
+                  </Button>
+              </div>
+            </div>
+        </CardContent>
+      </Card>
 
 
       <div className="flex-1 overflow-y-auto border rounded-lg">
