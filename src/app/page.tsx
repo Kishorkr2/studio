@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,22 +33,6 @@ import type { MachineProductionData, ShiftInfo, Operator, ProductionLog } from '
 import { initialOperators, initialMachines, initialProductionPlan, shifts } from '@/lib/data';
 import { cn } from '@/lib/utils';
 
-// Helper function to initialize entries for a round
-const getInitialEntries = (): MachineProductionData[] => {
-  const availableMachines = initialMachines.filter(m => m.isAvailable);
-  return availableMachines.map(machine => {
-    const planItem = initialProductionPlan.find(p => p.machineId === machine.id);
-    return {
-      machineId: machine.id,
-      name: machine.name,
-      status: 'Online',
-      sku: planItem?.sku || '',
-      quantity: 0,
-      operatorId: '',
-    };
-  });
-};
-
 export default function DashboardPage() {
   const { toast } = useToast();
 
@@ -61,6 +45,22 @@ export default function DashboardPage() {
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
   
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
+
+  // Helper function to initialize entries for a round
+  const getInitialEntries = useCallback((): MachineProductionData[] => {
+    const availableMachines = initialMachines.filter(m => m.isAvailable);
+    return availableMachines.map(machine => {
+      const planItem = initialProductionPlan.find(p => p.machineId === machine.id);
+      return {
+        machineId: machine.id,
+        name: machine.name,
+        status: 'Online',
+        sku: planItem?.sku || '',
+        quantity: 0,
+        operatorId: '',
+      };
+    });
+  }, []);
 
   // Initialize operators on mount
   useEffect(() => {
@@ -93,7 +93,7 @@ export default function DashboardPage() {
     setSelectedRound(firstRound);
     setProductionLog({}); // Reset log on date/shift change
     setEntries(getInitialEntries()); // Set initial entries for the first round
-  }, [selectedShift, selectedDate]);
+  }, [selectedShift, selectedDate, getInitialEntries]);
 
   // Effect to update entries when round changes
   useEffect(() => {
@@ -104,8 +104,7 @@ export default function DashboardPage() {
     } else {
       setEntries(getInitialEntries());
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRound]);
+  }, [selectedRound, productionLog, getInitialEntries]);
   
   const handleEntryChange = (machineId: string, field: 'operatorId' | 'quantity', value: string) => {
     setEntries(prevEntries =>
@@ -217,8 +216,8 @@ export default function DashboardPage() {
         <Table>
           <TableHeader className="sticky top-0 bg-muted/50">
             <TableRow>
-              <TableHead className="w-[200px]">Machine</TableHead>
               <TableHead>Operator Name</TableHead>
+              <TableHead className="w-[200px]">Machine</TableHead>
               <TableHead>SKU (Size)</TableHead>
               <TableHead className="w-[150px]">Quantity Produced</TableHead>
             </TableRow>
@@ -228,7 +227,6 @@ export default function DashboardPage() {
               const planItem = initialProductionPlan.find(p => p.machineId === entry.machineId);
               return (
               <TableRow key={entry.machineId}>
-                <TableCell className="font-medium">{entry.name}</TableCell>
                 <TableCell>
                   <Select value={entry.operatorId} onValueChange={(val) => handleEntryChange(entry.machineId, 'operatorId', val)}>
                     <SelectTrigger><SelectValue placeholder="Select Operator" /></SelectTrigger>
@@ -237,6 +235,7 @@ export default function DashboardPage() {
                     </SelectContent>
                   </Select>
                 </TableCell>
+                <TableCell className="font-medium">{entry.name}</TableCell>
                 <TableCell>
                   <Input
                     placeholder={planItem ? "Assigned from plan" : "e.g., P-215-65R17"}
