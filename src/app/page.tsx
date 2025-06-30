@@ -98,10 +98,12 @@ export default function DashboardPage() {
       if (displayHour === 0) displayHour = 12; // for 12 AM and 12 PM
       
       times.push(`${displayHour}:00 ${ampm}`);
-
+      
       if (isDayShift) {
+          // Day shift 9am to 7pm. Loop should include 7pm.
           if (hour === 19) endLoop = true;
       } else {
+          // Night shift 9pm to 9am. Loop should include 9am.
           if (hour === 9) endLoop = true;
       }
       currentHour++;
@@ -182,13 +184,13 @@ export default function DashboardPage() {
       {/* Control bar with selectors, totals, and save button */}
       <Card>
         <CardContent className="p-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:flex md:flex-wrap items-center gap-4">
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant={"outline"}
-                        className={cn("w-[240px] justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
+                        className={cn("w-full sm:w-[240px] justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
@@ -200,7 +202,7 @@ export default function DashboardPage() {
                   </Popover>
 
                   <Select value={selectedShift.name} onValueChange={(name) => setSelectedShift(shifts.find(s => s.name === name) || shifts[0])}>
-                    <SelectTrigger className="w-[220px]">
+                    <SelectTrigger className="w-full sm:w-[220px]">
                       <SelectValue placeholder="Select shift" />
                     </SelectTrigger>
                     <SelectContent>
@@ -209,7 +211,7 @@ export default function DashboardPage() {
                   </Select>
 
                    <Select value={selectedRound} onValueChange={setSelectedRound}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-full sm:w-[180px]">
                       <Clock className="mr-2 h-4 w-4" />
                       <SelectValue placeholder="Select time" />
                     </SelectTrigger>
@@ -220,7 +222,7 @@ export default function DashboardPage() {
                   
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline">
+                      <Button variant="outline" className="w-full sm:w-auto">
                         <SlidersHorizontal className="mr-2 h-4 w-4" />
                         Columns
                       </Button>
@@ -254,8 +256,8 @@ export default function DashboardPage() {
 
               </div>
               
-              <div className="flex items-center gap-6">
-                  <div className="flex gap-6 text-center">
+              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full lg:w-auto">
+                  <div className="flex gap-6 text-center justify-around w-full sm:w-auto">
                       <div>
                           <p className="text-sm font-medium text-muted-foreground">Round Total</p>
                           <p className="text-2xl font-bold text-primary">{roundTotal.toLocaleString()}</p>
