@@ -306,7 +306,7 @@ export default function AdminPage() {
               <CardTitle>Upload Market Requirements</CardTitle>
               <CardDescription>Upload Excel files containing market requirement data.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
               <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted rounded-lg">
                 <UploadCloud className="h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-semibold">Drop your file here or click to upload</h3>
@@ -315,6 +315,36 @@ export default function AdminPage() {
                 <Button asChild className="mt-4">
                   <Label htmlFor="file-upload"><FileSpreadsheet className="mr-2 h-4 w-4" />Select File</Label>
                 </Button>
+              </div>
+              <div>
+                <h4 className="text-lg font-semibold">File Format Template</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Your Excel file should contain two columns: <strong>SKU</strong> and <strong>Demand</strong>. The first row must be the header.
+                </p>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Demand</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell className="font-mono">P-215-65R17</TableCell>
+                        <TableCell className="font-mono">5000</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-mono">LT-245-75R16</TableCell>
+                        <TableCell className="font-mono">3500</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-mono">P-235-60R18</TableCell>
+                        <TableCell className="font-mono">4200</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             </CardContent>
           </Card>
