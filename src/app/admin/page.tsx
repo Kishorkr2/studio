@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,17 +28,64 @@ import {
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 
+const LOCAL_STORAGE_KEYS = {
+  OPERATORS: 'tyretrack-operators',
+  SHIFTS: 'tyretrack-shifts',
+  PRODUCTION_PLAN: 'tyretrack-production-plan',
+  MACHINES: 'tyretrack-machines',
+};
+
 export default function AdminPage() {
-  const [operators, setOperators] = useState<Operator[]>(initialOperators);
-  const [managedShifts, setManagedShifts] = useState<ShiftInfo[]>(initialShifts);
-  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>(initialProductionPlan);
-  const [machines, setMachines] = useState<Machine[]>(initialMachines);
+  const [operators, setOperators] = useState<Operator[]>([]);
+  const [managedShifts, setManagedShifts] = useState<ShiftInfo[]>([]);
+  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>([]);
+  const [machines, setMachines] = useState<Machine[]>([]);
   
   const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
   const [newSku, setNewSku] = useState('');
   const [password, setPassword] = useState('');
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    const loadData = () => {
+      const loadedOperators = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.OPERATORS) || 'null') || initialOperators;
+      setOperators(loadedOperators);
+
+      const loadedShifts = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.SHIFTS) || 'null') || initialShifts;
+      setManagedShifts(loadedShifts);
+      
+      const loadedPlan = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.PRODUCTION_PLAN) || 'null') || initialProductionPlan;
+      setProductionPlan(loadedPlan);
+
+      const loadedMachines = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.MACHINES) || 'null') || initialMachines;
+      setMachines(loadedMachines);
+    };
+    
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (operators.length > 0) {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.OPERATORS, JSON.stringify(operators));
+    }
+  }, [operators]);
+
+  useEffect(() => {
+    if (managedShifts.length > 0) {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.SHIFTS, JSON.stringify(managedShifts));
+    }
+  }, [managedShifts]);
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEYS.PRODUCTION_PLAN, JSON.stringify(productionPlan));
+  }, [productionPlan]);
+
+  useEffect(() => {
+    if (machines.length > 0) {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.MACHINES, JSON.stringify(machines));
+    }
+  }, [machines]);
 
   const handleAddOperator = () => {
     const newId = `OP-${String(operators.length + 1).padStart(3, '0')}`;
@@ -505,3 +552,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    

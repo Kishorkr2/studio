@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -37,7 +38,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import type { MachineProductionData, ShiftInfo, Operator, ProductionLog } from '@/lib/types';
+import type { Machine, MachineProductionData, ShiftInfo, Operator, ProductionLog, ProductionPlanItem } from '@/lib/types';
 import { initialOperators, initialMachines, initialProductionPlan, shifts } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { useOnlineStatus } from '@/hooks/use-online-status';
@@ -47,7 +48,13 @@ export default function DashboardPage() {
   const isOnline = useOnlineStatus();
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedShift, setSelectedShift] = useState<ShiftInfo>(shifts[0]);
+  
+  const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
+  const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
+  const [allMachines, setAllMachines] = useState<Machine[]>([]);
+  const [allOperators, setAllOperators] = useState<Operator[]>([]);
+  const [allProductionPlan, setAllProductionPlan] = useState<ProductionPlanItem[]>([]);
+  
   const [roundTimes, setRoundTimes] = useState<string[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>('');
   
@@ -61,16 +68,34 @@ export default function DashboardPage() {
     sku: true,
     remark: true,
   });
+
+  useEffect(() => {
+    const loadedShifts = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || shifts;
+    const loadedMachines = JSON.parse(localStorage.getItem('tyretrack-machines') || 'null') || initialMachines;
+    const loadedOperators = JSON.parse(localStorage.getItem('tyretrack-operators') || 'null') || initialOperators;
+    const loadedProductionPlan = JSON.parse(localStorage.getItem('tyretrack-production-plan') || 'null') || initialProductionPlan;
+
+    setAllShifts(loadedShifts);
+    setAllMachines(loadedMachines);
+    setAllOperators(loadedOperators);
+    setAllProductionPlan(loadedProductionPlan);
+
+    setAvailableOperators(loadedOperators.filter((op: Operator) => !op.isAbsent));
+    
+    if (loadedShifts.length > 0) {
+      setSelectedShift(loadedShifts[0]);
+    }
+  }, []);
   
-  const getLogKey = useCallback((date: Date, shift: ShiftInfo) => {
+  const getLogKey = useCallback((date: Date, shift: ShiftInfo | undefined) => {
+    if (!shift) return '';
     return `production-log-${format(date, "yyyy-MM-dd")}-${shift.name.replace(/\s+/g, '-')}`;
   }, []);
 
-  // Helper function to initialize entries for a round
   const getInitialEntries = useCallback((): MachineProductionData[] => {
-    const availableMachines = initialMachines.filter(m => m.isAvailable);
+    const availableMachines = allMachines.filter(m => m.isAvailable);
     return availableMachines.map(machine => {
-      const planItem = initialProductionPlan.find(p => p.machineId === machine.id);
+      const planItem = allProductionPlan.find(p => p.machineId === machine.id);
       return {
         machineId: machine.id,
         name: machine.name,
@@ -81,15 +106,10 @@ export default function DashboardPage() {
         remark: '',
       };
     });
-  }, []);
+  }, [allMachines, allProductionPlan]);
 
-  // Initialize operators on mount
-  useEffect(() => {
-    setAvailableOperators(initialOperators.filter(op => !op.isAbsent));
-  }, []);
-
-  // Function to generate round times based on shift
-  const generateRoundTimes = (shift: ShiftInfo): string[] => {
+  const generateRoundTimes = (shift: ShiftInfo | undefined): string[] => {
+    if (!shift) return [];
     const times: string[] = [];
     const isDayShift = shift.name === 'Day Shift';
     const roundStartHour = isDayShift ? 9 : 21; 
@@ -114,9 +134,8 @@ export default function DashboardPage() {
     return times;
   };
   
-  // Effect to load data from localStorage on date/shift change
   useEffect(() => {
-    if(typeof window === 'undefined') return;
+    if(typeof window === 'undefined' || !selectedShift) return;
 
     const logKey = getLogKey(selectedDate, selectedShift);
     try {
@@ -143,26 +162,27 @@ export default function DashboardPage() {
     }
   }, [selectedDate, selectedShift, getLogKey, getInitialEntries]);
   
-  // Effect to persist productionLog to localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && selectedShift) {
         const logKey = getLogKey(selectedDate, selectedShift);
-        localStorage.setItem(logKey, JSON.stringify(productionLog));
+        if (logKey) {
+            localStorage.setItem(logKey, JSON.stringify(productionLog));
+        }
     }
   }, [productionLog, selectedDate, selectedShift, getLogKey]);
 
-  // Effect to update entries when round changes
   useEffect(() => {
     if (!selectedRound) return;
     const loggedEntry = productionLog[selectedRound];
     if (loggedEntry) {
-      setEntries(loggedEntry.entries);
+      const availableMachineIds = allMachines.filter(m => m.isAvailable).map(m => m.id);
+      const filteredEntries = loggedEntry.entries.filter(e => availableMachineIds.includes(e.machineId));
+      setEntries(filteredEntries);
     } else {
       setEntries(getInitialEntries());
     }
-  }, [selectedRound, productionLog, getInitialEntries]);
+  }, [selectedRound, productionLog, getInitialEntries, allMachines]);
   
-  // Syncing effect
   useEffect(() => {
     if (isOnline) {
       const syncData = async () => {
@@ -172,7 +192,6 @@ export default function DashboardPage() {
         for (const round of Object.keys(updatedLog)) {
           if (updatedLog[round].status === 'pending') {
             console.log(`Syncing round: ${round}`);
-            // Simulate API call
             await new Promise(resolve => setTimeout(resolve, 1000));
             
             updatedLog[round].status = 'synced';
@@ -210,6 +229,14 @@ export default function DashboardPage() {
   };
   
   const handleSaveRound = () => {
+    if (!selectedRound) {
+        toast({
+            variant: "destructive",
+            title: "Cannot Save",
+            description: "Please select a round time first.",
+        });
+        return;
+    }
     setProductionLog(prevLog => ({
       ...prevLog,
       [selectedRound]: {
@@ -224,6 +251,11 @@ export default function DashboardPage() {
       action: <Save className="text-blue-500" />,
     });
   };
+
+  const handleShiftChange = (name: string) => {
+    const newShift = allShifts.find(s => s.name === name);
+    if(newShift) setSelectedShift(newShift);
+  }
 
   const roundTotal = useMemo(() => {
     return entries.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
@@ -263,12 +295,12 @@ export default function DashboardPage() {
                     </PopoverContent>
                   </Popover>
 
-                  <Select value={selectedShift.name} onValueChange={(name) => setSelectedShift(shifts.find(s => s.name === name) || shifts[0])}>
+                  <Select value={selectedShift?.name || ''} onValueChange={handleShiftChange}>
                     <SelectTrigger className="w-full sm:w-[220px]">
                       <SelectValue placeholder="Select shift" />
                     </SelectTrigger>
                     <SelectContent>
-                      {shifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name} ({s.startTime} - {s.endTime})</SelectItem>)}
+                      {allShifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name} ({s.startTime} - {s.endTime})</SelectItem>)}
                     </SelectContent>
                   </Select>
 
@@ -426,3 +458,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

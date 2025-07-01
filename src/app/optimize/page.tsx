@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,14 +18,37 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function OptimizePage() {
-  const [operators, setOperators] = useState<Operator[]>(initialOperators);
-  const [machines, setMachines] = useState<Machine[]>(initialMachines);
-  const [shift, setShift] = useState<ShiftInfo>(shifts[0]);
+  const [operators, setOperators] = useState<Operator[]>([]);
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
+  const [shift, setShift] = useState<ShiftInfo | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<OptimizeOperatorAssignmentOutput | null>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    const loadedOperators = JSON.parse(localStorage.getItem('tyretrack-operators') || 'null') || initialOperators;
+    const loadedMachines = JSON.parse(localStorage.getItem('tyretrack-machines') || 'null') || initialMachines;
+    const loadedShifts = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || shifts;
+
+    setOperators(loadedOperators);
+    setMachines(loadedMachines);
+    setAllShifts(loadedShifts);
+    
+    if (loadedShifts.length > 0) {
+      setShift(loadedShifts[0]);
+    }
+  }, []);
+
   const handleOptimize = async () => {
+    if (!shift) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Please select a shift before optimizing.',
+      });
+      return;
+    }
     setIsLoading(true);
     setResult(null);
     try {
@@ -56,7 +80,7 @@ export default function OptimizePage() {
   };
   
   const handleShiftChange = (name: string) => {
-    const selectedShift = shifts.find((s) => s.name === name);
+    const selectedShift = allShifts.find((s) => s.name === name);
     if (selectedShift) {
       setShift(selectedShift);
     }
@@ -78,12 +102,12 @@ export default function OptimizePage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Shift</Label>
-              <Select value={shift.name} onValueChange={handleShiftChange}>
+              <Select value={shift?.name} onValueChange={handleShiftChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select shift" />
                 </SelectTrigger>
                 <SelectContent>
-                  {shifts.map((s) => (
+                  {allShifts.map((s) => (
                     <SelectItem key={s.name} value={s.name}>
                       {s.name} ({s.startTime} - {s.endTime})
                     </SelectItem>
@@ -172,7 +196,7 @@ export default function OptimizePage() {
                         {result.assignments.map((a, i) => (
                             <TableRow key={i}>
                             <TableCell><div className="flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground"/><span>{operators.find(op => op.id === a.operatorId)?.name || a.operatorId}</span></div></TableCell>
-                            <TableCell><div className="flex items-center gap-2"><Wrench className="h-4 w-4 text-muted-foreground"/><span>{a.machineId}</span></div></TableCell>
+                            <TableCell><div className="flex items-center gap-2"><Wrench className="h-4 w-4 text-muted-foreground"/><span>{machines.find(m => m.id === a.machineId)?.name || a.machineId}</span></div></TableCell>
                             <TableCell className="text-sm text-muted-foreground">{a.reason}</TableCell>
                             </TableRow>
                         ))}
@@ -197,3 +221,5 @@ export default function OptimizePage() {
     </div>
   );
 }
+
+    
