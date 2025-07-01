@@ -29,6 +29,7 @@ export interface ShiftInfo {
 
 export interface MarketRequirement {
   sku: string;
+  sapCode: string;
   demand: number;
 }
 
