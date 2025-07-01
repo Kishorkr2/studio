@@ -31,6 +31,7 @@ export interface MarketRequirement {
   sku: string;
   sapCode: string;
   demand: number;
+  machine: string;
 }
 
 export interface ProductionPlanItem {
