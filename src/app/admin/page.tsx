@@ -144,11 +144,36 @@ export default function AdminPage() {
             demand: Number(row.Demand || 0),
           }));
 
-          if (parsedData.length > 0 && parsedData[0].sku && parsedData[0].demand) {
+          if (parsedData.length > 0 && parsedData[0].machine && parsedData[0].sku && parsedData[0].demand) {
              setMarketRequirements(parsedData);
+             
+             // Sync with production plan
+             const machineNameToIdMap = new Map(machines.map(m => [m.name, m.id]));
+             const newProductionPlanItems = new Map<string, string[]>();
+
+             for (const req of parsedData) {
+                 const machineId = machineNameToIdMap.get(req.machine);
+                 if (machineId) {
+                     if (!newProductionPlanItems.has(machineId)) {
+                         newProductionPlanItems.set(machineId, []);
+                     }
+                     const skus = newProductionPlanItems.get(machineId)!;
+                     if (!skus.includes(req.sku)) {
+                         skus.push(req.sku);
+                     }
+                 }
+             }
+
+             const newProductionPlan: ProductionPlanItem[] = Array.from(newProductionPlanItems.entries()).map(([machineId, skus]) => ({
+                 machineId,
+                 skus,
+             }));
+
+             setProductionPlan(newProductionPlan);
+
              toast({
-                title: 'File Processed Successfully',
-                description: `Loaded ${parsedData.length} market requirement records.`,
+                title: 'File Processed & Plan Synced',
+                description: `Loaded ${parsedData.length} market requirements and updated the production plan.`,
              });
           } else {
              throw new Error("Invalid file format. Please check headers: Machine, SAP Code, SKU, Demand");
@@ -667,5 +692,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    
