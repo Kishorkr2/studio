@@ -1,4 +1,4 @@
-import type { Operator, Machine, Shift, ProductionPlanItem, ShiftInfo } from './types';
+import type { Operator, Machine, ProductionPlanItem, ShiftInfo } from './types';
 
 export const shifts: ShiftInfo[] = [
   { name: 'Day Shift', startTime: '07:30', endTime: '19:30' },
@@ -26,8 +26,3 @@ export const initialProductionPlan: ProductionPlanItem[] = [
   { machineId: 'TBM-03', skus: ['LT-245-75R16'] },
   { machineId: 'TBM-04', skus: ['P-235-60R18'] },
 ];
-
-export const initialShift: Shift = {
-  startTime: '08:00',
-  endTime: '16:00',
-};

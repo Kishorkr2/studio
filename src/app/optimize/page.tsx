@@ -9,16 +9,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Loader2, PlusCircle, Sparkles, Trash, User, Wrench } from 'lucide-react';
-import type { Operator, Machine, Shift } from '@/lib/types';
-import { initialOperators, initialMachines, initialShift } from '@/lib/data';
+import type { Operator, Machine, ShiftInfo } from '@/lib/types';
+import { initialOperators, initialMachines, shifts } from '@/lib/data';
 import { optimizeOperatorAssignment } from './actions';
 import type { OptimizeOperatorAssignmentOutput } from '@/ai/flows/optimize-operator-assignment';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function OptimizePage() {
   const [operators, setOperators] = useState<Operator[]>(initialOperators);
   const [machines, setMachines] = useState<Machine[]>(initialMachines);
-  const [shift, setShift] = useState<Shift>(initialShift);
+  const [shift, setShift] = useState<ShiftInfo>(shifts[0]);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<OptimizeOperatorAssignmentOutput | null>(null);
   const { toast } = useToast();
@@ -53,6 +54,13 @@ export default function OptimizePage() {
   const handleMachineChange = (id: string, field: keyof Machine, value: any) => {
     setMachines(macs => macs.map(m => (m.id === id ? { ...m, [field]: value } : m)));
   };
+  
+  const handleShiftChange = (name: string) => {
+    const selectedShift = shifts.find((s) => s.name === name);
+    if (selectedShift) {
+      setShift(selectedShift);
+    }
+  };
 
   const addOperator = () => {
     const newId = `OP-${String(Date.now()).slice(-4)}`;
@@ -68,9 +76,20 @@ export default function OptimizePage() {
             <CardDescription>Configure shift times and machine availability.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-                <div><Label>Start Time</Label><Input type="time" value={shift.startTime} onChange={(e) => setShift({...shift, startTime: e.target.value})}/></div>
-                <div><Label>End Time</Label><Input type="time" value={shift.endTime} onChange={(e) => setShift({...shift, endTime: e.target.value})}/></div>
+            <div className="space-y-2">
+              <Label>Shift</Label>
+              <Select value={shift.name} onValueChange={handleShiftChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select shift" />
+                </SelectTrigger>
+                <SelectContent>
+                  {shifts.map((s) => (
+                    <SelectItem key={s.name} value={s.name}>
+                      {s.name} ({s.startTime} - {s.endTime})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
                 <Label>Machine Status</Label>

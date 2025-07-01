@@ -21,11 +21,6 @@ export interface MachineProductionData {
   remark?: string;
 }
 
-export interface Shift {
-  startTime: string;
-  endTime: string;
-}
-
 export interface ShiftInfo {
   name: string;
   startTime: string;
