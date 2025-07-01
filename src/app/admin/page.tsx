@@ -464,36 +464,36 @@ export default function AdminPage() {
               <div>
                 <h4 className="text-lg font-semibold">File Format Template</h4>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Your Excel file should contain four columns: <strong>SKU</strong>, <strong>SAP Code</strong>, <strong>Demand</strong>, and <strong>Machine</strong>. The first row must be the header.
+                  Your Excel file should contain four columns: <strong>Machine</strong>, <strong>SAP Code</strong>, <strong>SKU</strong>, and <strong>Demand</strong>. The first row must be the header.
                 </p>
                 <div className="border rounded-lg overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>SAP Code</TableHead>
-                        <TableHead>Demand</TableHead>
                         <TableHead>Machine</TableHead>
+                        <TableHead>SAP Code</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Demand</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       <TableRow>
-                        <TableCell className="font-mono">P-215-65R17</TableCell>
-                        <TableCell className="font-mono">S4P-87321</TableCell>
-                        <TableCell className="font-mono">5000</TableCell>
                         <TableCell className="font-mono">TBM 1</TableCell>
+                        <TableCell className="font-mono">S4P-87321</TableCell>
+                        <TableCell className="font-mono">P-215-65R17</TableCell>
+                        <TableCell className="font-mono">5000</TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-mono">LT-245-75R16</TableCell>
-                        <TableCell className="font-mono">S4P-87322</TableCell>
-                        <TableCell className="font-mono">3500</TableCell>
                         <TableCell className="font-mono">TBM 3</TableCell>
+                        <TableCell className="font-mono">S4P-87322</TableCell>
+                        <TableCell className="font-mono">LT-245-75R16</TableCell>
+                        <TableCell className="font-mono">3500</TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-mono">P-235-60R18</TableCell>
-                        <TableCell className="font-mono">S4P-87323</TableCell>
-                        <TableCell className="font-mono">4200</TableCell>
                         <TableCell className="font-mono">TBM 4</TableCell>
+                        <TableCell className="font-mono">S4P-87323</TableCell>
+                        <TableCell className="font-mono">P-235-60R18</TableCell>
+                        <TableCell className="font-mono">4200</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
