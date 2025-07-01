@@ -32,7 +32,8 @@ import {
 } from '@/components/ui/sidebar';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
-import { BotMessageSquare, Cog, LayoutDashboard, LineChart, Truck } from 'lucide-react';
+import { BotMessageSquare, Cog, LayoutDashboard, LineChart, Truck, Wifi, WifiOff } from 'lucide-react';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -62,6 +63,26 @@ function NavLinks() {
           </SidebarMenuItem>
         ))}
       </SidebarMenu>
+  );
+}
+
+function OnlineStatusIndicator() {
+  const isOnline = useOnlineStatus();
+
+  return (
+    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      {isOnline ? (
+        <>
+          <Wifi className="h-4 w-4 text-green-500" />
+          <span>Online</span>
+        </>
+      ) : (
+        <>
+          <WifiOff className="h-4 w-4 text-destructive" />
+          <span>Offline</span>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -96,6 +117,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </h1>
             </div>
             <div className="flex items-center gap-4">
+              <OnlineStatusIndicator />
               <ThemeToggle />
               <UserMenu />
             </div>
@@ -130,19 +152,5 @@ function UserMenu() {
         <DropdownMenuItem>Logout</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-function NavLink({ href, children, className }: { href: string; children: React.ReactNode, className?: string }) {
-  const pathname = usePathname();
-  const isActive = pathname === href;
-  return (
-    <Link href={href} className={cn(
-      'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-      isActive && 'bg-muted text-primary',
-      className
-    )}>
-      {children}
-    </Link>
   );
 }

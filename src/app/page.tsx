@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, CheckCircle, Clock, Save, SlidersHorizontal } from 'lucide-react';
+import { CalendarIcon, CheckCircle, Clock, Save, SlidersHorizontal, Wifi, WifiOff } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -40,9 +40,11 @@ import { format } from "date-fns";
 import type { MachineProductionData, ShiftInfo, Operator, ProductionLog } from '@/lib/types';
 import { initialOperators, initialMachines, initialProductionPlan, shifts } from '@/lib/data';
 import { cn } from '@/lib/utils';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
 export default function DashboardPage() {
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedShift, setSelectedShift] = useState<ShiftInfo>(shifts[0]);
@@ -59,6 +61,10 @@ export default function DashboardPage() {
     sku: true,
     remark: true,
   });
+  
+  const getLogKey = useCallback((date: Date, shift: ShiftInfo) => {
+    return `production-log-${format(date, "yyyy-MM-dd")}-${shift.name.replace(/\s+/g, '-')}`;
+  }, []);
 
   // Helper function to initialize entries for a round
   const getInitialEntries = useCallback((): MachineProductionData[] => {
@@ -86,53 +92,110 @@ export default function DashboardPage() {
   const generateRoundTimes = (shift: ShiftInfo): string[] => {
     const times: string[] = [];
     const isDayShift = shift.name === 'Day Shift';
-    // Round start times are 9 AM for Day, 9 PM for Night
     const roundStartHour = isDayShift ? 9 : 21; 
 
     let currentHour = roundStartHour;
-    let endLoop = false;
-    while(!endLoop) {
-      const hour = currentHour % 24;
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      let displayHour = hour % 12;
-      if (displayHour === 0) displayHour = 12; // for 12 AM and 12 PM
-      
-      times.push(`${displayHour}:00 ${ampm}`);
-      
-      if (isDayShift) {
-          // Day shift 9am to 7pm. Loop should include 7pm.
-          if (hour === 19) endLoop = true;
-      } else {
-          // Night shift 9pm to 9am. Loop should include 9am.
-          if (hour === 9) endLoop = true;
-      }
-      currentHour++;
+    for(let i=0; i<11; i++){
+        const hour = (currentHour + i) % 24;
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        let displayHour = hour % 12;
+        if (displayHour === 0) displayHour = 12;
+        times.push(`${displayHour}:00 ${ampm}`);
+    }
+
+    if (isDayShift) {
+        times.push('7:00 PM');
+    } else {
+        times.push('7:00 AM');
+        times.push('8:00 AM');
+        times.push('9:00 AM');
     }
 
     return times;
   };
-
-  // Effect to handle shift or date changes
+  
+  // Effect to load data from localStorage on date/shift change
   useEffect(() => {
-    const newRoundTimes = generateRoundTimes(selectedShift);
-    setRoundTimes(newRoundTimes);
-    const firstRound = newRoundTimes[0] || '';
-    setSelectedRound(firstRound);
-    setProductionLog({}); // Reset log on date/shift change
-    setEntries(getInitialEntries()); // Set initial entries for the first round
-  }, [selectedShift, selectedDate, getInitialEntries]);
+    if(typeof window === 'undefined') return;
+
+    const logKey = getLogKey(selectedDate, selectedShift);
+    try {
+      const savedLog = localStorage.getItem(logKey);
+      const parsedLog = savedLog ? JSON.parse(savedLog) : {};
+      setProductionLog(parsedLog);
+
+      const newRoundTimes = generateRoundTimes(selectedShift);
+      setRoundTimes(newRoundTimes);
+      const firstRound = newRoundTimes[0] || '';
+      setSelectedRound(firstRound);
+
+      const firstRoundLog = parsedLog[firstRound];
+      if (firstRoundLog) {
+        setEntries(firstRoundLog.entries);
+      } else {
+        setEntries(getInitialEntries());
+      }
+
+    } catch (error) {
+      console.error("Failed to parse production log from localStorage", error);
+      setProductionLog({});
+      setEntries(getInitialEntries());
+    }
+  }, [selectedDate, selectedShift, getLogKey, getInitialEntries]);
+  
+  // Effect to persist productionLog to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const logKey = getLogKey(selectedDate, selectedShift);
+        localStorage.setItem(logKey, JSON.stringify(productionLog));
+    }
+  }, [productionLog, selectedDate, selectedShift, getLogKey]);
 
   // Effect to update entries when round changes
   useEffect(() => {
     if (!selectedRound) return;
-    const loggedEntries = productionLog[selectedRound];
-    if (loggedEntries) {
-      setEntries(loggedEntries);
+    const loggedEntry = productionLog[selectedRound];
+    if (loggedEntry) {
+      setEntries(loggedEntry.entries);
     } else {
       setEntries(getInitialEntries());
     }
   }, [selectedRound, productionLog, getInitialEntries]);
   
+  // Syncing effect
+  useEffect(() => {
+    if (isOnline) {
+      const syncData = async () => {
+        let changesMade = false;
+        const updatedLog = { ...productionLog };
+
+        for (const round of Object.keys(updatedLog)) {
+          if (updatedLog[round].status === 'pending') {
+            console.log(`Syncing round: ${round}`);
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            updatedLog[round].status = 'synced';
+            changesMade = true;
+            
+            toast({
+              title: 'Data Synced!',
+              description: `Round ${round} data has been synced.`,
+              action: <CheckCircle className="text-green-500" />,
+            });
+          }
+        }
+
+        if (changesMade) {
+          setProductionLog(updatedLog);
+        }
+      };
+
+      const timeoutId = setTimeout(syncData, 2000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isOnline, productionLog, toast]);
+
   const handleEntryChange = (machineId: string, field: 'operatorId' | 'quantity' | 'remark' | 'sku', value: string) => {
     setEntries(prevEntries =>
       prevEntries.map(entry =>
@@ -149,13 +212,16 @@ export default function DashboardPage() {
   const handleSaveRound = () => {
     setProductionLog(prevLog => ({
       ...prevLog,
-      [selectedRound]: entries,
+      [selectedRound]: {
+          entries: entries,
+          status: 'pending'
+      },
     }));
 
     toast({
-      title: 'Round Data Saved!',
-      description: `Data for ${selectedShift.name} at ${selectedRound} has been saved.`,
-      action: <CheckCircle className="text-green-500" />,
+      title: 'Round Data Saved Locally',
+      description: `Data for round ${selectedRound} will sync when online.`,
+      action: <Save className="text-blue-500" />,
     });
   };
 
@@ -164,12 +230,9 @@ export default function DashboardPage() {
   }, [entries]);
 
   const cumulativeTotal = useMemo(() => {
-    // This correctly calculates total from the log of *saved* rounds
-    const loggedTotal = Object.values(productionLog)
-      .flat()
+    return Object.values(productionLog)
+      .flatMap(logEntry => logEntry.entries)
       .reduce((acc, entry) => acc + (entry.quantity || 0), 0);
-
-    return loggedTotal;
   }, [productionLog]);
 
   const footerColSpan = 1 + (columnVisibility.operator ? 1 : 0) + (columnVisibility.sku ? 1 : 0);
@@ -181,7 +244,6 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">Select date, shift, and round to enter production quantities.</p>
       </header>
 
-      {/* Control bar with selectors, totals, and save button */}
       <Card>
         <CardContent className="p-4">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -216,7 +278,19 @@ export default function DashboardPage() {
                       <SelectValue placeholder="Select time" />
                     </SelectTrigger>
                     <SelectContent>
-                      {roundTimes.map(time => <SelectItem key={time} value={time}>{time}</SelectItem>)}
+                      {roundTimes.map(time => {
+                        const logEntry = productionLog[time];
+                        return (
+                          <SelectItem key={time} value={time}>
+                            <div className="flex items-center justify-between w-full">
+                                <span>{time}</span>
+                                {logEntry?.status === 'pending' && (
+                                    <div className="w-2 h-2 rounded-full bg-yellow-500 ml-2" title="Pending Sync"></div>
+                                )}
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
                     </SelectContent>
                   </Select>
                   
@@ -312,6 +386,7 @@ export default function DashboardPage() {
                       placeholder="e.g., P-215-65R17"
                       value={entry.sku}
                       onChange={(e) => handleEntryChange(entry.machineId, 'sku', e.target.value)}
+                      className="text-sm"
                     />
                   </TableCell>
                 )}
@@ -322,6 +397,7 @@ export default function DashboardPage() {
                     placeholder="e.g., 50"
                     value={entry.quantity === 0 ? '' : entry.quantity}
                     onChange={(e) => handleEntryChange(entry.machineId, 'quantity', e.target.value)}
+                    className="text-sm"
                   />
                 </TableCell>
                 
@@ -331,6 +407,7 @@ export default function DashboardPage() {
                       placeholder="Add remark..."
                       value={entry.remark || ''}
                       onChange={(e) => handleEntryChange(entry.machineId, 'remark', e.target.value)}
+                      className="text-sm"
                     />
                   </TableCell>
                 )}

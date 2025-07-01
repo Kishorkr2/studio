@@ -38,6 +38,11 @@ export interface ProductionPlanItem {
   skus: string[];
 }
 
+export interface ProductionLogEntry {
+  entries: MachineProductionData[];
+  status: 'synced' | 'pending';
+}
+
 export interface ProductionLog {
-  [roundTime: string]: MachineProductionData[];
+  [roundTime: string]: ProductionLogEntry;
 }
