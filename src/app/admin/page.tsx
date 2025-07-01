@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Operator, ProductionPlanItem, Machine, ShiftInfo } from '@/lib/types';
 import { initialOperators, shifts as initialShifts, initialProductionPlan, initialMachines } from '@/lib/data';
-import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, X, ShieldAlert } from 'lucide-react';
+import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, X, ShieldAlert, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -31,7 +31,7 @@ export default function AdminPage() {
   const [operators, setOperators] = useState<Operator[]>(initialOperators);
   const [managedShifts, setManagedShifts] = useState<ShiftInfo[]>(initialShifts);
   const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>(initialProductionPlan);
-  const [allMachines] = useState<Machine[]>(initialMachines);
+  const [machines, setMachines] = useState<Machine[]>(initialMachines);
   
   const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
   const [newSku, setNewSku] = useState('');
@@ -123,13 +123,25 @@ export default function AdminPage() {
     setPassword(''); // Reset password after action
   };
 
+  const handleMachineChange = (id: string, field: 'name', value: string) => {
+    setMachines(current => current.map(m => m.id === id ? { ...m, [field]: value } : m));
+  };
+
+  const handleSaveMachines = () => {
+      toast({
+          title: 'Machines Updated',
+          description: 'Machine names have been saved successfully.',
+      });
+  };
+
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
       <Tabs defaultValue="operators">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="operators">Operator Management</TabsTrigger>
+          <TabsTrigger value="machines">Machine Management</TabsTrigger>
           <TabsTrigger value="shifts">Shift Management</TabsTrigger>
           <TabsTrigger value="plan">Production Plan</TabsTrigger>
           <TabsTrigger value="upload">Data Upload</TabsTrigger>
@@ -169,6 +181,43 @@ export default function AdminPage() {
             </CardContent>
             <CardFooter>
               <Button onClick={handleAddOperator}><PlusCircle className="mr-2 h-4 w-4" /> Add Operator</Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="machines">
+          <Card>
+            <CardHeader>
+              <CardTitle>Machine Management</CardTitle>
+              <CardDescription>Edit the names of your TBMs.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Editable Name</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {machines.map((machine) => (
+                      <TableRow key={machine.id}>
+                        <TableCell className="font-mono w-40">{machine.id}</TableCell>
+                        <TableCell>
+                          <Input 
+                            value={machine.name}
+                            onChange={(e) => handleMachineChange(machine.id, 'name', e.target.value)}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+            <CardFooter>
+                <Button onClick={handleSaveMachines}><Save className="mr-2 h-4 w-4"/>Save Machine Changes</Button>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -234,7 +283,7 @@ export default function AdminPage() {
                           <SelectValue placeholder="Select a machine" />
                         </SelectTrigger>
                         <SelectContent>
-                           {allMachines.filter(m => !productionPlan.some(p => p.machineId === m.id) || m.id === editingPlan.machineId).map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                           {machines.filter(m => !productionPlan.some(p => p.machineId === m.id) || m.id === editingPlan.machineId).map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -281,7 +330,7 @@ export default function AdminPage() {
                     {productionPlan.map((item) => (
                       <TableRow key={item.machineId}>
                         <TableCell>{item.machineId}</TableCell>
-                        <TableCell>{allMachines.find(m => m.id === item.machineId)?.name}</TableCell>
+                        <TableCell>{machines.find(m => m.id === item.machineId)?.name}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {item.skus.map(sku => <Badge key={sku} variant="secondary">{sku}</Badge>)}
