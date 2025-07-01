@@ -11,9 +11,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Operator, ProductionPlanItem, Machine, ShiftInfo } from '@/lib/types';
 import { initialOperators, shifts as initialShifts, initialProductionPlan, initialMachines } from '@/lib/data';
-import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, X } from 'lucide-react';
+import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, X, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { cn } from '@/lib/utils';
 
 export default function AdminPage() {
   const [operators, setOperators] = useState<Operator[]>(initialOperators);
@@ -23,6 +35,7 @@ export default function AdminPage() {
   
   const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
   const [newSku, setNewSku] = useState('');
+  const [password, setPassword] = useState('');
 
   const { toast } = useToast();
 
@@ -100,16 +113,27 @@ export default function AdminPage() {
       }
   };
 
+  const handleClearDataConfirm = () => {
+    // This is only callable when password is correct due to `disabled` prop
+    toast({
+      title: 'Success!',
+      description: 'All production data has been cleared.',
+    });
+    // In a real app, this would trigger an API call to the backend.
+    setPassword(''); // Reset password after action
+  };
+
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
       <Tabs defaultValue="operators">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="operators">Operator Management</TabsTrigger>
           <TabsTrigger value="shifts">Shift Management</TabsTrigger>
           <TabsTrigger value="plan">Production Plan</TabsTrigger>
           <TabsTrigger value="upload">Data Upload</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="operators">
@@ -295,6 +319,56 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>Advanced Settings</CardTitle>
+              <CardDescription>Manage advanced and dangerous application settings.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="p-4 border border-destructive/50 rounded-lg bg-destructive/10">
+                <h4 className="font-semibold text-destructive">Dangerous Actions</h4>
+                <p className="text-sm text-destructive/80 mt-1 mb-4">These actions are irreversible. Please proceed with caution.</p>
+                <AlertDialog onOpenChange={(open) => { if (!open) setPassword('') }}>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive"><ShieldAlert className="mr-2 h-4 w-4"/>Clear All Production Data</Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete all production log data. 
+                        Please type <strong>admin123</strong> to confirm.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="space-y-2 py-2">
+                        <Label htmlFor="clear-data-password" className="sr-only">Password</Label>
+                        <Input 
+                            id="clear-data-password" 
+                            type="password" 
+                            placeholder="Enter password to confirm"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            autoFocus
+                        />
+                    </div>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={handleClearDataConfirm} 
+                        disabled={password !== 'admin123'}
+                      >
+                        Confirm & Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
       </Tabs>
     </div>
   );
