@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Operator, ProductionPlanItem, Machine, ShiftInfo } from '@/lib/types';
+import type { Operator, ProductionPlanItem, Machine, ShiftInfo, MarketRequirement } from '@/lib/types';
 import { initialOperators, shifts as initialShifts, initialProductionPlan, initialMachines } from '@/lib/data';
 import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, X, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -27,12 +27,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
+import * as XLSX from 'xlsx';
 
 const LOCAL_STORAGE_KEYS = {
   OPERATORS: 'tyretrack-operators',
   SHIFTS: 'tyretrack-shifts',
   PRODUCTION_PLAN: 'tyretrack-production-plan',
   MACHINES: 'tyretrack-machines',
+  MARKET_REQUIREMENTS: 'tyretrack-market-requirements',
 };
 
 export default function AdminPage() {
@@ -40,6 +42,7 @@ export default function AdminPage() {
   const [managedShifts, setManagedShifts] = useState<ShiftInfo[]>([]);
   const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
+  const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
   
   const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
   const [newSku, setNewSku] = useState('');
@@ -60,6 +63,9 @@ export default function AdminPage() {
 
       const loadedMachines = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.MACHINES) || 'null') || initialMachines;
       setMachines(loadedMachines);
+
+      const loadedRequirements = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.MARKET_REQUIREMENTS) || 'null') || [];
+      setMarketRequirements(loadedRequirements);
     };
     
     loadData();
@@ -86,6 +92,10 @@ export default function AdminPage() {
       localStorage.setItem(LOCAL_STORAGE_KEYS.MACHINES, JSON.stringify(machines));
     }
   }, [machines]);
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEYS.MARKET_REQUIREMENTS, JSON.stringify(marketRequirements));
+  }, [marketRequirements]);
 
   const handleAddOperator = () => {
     const newId = `OP-${String(operators.length + 1).padStart(3, '0')}`;
@@ -118,11 +128,60 @@ export default function AdminPage() {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      toast({
-        title: 'File Uploaded',
-        description: `${file.name} is ready for processing.`,
-      });
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+          const parsedData: MarketRequirement[] = jsonFromSheet.map(row => ({
+            machine: String(row.Machine || ''),
+            sapCode: String(row['SAP Code'] || ''),
+            sku: String(row.SKU || ''),
+            demand: Number(row.Demand || 0),
+          }));
+
+          if (parsedData.length > 0 && parsedData[0].sku && parsedData[0].demand) {
+             setMarketRequirements(parsedData);
+             toast({
+                title: 'File Processed Successfully',
+                description: `Loaded ${parsedData.length} market requirement records.`,
+             });
+          } else {
+             throw new Error("Invalid file format. Please check headers: Machine, SAP Code, SKU, Demand");
+          }
+        } catch (error) {
+           console.error("Error parsing file: ", error);
+           toast({
+             variant: 'destructive',
+             title: 'File Upload Error',
+             description: error instanceof Error ? error.message : 'Could not parse the uploaded file. Please ensure it follows the template.',
+           });
+        }
+      };
+      reader.onerror = () => {
+        toast({
+            variant: 'destructive',
+            title: 'File Read Error',
+            description: 'There was an error reading the file.',
+        });
+      };
+      reader.readAsArrayBuffer(file);
     }
+    if(event.target) {
+      event.target.value = '';
+    }
+  };
+
+  const handleClearRequirements = () => {
+    setMarketRequirements([]);
+    toast({
+        title: "Market Requirements Cleared",
+        description: "All uploaded market requirement data has been removed.",
+    });
   };
 
   const handleSavePlanItem = (item: ProductionPlanItem) => {
@@ -461,10 +520,11 @@ export default function AdminPage() {
                   <Label htmlFor="file-upload"><FileSpreadsheet className="mr-2 h-4 w-4" />Select File</Label>
                 </Button>
               </div>
-              <div>
+              
+              <div className="space-y-4">
                 <h4 className="text-lg font-semibold">File Format Template</h4>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Your Excel file should contain four columns: <strong>Machine</strong>, <strong>SAP Code</strong>, <strong>SKU</strong>, and <strong>Demand</strong>. The first row must be the header.
+                  Your Excel file should contain four columns in this order: <strong>Machine</strong>, <strong>SAP Code</strong>, <strong>SKU</strong>, and <strong>Demand</strong>. The first row must be the header.
                 </p>
                 <div className="border rounded-lg overflow-hidden">
                   <Table>
@@ -499,6 +559,57 @@ export default function AdminPage() {
                   </Table>
                 </div>
               </div>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Current Market Requirements</CardTitle>
+                    <CardDescription>
+                      {marketRequirements.length > 0
+                        ? `Displaying ${marketRequirements.length} records.`
+                        : "No data uploaded yet."}
+                    </CardDescription>
+                  </div>
+                  {marketRequirements.length > 0 && (
+                     <Button variant="outline" onClick={handleClearRequirements}>
+                        <Trash className="mr-2 h-4 w-4"/> Clear Data
+                     </Button>
+                  )}
+                </CardHeader>
+                <CardContent>
+                    <div className="border rounded-lg max-h-96 overflow-y-auto">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-muted/50">
+                                <TableRow>
+                                    <TableHead>Machine</TableHead>
+                                    <TableHead>SAP Code</TableHead>
+                                    <TableHead>SKU</TableHead>
+                                    <TableHead className="text-right">Demand</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {marketRequirements.length > 0 ? (
+                                    marketRequirements.map((req, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell>{req.machine}</TableCell>
+                                            <TableCell>{req.sapCode}</TableCell>
+                                            <TableCell>{req.sku}</TableCell>
+                                            <TableCell className="text-right">{req.demand}</TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                            Upload a file to see market requirements.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+              </Card>
+
             </CardContent>
           </Card>
         </TabsContent>
@@ -556,3 +667,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    
