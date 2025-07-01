@@ -110,25 +110,23 @@ export default function DashboardPage() {
 
   const generateRoundTimes = (shift: ShiftInfo | undefined): string[] => {
     if (!shift) return [];
+    
     const times: string[] = [];
-    const isDayShift = shift.name === 'Day Shift';
-    const roundStartHour = isDayShift ? 9 : 21; 
+    const [startHourStr] = shift.startTime.split(':');
+    let currentHour = parseInt(startHourStr, 10);
 
-    let currentHour = roundStartHour;
-    for(let i=0; i<11; i++){
+    // If start time is X:30, the first round is at the next hour (X+1):00.
+    if (shift.startTime.includes(':30')) {
+        currentHour = (currentHour + 1) % 24;
+    }
+
+    // A 12-hour shift has 12 hourly rounds.
+    for (let i = 0; i < 12; i++) {
         const hour = (currentHour + i) % 24;
         const ampm = hour >= 12 ? 'PM' : 'AM';
         let displayHour = hour % 12;
-        if (displayHour === 0) displayHour = 12;
+        if (displayHour === 0) displayHour = 12; // 0 should be 12 AM, 12 should be 12 PM.
         times.push(`${displayHour}:00 ${ampm}`);
-    }
-
-    if (isDayShift) {
-        times.push('7:00 PM');
-    } else {
-        times.push('7:00 AM');
-        times.push('8:00 AM');
-        times.push('9:00 AM');
     }
 
     return times;
