@@ -37,12 +37,29 @@ const LOCAL_STORAGE_KEYS = {
   MARKET_REQUIREMENTS: 'tyretrack-market-requirements',
 };
 
+const getInitialState = <T,>(key: string, defaultValue: T): T => {
+  if (typeof window === "undefined") {
+    return defaultValue;
+  }
+  const storedValue = localStorage.getItem(key);
+  if (storedValue) {
+    try {
+      return JSON.parse(storedValue);
+    } catch (e) {
+      console.error(`Error parsing JSON from localStorage key "${key}":`, e);
+      return defaultValue;
+    }
+  }
+  return defaultValue;
+};
+
+
 export default function AdminPage() {
-  const [operators, setOperators] = useState<Operator[]>([]);
-  const [managedShifts, setManagedShifts] = useState<ShiftInfo[]>([]);
-  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>([]);
-  const [machines, setMachines] = useState<Machine[]>([]);
-  const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
+  const [operators, setOperators] = useState<Operator[]>(() => getInitialState(LOCAL_STORAGE_KEYS.OPERATORS, initialOperators));
+  const [managedShifts, setManagedShifts] = useState<ShiftInfo[]>(() => getInitialState(LOCAL_STORAGE_KEYS.SHIFTS, initialShifts));
+  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>(() => getInitialState(LOCAL_STORAGE_KEYS.PRODUCTION_PLAN, initialProductionPlan));
+  const [machines, setMachines] = useState<Machine[]>(() => getInitialState(LOCAL_STORAGE_KEYS.MACHINES, initialMachines));
+  const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>(() => getInitialState(LOCAL_STORAGE_KEYS.MARKET_REQUIREMENTS, []));
   
   const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
   const [newSku, setNewSku] = useState('');
@@ -51,36 +68,11 @@ export default function AdminPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const loadData = () => {
-      const loadedOperators = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.OPERATORS) || 'null') || initialOperators;
-      setOperators(loadedOperators);
-
-      const loadedShifts = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.SHIFTS) || 'null') || initialShifts;
-      setManagedShifts(loadedShifts);
-      
-      const loadedPlan = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.PRODUCTION_PLAN) || 'null') || initialProductionPlan;
-      setProductionPlan(loadedPlan);
-
-      const loadedMachines = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.MACHINES) || 'null') || initialMachines;
-      setMachines(loadedMachines);
-
-      const loadedRequirements = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.MARKET_REQUIREMENTS) || 'null') || [];
-      setMarketRequirements(loadedRequirements);
-    };
-    
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    if (operators.length > 0) {
-      localStorage.setItem(LOCAL_STORAGE_KEYS.OPERATORS, JSON.stringify(operators));
-    }
+    localStorage.setItem(LOCAL_STORAGE_KEYS.OPERATORS, JSON.stringify(operators));
   }, [operators]);
 
   useEffect(() => {
-    if (managedShifts.length > 0) {
-      localStorage.setItem(LOCAL_STORAGE_KEYS.SHIFTS, JSON.stringify(managedShifts));
-    }
+    localStorage.setItem(LOCAL_STORAGE_KEYS.SHIFTS, JSON.stringify(managedShifts));
   }, [managedShifts]);
 
   useEffect(() => {
@@ -88,9 +80,7 @@ export default function AdminPage() {
   }, [productionPlan]);
 
   useEffect(() => {
-    if (machines.length > 0) {
-      localStorage.setItem(LOCAL_STORAGE_KEYS.MACHINES, JSON.stringify(machines));
-    }
+    localStorage.setItem(LOCAL_STORAGE_KEYS.MACHINES, JSON.stringify(machines));
   }, [machines]);
 
   useEffect(() => {
@@ -692,3 +682,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    
