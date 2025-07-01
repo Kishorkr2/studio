@@ -31,6 +31,7 @@ export default function AdminPage() {
   const [operators, setOperators] = useState<Operator[]>(initialOperators);
   const [managedShifts, setManagedShifts] = useState<ShiftInfo[]>(initialShifts);
   const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>(initialProductionPlan);
+  const [machines, setMachines] = useState<Machine[]>(initialMachines);
   
   const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
   const [newSku, setNewSku] = useState('');
@@ -41,6 +42,14 @@ export default function AdminPage() {
   const handleAddOperator = () => {
     const newId = `OP-${String(operators.length + 1).padStart(3, '0')}`;
     setOperators([...operators, { id: newId, name: 'New Operator', skillRating: 3, isAbsent: false }]);
+  };
+
+  const handleDeleteOperator = (id: string) => {
+    setOperators(ops => ops.filter(op => op.id !== id));
+    toast({
+        title: "Operator Removed",
+        description: `Operator with ID ${id} has been removed.`,
+    })
   };
   
   const handleShiftChange = (index: number, field: keyof ShiftInfo, value: string) => {
@@ -82,13 +91,13 @@ export default function AdminPage() {
       return [...prev, item];
     });
 
-    toast({ title: 'Plan Saved', description: `Production plan for ${item.machineId} has been updated.`});
+    toast({ title: 'Plan Saved', description: `Production plan for ${machines.find(m => m.id === item.machineId)?.name} has been updated.`});
     setEditingPlan(null);
   };
 
   const handleDeletePlanItem = (machineId: string) => {
     setProductionPlan(prev => prev.filter(p => p.machineId !== machineId));
-    toast({ title: 'Plan Item Removed', description: `Plan for ${machineId} has been removed.`});
+    toast({ title: 'Plan Item Removed', description: `Plan for ${machines.find(m => m.id === machineId)?.name} has been removed.`});
   };
 
   const startEditing = (item: ProductionPlanItem) => {
@@ -113,13 +122,45 @@ export default function AdminPage() {
   };
 
   const handleClearDataConfirm = () => {
-    // This is only callable when password is correct due to `disabled` prop
     toast({
       title: 'Success!',
       description: 'All production data has been cleared.',
     });
-    // In a real app, this would trigger an API call to the backend.
-    setPassword(''); // Reset password after action
+    setPassword('');
+  };
+
+  const handleMachineNameChange = (id: string, newName: string) => {
+    setMachines(currentMachines =>
+        currentMachines.map(m => (m.id === id ? { ...m, name: newName } : m))
+    );
+  };
+
+  const handleSaveMachines = () => {
+      toast({
+          title: 'Machines Updated',
+          description: 'All machine names have been saved successfully.',
+      });
+  };
+
+  const handleAddMachine = () => {
+      const newId = `TBM-${String(machines.length + 1).padStart(2, '0')}`;
+      setMachines([...machines, { id: newId, name: `New Machine ${machines.length + 1}`, isAvailable: true }]);
+  };
+
+  const handleDeleteMachine = (id: string) => {
+      if (productionPlan.some(p => p.machineId === id)) {
+          toast({
+              variant: 'destructive',
+              title: 'Cannot Delete Machine',
+              description: 'This machine is part of an active production plan. Please remove it from the plan first.'
+          });
+          return;
+      }
+      setMachines(currentMachines => currentMachines.filter(m => m.id !== id));
+      toast({
+          title: 'Machine Removed',
+          description: `Machine ${id} has been removed.`,
+      });
   };
 
 
@@ -127,10 +168,11 @@ export default function AdminPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
       <Tabs defaultValue="operators">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="operators">Operator Management</TabsTrigger>
           <TabsTrigger value="shifts">Shift Management</TabsTrigger>
           <TabsTrigger value="plan">Production Plan</TabsTrigger>
+          <TabsTrigger value="machines">Machine Management</TabsTrigger>
           <TabsTrigger value="upload">Data Upload</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -159,7 +201,7 @@ export default function AdminPage() {
                       <TableCell>{op.skillRating}/5</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon"><Trash className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteOperator(op.id)}><Trash className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -233,7 +275,7 @@ export default function AdminPage() {
                           <SelectValue placeholder="Select a machine" />
                         </SelectTrigger>
                         <SelectContent>
-                           {initialMachines.filter(m => !productionPlan.some(p => p.machineId === m.id) || m.id === editingPlan.machineId).map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                           {machines.filter(m => !productionPlan.some(p => p.machineId === m.id) || m.id === editingPlan.machineId).map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -280,7 +322,7 @@ export default function AdminPage() {
                     {productionPlan.map((item) => (
                       <TableRow key={item.machineId}>
                         <TableCell>{item.machineId}</TableCell>
-                        <TableCell>{initialMachines.find(m => m.id === item.machineId)?.name}</TableCell>
+                        <TableCell>{machines.find(m => m.id === item.machineId)?.name}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {item.skus.map(sku => <Badge key={sku} variant="secondary">{sku}</Badge>)}
@@ -296,6 +338,49 @@ export default function AdminPage() {
                 </Table>
               </div>
             </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="machines">
+          <Card>
+            <CardHeader>
+              <CardTitle>Machine Management</CardTitle>
+              <CardDescription>View and edit your machine inventory.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {machines.map((machine) => (
+                    <TableRow key={machine.id}>
+                      <TableCell>{machine.id}</TableCell>
+                      <TableCell>
+                        <Input
+                          value={machine.name}
+                          onChange={(e) => handleMachineNameChange(machine.id, e.target.value)}
+                          className="max-w-xs"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                         <Button variant="ghost" size="icon" onClick={() => handleDeleteMachine(machine.id)}>
+                            <Trash className="h-4 w-4" />
+                         </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button onClick={handleAddMachine}><PlusCircle className="mr-2 h-4 w-4"/>Add Machine</Button>
+              <Button onClick={handleSaveMachines}>Save Changes</Button>
+            </CardFooter>
           </Card>
         </TabsContent>
 
