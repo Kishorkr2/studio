@@ -1,9 +1,10 @@
+
 "use client"
 
 import * as React from "react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { Calendar as CalendarIcon, Download, Filter, Percent, Clock, Wrench, Check } from "lucide-react"
-import { addDays, format } from "date-fns"
+import { addDays, format, parseISO } from "date-fns"
 import type { DateRange } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
@@ -45,15 +46,21 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Label } from "@/components/ui/label"
-import { initialOperators, initialMachines } from "@/lib/data"
+import { initialOperators, initialMachines, shifts as initialShifts } from "@/lib/data"
+import type { Machine, Operator, ProductionLog, ShiftInfo } from "@/lib/types"
 
-const mockReportData = [
-  { date: "2024-07-28", shift: "A", operator: "John Doe", tbm: "TBM-01", sku: "P-215-65R17", quantity: 150 },
-  { date: "2024-07-28", shift: "A", operator: "Jane Smith", tbm: "TBM-02", sku: "P-215-65R17", quantity: 145 },
-  { date: "2024-07-28", shift: "B", operator: "Peter Jones", tbm: "TBM-01", sku: "LT-245-75R16", quantity: 120 },
-  { date: "2024-07-29", shift: "A", operator: "John Doe", tbm: "TBM-01", sku: "P-215-65R17", quantity: 155 },
-  { date: "2024-07-29", shift: "B", operator: "Mary Williams", tbm: "TBM-03", sku: "P-235-60R18", quantity: 160 },
-];
+interface ReportDataRow {
+  date: string;
+  shift: string;
+  round: string;
+  operatorId?: string;
+  operatorName?: string;
+  machineId: string;
+  machineName: string;
+  sku: string;
+  quantity: number;
+  remark?: string;
+}
 
 const mockOeeData = {
   overall: 75.8,
@@ -72,15 +79,8 @@ const oeeChartConfig = {
   value: { label: "Value" },
   availability: { label: "Availability", color: "hsl(var(--primary))" },
   performance: { label: "Performance", color: "hsl(var(--accent))" },
-  quality: { label: "Quality", color: "hsl(var(--secondary))" },
+  quality: { label: "Quality", color: "hsl(var(--secondary-foreground))" },
 } satisfies ChartConfig
-
-const mockBreakdownData = [
-  { date: "2024-07-29", machine: "TBM-05", duration: "45 mins", reason: "Mechanical Failure: Belt snapped" },
-  { date: "2024-07-29", machine: "TBM-12", duration: "1 hr 15 mins", reason: "Tooling Changeover" },
-  { date: "2024-07-28", machine: "TBM-01", duration: "25 mins", reason: "Electrical Issue: Sensor malfunction" },
-  { date: "2024-07-28", machine: "TBM-21", duration: "30 mins", reason: "No Material" },
-];
 
 
 export default function ReportsPage() {
@@ -89,6 +89,99 @@ export default function ReportsPage() {
         from: addDays(new Date(), -7),
         to: new Date(),
     })
+
+    const [selectedShift, setSelectedShift] = React.useState<string>("all");
+    const [selectedOperator, setSelectedOperator] = React.useState<string>("all");
+    const [selectedMachine, setSelectedMachine] = React.useState<string>("all");
+
+    const [allOperators, setAllOperators] = React.useState<Operator[]>([]);
+    const [allMachines, setAllMachines] = React.useState<Machine[]>([]);
+    const [allShifts, setAllShifts] = React.useState<ShiftInfo[]>([]);
+    const [allReportData, setAllReportData] = React.useState<ReportDataRow[]>([]);
+    const [filteredReportData, setFilteredReportData] = React.useState<ReportDataRow[]>([]);
+    const [breakdownData, setBreakdownData] = React.useState<ReportDataRow[]>([]);
+
+    React.useEffect(() => {
+        const loadedOperators = JSON.parse(localStorage.getItem('tyretrack-operators') || 'null') || initialOperators;
+        const loadedMachines = JSON.parse(localStorage.getItem('tyretrack-machines') || 'null') || initialMachines;
+        const loadedShifts = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || initialShifts;
+
+        setAllOperators(loadedOperators);
+        setAllMachines(loadedMachines);
+        setAllShifts(loadedShifts);
+
+        const logs: ReportDataRow[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('production-log-')) {
+                const logData: ProductionLog = JSON.parse(localStorage.getItem(key) || '{}');
+                const keyParts = key.replace('production-log-', '').split('-');
+                const dateStr = keyParts.slice(0, 3).join('-');
+                
+                Object.entries(logData).forEach(([round, logEntry]) => {
+                    if (logEntry.entries) {
+                      logEntry.entries.forEach(entry => {
+                          const operator = loadedOperators.find((op: Operator) => op.id === entry.operatorId);
+                          const machine = loadedMachines.find((m: Machine) => m.id === entry.machineId);
+                          logs.push({
+                              date: dateStr,
+                              shift: key.includes('Day-Shift') ? 'Day Shift' : 'Night Shift',
+                              round,
+                              operatorId: entry.operatorId,
+                              operatorName: operator?.name || 'N/A',
+                              machineId: entry.machineId,
+                              machineName: machine?.name || 'N/A',
+                              sku: entry.sku,
+                              quantity: entry.quantity,
+                              remark: entry.remark,
+                          });
+                      });
+                    }
+                });
+            }
+        }
+        setAllReportData(logs);
+        setBreakdownData(logs.filter(item => item.remark && item.remark.trim() !== ''));
+    }, []);
+
+    const handleApplyFilters = React.useCallback(() => {
+        let data = [...allReportData];
+
+        if (date?.from && date?.to) {
+            const from = new Date(date.from);
+            from.setHours(0,0,0,0);
+            const to = new Date(date.to);
+            to.setHours(23,59,59,999);
+            data = data.filter(item => {
+                const itemDate = parseISO(item.date);
+                return itemDate >= from && itemDate <= to;
+            });
+        }
+        
+        if (selectedShift !== 'all') {
+            data = data.filter(item => item.shift === selectedShift);
+        }
+
+        if (selectedOperator !== 'all') {
+            data = data.filter(item => item.operatorId === selectedOperator);
+        }
+
+        if (selectedMachine !== 'all') {
+            data = data.filter(item => item.machineId === selectedMachine);
+        }
+
+        setFilteredReportData(data);
+        
+        toast({
+            title: "Filters Applied",
+            description: `Displaying ${data.length} records.`,
+        });
+
+    }, [allReportData, date, selectedShift, selectedOperator, selectedMachine, toast]);
+
+    React.useEffect(() => {
+      handleApplyFilters();
+    }, [handleApplyFilters]);
 
     const handleExport = () => {
         toast({
@@ -128,38 +221,37 @@ export default function ReportsPage() {
                     </div>
                     <div className="grid gap-2">
                         <Label>Shift</Label>
-                        <Select>
+                        <Select value={selectedShift} onValueChange={setSelectedShift}>
                         <SelectTrigger><SelectValue placeholder="All Shifts" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Shifts</SelectItem>
-                            <SelectItem value="day">Day Shift</SelectItem>
-                            <SelectItem value="night">Night Shift</SelectItem>
+                            {allShifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>)}
                         </SelectContent>
                         </Select>
                     </div>
                     <div className="grid gap-2">
                         <Label>Operator</Label>
-                        <Select>
+                        <Select value={selectedOperator} onValueChange={setSelectedOperator}>
                         <SelectTrigger><SelectValue placeholder="All Operators" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Operators</SelectItem>
-                            {initialOperators.map(op => <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>)}
+                            {allOperators.map(op => <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>)}
                         </SelectContent>
                         </Select>
                     </div>
                     <div className="grid gap-2">
                         <Label>TBM</Label>
-                        <Select>
+                        <Select value={selectedMachine} onValueChange={setSelectedMachine}>
                         <SelectTrigger><SelectValue placeholder="All TBMs" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All TBMs</SelectItem>
-                            {initialMachines.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                            {allMachines.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                         </SelectContent>
                         </Select>
                     </div>
                 </div>
                 <div className="flex justify-end mt-4">
-                    <Button><Filter className="mr-2 h-4 w-4"/>Apply Filters</Button>
+                    <Button onClick={handleApplyFilters}><Filter className="mr-2 h-4 w-4"/>Apply Filters</Button>
                 </div>
             </CardContent>
           </Card>
@@ -181,16 +273,20 @@ export default function ReportsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockReportData.map((row, index) => (
+                  {filteredReportData.length > 0 ? filteredReportData.map((row, index) => (
                     <TableRow key={index}>
-                      <TableCell>{row.date}</TableCell>
+                      <TableCell>{format(parseISO(row.date), "yyyy-MM-dd")}</TableCell>
                       <TableCell>{row.shift}</TableCell>
-                      <TableCell className="font-medium">{row.operator}</TableCell>
-                      <TableCell>{row.tbm}</TableCell>
+                      <TableCell className="font-medium">{row.operatorName}</TableCell>
+                      <TableCell>{row.machineName}</TableCell>
                       <TableCell>{row.sku}</TableCell>
                       <TableCell className="text-right">{row.quantity}</TableCell>
                     </TableRow>
-                  ))}
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">No data available for the selected filters.</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -243,7 +339,7 @@ export default function ReportsPage() {
           <Card className="mt-6">
             <CardHeader>
               <CardTitle>OEE Component Breakdown</CardTitle>
-              <CardDescription>Visualize the three factors contributing to OEE.</CardDescription>
+              <CardDescription>This is a visual demonstration. Accurate OEE calculation requires additional data points like ideal cycle times and scrap counts.</CardDescription>
             </CardHeader>
             <CardContent>
                <ChartContainer config={oeeChartConfig} className="min-h-[200px] w-full">
@@ -254,6 +350,7 @@ export default function ReportsPage() {
                     tickLine={false}
                     tickMargin={10}
                     axisLine={false}
+                    tick={{ fill: "hsl(var(--muted-foreground))" }}
                     className="text-muted-foreground"
                   />
                   <XAxis dataKey="value" type="number" hide />
@@ -274,7 +371,7 @@ export default function ReportsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Machine Breakdown Log</CardTitle>
-              <CardDescription>A log of all machine downtime events.</CardDescription>
+              <CardDescription>A log of all machine downtime events based on entered remarks.</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -282,19 +379,25 @@ export default function ReportsPage() {
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Machine</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Reason</TableHead>
+                    <TableHead>Shift</TableHead>
+                    <TableHead>Round</TableHead>
+                    <TableHead>Remark</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockBreakdownData.map((row, index) => (
+                  {breakdownData.length > 0 ? breakdownData.map((row, index) => (
                     <TableRow key={index}>
-                      <TableCell>{row.date}</TableCell>
-                      <TableCell className="font-medium">{row.machine}</TableCell>
-                      <TableCell>{row.duration}</TableCell>
-                      <TableCell>{row.reason}</TableCell>
+                      <TableCell>{format(parseISO(row.date), "yyyy-MM-dd")}</TableCell>
+                      <TableCell className="font-medium">{row.machineName}</TableCell>
+                      <TableCell>{row.shift}</TableCell>
+                      <TableCell>{row.round}</TableCell>
+                      <TableCell>{row.remark}</TableCell>
                     </TableRow>
-                  ))}
+                  )) : (
+                     <TableRow>
+                      <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">No breakdowns with remarks logged in the selected period.</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -351,3 +454,5 @@ function DateRangePicker({
     </div>
   )
 }
+
+    
