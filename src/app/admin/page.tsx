@@ -26,6 +26,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 
 export default function AdminPage() {
   const [operators, setOperators] = useState<Operator[]>(initialOperators);
@@ -135,10 +136,16 @@ export default function AdminPage() {
     );
   };
 
+  const handleMachineAvailabilityChange = (id: string, isAvailable: boolean) => {
+      setMachines(currentMachines =>
+          currentMachines.map(m => (m.id === id ? { ...m, isAvailable } : m))
+      );
+  };
+
   const handleSaveMachines = () => {
       toast({
           title: 'Machines Updated',
-          description: 'All machine names have been saved successfully.',
+          description: 'All machine names and statuses have been saved successfully.',
       });
   };
 
@@ -353,6 +360,7 @@ export default function AdminPage() {
                   <TableRow>
                     <TableHead>ID</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>Available</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -365,6 +373,12 @@ export default function AdminPage() {
                           value={machine.name}
                           onChange={(e) => handleMachineNameChange(machine.id, e.target.value)}
                           className="max-w-xs"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={machine.isAvailable}
+                          onCheckedChange={(checked) => handleMachineAvailabilityChange(machine.id, checked)}
                         />
                       </TableCell>
                       <TableCell className="text-right">
