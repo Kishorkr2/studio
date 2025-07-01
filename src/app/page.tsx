@@ -395,6 +395,8 @@ export default function DashboardPage() {
           </TableHeader>
           <TableBody>
             {entries.map(entry => {
+              const planItem = allProductionPlan.find(p => p.machineId === entry.machineId);
+              const machineSkus = planItem?.skus || [];
               return (
               <TableRow key={entry.machineId}>
                 <TableCell className="font-medium">{entry.name}</TableCell>
@@ -412,12 +414,18 @@ export default function DashboardPage() {
 
                 {columnVisibility.sku && (
                   <TableCell>
-                    <Input
-                      placeholder="e.g., P-215-65R17"
+                    <Select
                       value={entry.sku}
-                      onChange={(e) => handleEntryChange(entry.machineId, 'sku', e.target.value)}
-                      className="text-sm"
-                    />
+                      onValueChange={(val) => handleEntryChange(entry.machineId, 'sku', val)}
+                      disabled={machineSkus.length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={machineSkus.length > 0 ? "Select SKU" : "No SKUs planned"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {machineSkus.map(sku => <SelectItem key={sku} value={sku}>{sku}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                 )}
 
