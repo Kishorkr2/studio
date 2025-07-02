@@ -1,3 +1,4 @@
+
 export interface Operator {
   id: string;
   name: string;
@@ -46,4 +47,10 @@ export interface ProductionLogEntry {
 
 export interface ProductionLog {
   [roundTime: string]: ProductionLogEntry;
+}
+
+export interface TreadStock {
+  sku: string;
+  openingStock: number;
+  production: number;
 }

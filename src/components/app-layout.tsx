@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -32,11 +33,12 @@ import {
 } from '@/components/ui/sidebar';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
-import { BotMessageSquare, Cog, LayoutDashboard, LineChart, Truck, Wifi, WifiOff } from 'lucide-react';
+import { BotMessageSquare, Cog, LayoutDashboard, LineChart, Truck, Wifi, WifiOff, ClipboardList } from 'lucide-react';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/tread-extrusion', label: 'Tread Extrusion', icon: ClipboardList },
   { href: '/optimize', label: 'AI Optimizer', icon: BotMessageSquare },
   { href: '/reports', label: 'Reports', icon: LineChart },
   { href: '/admin', label: 'Admin', icon: Cog },
