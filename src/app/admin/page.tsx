@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Operator, ProductionPlanItem, Machine, ShiftInfo, MarketRequirement } from '@/lib/types';
 import { initialOperators, shifts as initialShifts, initialProductionPlan, initialMachines } from '@/lib/data';
-import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, X, ShieldAlert } from 'lucide-react';
+import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, X, ShieldAlert, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -68,6 +68,9 @@ export default function AdminPage() {
   const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
   const [newSku, setNewSku] = useState('');
   const [password, setPassword] = useState('');
+  
+  const [editingReq, setEditingReq] = useState<MarketRequirement | null>(null);
+  const [editingReqIndex, setEditingReqIndex] = useState<number | null>(null);
 
   const { toast } = useToast();
 
@@ -311,6 +314,45 @@ export default function AdminPage() {
           title: 'Machine Removed',
           description: `Machine ${id} has been removed.`,
       });
+  };
+
+  const startEditingRequirement = (req: MarketRequirement, index: number) => {
+    setEditingReqIndex(index);
+    setEditingReq({ ...req });
+  };
+
+  const cancelEditingRequirement = () => {
+    setEditingReqIndex(null);
+    setEditingReq(null);
+  };
+
+  const saveEditingRequirement = () => {
+    if (editingReq && editingReqIndex !== null) {
+        setMarketRequirements(current => 
+            current.map((item, index) => 
+                index === editingReqIndex ? editingReq : item
+            )
+        );
+        toast({
+            title: "Requirement Saved",
+            description: "Your changes have been saved."
+        });
+    }
+    cancelEditingRequirement();
+  };
+
+  const handleEditingReqChange = (field: keyof MarketRequirement, value: string | number) => {
+    if (editingReq) {
+        setEditingReq({ ...editingReq, [field]: value });
+    }
+  };
+
+  const handleDeleteRequirement = (indexToDelete: number) => {
+    setMarketRequirements(current => current.filter((_, index) => index !== indexToDelete));
+    toast({
+        title: "Requirement Deleted",
+        description: "The market requirement has been removed."
+    });
   };
 
 
@@ -609,7 +651,7 @@ export default function AdminPage() {
                   </div>
                   {marketRequirements.length > 0 && (
                      <Button variant="outline" onClick={handleClearRequirements}>
-                        <Trash className="mr-2 h-4 w-4"/> Clear Data
+                        <Trash className="mr-2 h-4 w-4"/> Clear All Data
                      </Button>
                   )}
                 </CardHeader>
@@ -622,21 +664,41 @@ export default function AdminPage() {
                                     <TableHead>SAP Code</TableHead>
                                     <TableHead>SKU</TableHead>
                                     <TableHead className="text-right">Demand</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {marketRequirements.length > 0 ? (
                                     marketRequirements.map((req, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell>{req.machine}</TableCell>
-                                            <TableCell>{req.sapCode}</TableCell>
-                                            <TableCell>{req.sku}</TableCell>
-                                            <TableCell className="text-right">{req.demand}</TableCell>
-                                        </TableRow>
+                                        editingReqIndex === index && editingReq ? (
+                                          <TableRow key={index}>
+                                            <TableCell><Input value={editingReq.machine} onChange={(e) => handleEditingReqChange('machine', e.target.value)} /></TableCell>
+                                            <TableCell><Input value={editingReq.sapCode} onChange={(e) => handleEditingReqChange('sapCode', e.target.value)} /></TableCell>
+                                            <TableCell><Input value={editingReq.sku} onChange={(e) => handleEditingReqChange('sku', e.target.value)} /></TableCell>
+                                            <TableCell className="text-right">
+                                              <Input type="number" value={editingReq.demand} onChange={(e) => handleEditingReqChange('demand', Number(e.target.value))} className="w-24 ml-auto text-right" />
+                                            </TableCell>
+                                            <TableCell className="text-right space-x-2">
+                                              <Button size="sm" onClick={saveEditingRequirement}><Save className="h-4 w-4 mr-1" /> Save</Button>
+                                              <Button size="sm" variant="ghost" onClick={cancelEditingRequirement}>Cancel</Button>
+                                            </TableCell>
+                                          </TableRow>
+                                        ) : (
+                                          <TableRow key={index}>
+                                              <TableCell>{req.machine}</TableCell>
+                                              <TableCell>{req.sapCode}</TableCell>
+                                              <TableCell>{req.sku}</TableCell>
+                                              <TableCell className="text-right">{req.demand}</TableCell>
+                                              <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" onClick={() => startEditingRequirement(req, index)}><Edit className="h-4 w-4" /></Button>
+                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteRequirement(index)}><Trash className="h-4 w-4" /></Button>
+                                              </TableCell>
+                                          </TableRow>
+                                        )
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                                             Upload a file to see market requirements.
                                         </TableCell>
                                     </TableRow>
