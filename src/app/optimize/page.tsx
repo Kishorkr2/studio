@@ -17,28 +17,45 @@ import type { OptimizeOperatorAssignmentOutput } from '@/ai/flows/optimize-opera
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+const getInitialState = <T,>(key: string, defaultValue: T): T => {
+  if (typeof window === "undefined") {
+    return defaultValue;
+  }
+  const storedValue = localStorage.getItem(key);
+  if (storedValue) {
+    try {
+      return JSON.parse(storedValue);
+    } catch (e) {
+      console.error(`Error parsing JSON from localStorage key "${key}":`, e);
+      return defaultValue;
+    }
+  }
+  return defaultValue;
+};
+
 export default function OptimizePage() {
-  const [operators, setOperators] = useState<Operator[]>([]);
-  const [machines, setMachines] = useState<Machine[]>([]);
-  const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
+  const [operators, setOperators] = useState<Operator[]>(() => getInitialState('tyretrack-operators', initialOperators));
+  const [machines, setMachines] = useState<Machine[]>(() => getInitialState('tyretrack-machines', initialMachines));
+  const [allShifts, setAllShifts] = useState<ShiftInfo[]>(() => getInitialState('tyretrack-shifts', shifts));
   const [shift, setShift] = useState<ShiftInfo | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<OptimizeOperatorAssignmentOutput | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    const loadedOperators = JSON.parse(localStorage.getItem('tyretrack-operators') || 'null') || initialOperators;
-    const loadedMachines = JSON.parse(localStorage.getItem('tyretrack-machines') || 'null') || initialMachines;
-    const loadedShifts = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || shifts;
-
-    setOperators(loadedOperators);
-    setMachines(loadedMachines);
-    setAllShifts(loadedShifts);
-    
-    if (loadedShifts.length > 0) {
-      setShift(loadedShifts[0]);
+    if (allShifts.length > 0 && !shift) {
+      setShift(allShifts[0]);
     }
-  }, []);
+  }, [allShifts, shift]);
+
+  useEffect(() => {
+    localStorage.setItem('tyretrack-operators', JSON.stringify(operators));
+  }, [operators]);
+
+  useEffect(() => {
+    localStorage.setItem('tyretrack-machines', JSON.stringify(machines));
+  }, [machines]);
+
 
   const handleOptimize = async () => {
     if (!shift) {
@@ -221,5 +238,3 @@ export default function OptimizePage() {
     </div>
   );
 }
-
-    
