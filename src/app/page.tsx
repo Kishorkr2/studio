@@ -7,15 +7,6 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { CalendarIcon, CheckCircle, Clock, Save, SlidersHorizontal, Wifi, WifiOff } from 'lucide-react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableFooter,
-} from "@/components/ui/table";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -35,8 +26,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import type { Machine, MachineProductionData, ShiftInfo, Operator, ProductionLog, ProductionPlanItem } from '@/lib/types';
 import { initialOperators, initialMachines, initialProductionPlan, shifts } from '@/lib/data';
@@ -112,20 +104,22 @@ export default function DashboardPage() {
     if (!shift) return [];
     
     const times: string[] = [];
-    const [startHourStr, startMinuteStr] = shift.startTime.split(':');
+    const [startHourStr] = shift.startTime.split(':');
     let currentHour = parseInt(startHourStr, 10);
-
-    // If start time is on the half hour, the first round is at the next full hour.
-    if (startMinuteStr === '30') {
-        currentHour = (currentHour + 1) % 24;
+    
+    if (shift.name.toLowerCase().includes('day')) {
+        // Day shift starts e.g. 7:30, first round is 8:00 AM
+        currentHour = 8;
+    } else {
+        // Night shift starts e.g. 19:30, first round is 8:00 PM
+        currentHour = 20;
     }
-
-    // A 12-hour shift has 12 hourly rounds.
+    
     for (let i = 0; i < 12; i++) {
         const hour = (currentHour + i) % 24;
         const ampm = hour >= 12 ? 'PM' : 'AM';
         let displayHour = hour % 12;
-        if (displayHour === 0) displayHour = 12; // For 12 AM and 12 PM
+        if (displayHour === 0) displayHour = 12;
         times.push(`${displayHour}:00 ${ampm}`);
     }
 
@@ -265,8 +259,6 @@ export default function DashboardPage() {
       .reduce((acc, entry) => acc + (entry.quantity || 0), 0);
   }, [productionLog]);
 
-  const footerColSpan = 1 + (columnVisibility.operator ? 1 : 0) + (columnVisibility.sku ? 1 : 0);
-
   return (
     <div className="flex flex-col h-full gap-6">
       <header>
@@ -275,192 +267,176 @@ export default function DashboardPage() {
       </header>
 
       <Card>
-        <CardContent className="p-4">
-            <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-center gap-4">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} initialFocus />
-                    </PopoverContent>
-                  </Popover>
-
-                  <Select value={selectedShift?.name || ''} onValueChange={handleShiftChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select shift" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allShifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name} ({s.startTime} - {s.endTime})</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-
-                   <Select value={selectedRound} onValueChange={setSelectedRound}>
-                    <SelectTrigger>
-                      <Clock className="mr-2 h-4 w-4" />
-                      <SelectValue placeholder="Select time" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roundTimes.map(time => {
-                        const logEntry = productionLog[time];
-                        return (
-                          <SelectItem key={time} value={time}>
-                            <div className="flex items-center justify-between w-full">
-                                <span>{time}</span>
-                                {logEntry?.status === 'pending' && (
-                                    <div className="w-2 h-2 rounded-full bg-yellow-500 ml-2" title="Pending Sync"></div>
-                                )}
-                            </div>
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-                  
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline">
-                        <SlidersHorizontal className="mr-2 h-4 w-4" />
-                        Columns
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuCheckboxItem
-                        className="capitalize"
-                        checked={columnVisibility.operator}
-                        onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, operator: !!value}))}
-                      >
-                        Operator Name
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        className="capitalize"
-                        checked={columnVisibility.sku}
-                        onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, sku: !!value}))}
-                      >
-                        SKU (Size)
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        className="capitalize"
-                        checked={columnVisibility.remark}
-                        onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, remark: !!value}))}
-                      >
-                        Remark
-                      </DropdownMenuCheckboxItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-              </div>
-              
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="flex gap-6 text-center justify-around w-full sm:w-auto">
-                      <div>
-                          <p className="text-sm font-medium text-muted-foreground">Round Total</p>
-                          <p className="text-2xl font-bold text-primary">{roundTotal.toLocaleString()}</p>
-                      </div>
-                      <div>
-                          <p className="text-sm font-medium text-muted-foreground">Shift Total (Saved)</p>
-                          <p className="text-2xl font-bold text-accent">{cumulativeTotal.toLocaleString()}</p>
-                      </div>
-                  </div>
-
-                  <Button onClick={handleSaveRound} size="lg" className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white">
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Round
+        <CardContent className="p-4 flex flex-col gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-center gap-4">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
                   </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} initialFocus />
+                </PopoverContent>
+              </Popover>
+
+              <Select value={selectedShift?.name || ''} onValueChange={handleShiftChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select shift" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allShifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name} ({s.startTime} - {s.endTime})</SelectItem>)}
+                </SelectContent>
+              </Select>
+
+                <Select value={selectedRound} onValueChange={setSelectedRound}>
+                <SelectTrigger>
+                  <Clock className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roundTimes.map(time => {
+                    const logEntry = productionLog[time];
+                    return (
+                      <SelectItem key={time} value={time}>
+                        <div className="flex items-center justify-between w-full">
+                            <span>{time}</span>
+                            {logEntry?.status === 'pending' && (
+                                <div className="w-2 h-2 rounded-full bg-yellow-500 ml-2" title="Pending Sync"></div>
+                            )}
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    <SlidersHorizontal className="mr-2 h-4 w-4" />
+                    Columns
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    className="capitalize"
+                    checked={columnVisibility.operator}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, operator: !!value}))}
+                  >
+                    Operator Name
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    className="capitalize"
+                    checked={columnVisibility.sku}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, sku: !!value}))}
+                  >
+                    SKU (Size)
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    className="capitalize"
+                    checked={columnVisibility.remark}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, remark: !!value}))}
+                  >
+                    Remark
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex gap-6 text-center justify-around w-full sm:w-auto">
+                  <div>
+                      <p className="text-sm font-medium text-muted-foreground">Round Total</p>
+                      <p className="text-2xl font-bold text-primary">{roundTotal.toLocaleString()}</p>
+                  </div>
+                  <div>
+                      <p className="text-sm font-medium text-muted-foreground">Shift Total (Saved)</p>
+                      <p className="text-2xl font-bold text-accent">{cumulativeTotal.toLocaleString()}</p>
+                  </div>
               </div>
-            </div>
+
+              <Button onClick={handleSaveRound} size="lg" className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white">
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Round
+              </Button>
+          </div>
         </CardContent>
       </Card>
 
 
-      <div className="flex-1 overflow-y-auto border rounded-lg">
-        <Table>
-          <TableHeader className="sticky top-0 bg-muted/50">
-            <TableRow>
-              <TableHead className="w-[200px]">Machine</TableHead>
-              {columnVisibility.operator && <TableHead>Operator Name</TableHead>}
-              {columnVisibility.sku && <TableHead>SKU (Size)</TableHead>}
-              <TableHead className="w-[150px]">Quantity Produced</TableHead>
-              {columnVisibility.remark && <TableHead>Remark</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {entries.map(entry => {
-              const planItem = allProductionPlan.find(p => p.machineId === entry.machineId);
-              const machineSkus = planItem?.skus || [];
-              return (
-              <TableRow key={entry.machineId}>
-                <TableCell className="font-medium">{entry.name}</TableCell>
-                
+      <div className="flex-1 overflow-y-auto space-y-4">
+        {entries.map(entry => {
+          const planItem = allProductionPlan.find(p => p.machineId === entry.machineId);
+          const machineSkus = planItem?.skus || [];
+          return (
+          <Card key={entry.machineId}>
+            <CardHeader>
+              <CardTitle>{entry.name}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 {columnVisibility.operator && (
-                  <TableCell>
+                  <div className="space-y-2">
+                    <Label htmlFor={`operator-${entry.machineId}`}>Operator Name</Label>
                     <Select value={entry.operatorId} onValueChange={(val) => handleEntryChange(entry.machineId, 'operatorId', val)}>
-                      <SelectTrigger><SelectValue placeholder="Select Operator" /></SelectTrigger>
+                      <SelectTrigger id={`operator-${entry.machineId}`}><SelectValue placeholder="Select Operator" /></SelectTrigger>
                       <SelectContent>
                         {availableOperators.map(op => <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                  </TableCell>
+                  </div>
                 )}
-
                 {columnVisibility.sku && (
-                  <TableCell>
+                  <div className="space-y-2">
+                    <Label htmlFor={`sku-${entry.machineId}`}>SKU (Size)</Label>
                     <Select
                       value={entry.sku}
                       onValueChange={(val) => handleEntryChange(entry.machineId, 'sku', val)}
                       disabled={machineSkus.length === 0}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id={`sku-${entry.machineId}`}>
                         <SelectValue placeholder={machineSkus.length > 0 ? "Select SKU" : "No SKUs planned"} />
                       </SelectTrigger>
                       <SelectContent>
                         {machineSkus.map(sku => <SelectItem key={sku} value={sku}>{sku}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                  </TableCell>
+                  </div>
                 )}
-
-                <TableCell>
+                <div className="space-y-2">
+                  <Label htmlFor={`quantity-${entry.machineId}`}>Quantity Produced</Label>
                   <Input
+                    id={`quantity-${entry.machineId}`}
                     type="number"
                     placeholder="e.g., 50"
                     value={entry.quantity === 0 ? '' : entry.quantity}
                     onChange={(e) => handleEntryChange(entry.machineId, 'quantity', e.target.value)}
-                    className="text-sm"
                   />
-                </TableCell>
-                
+                </div>
                 {columnVisibility.remark && (
-                  <TableCell>
+                  <div className="space-y-2">
+                    <Label htmlFor={`remark-${entry.machineId}`}>Remark</Label>
                     <Input
+                      id={`remark-${entry.machineId}`}
                       placeholder="Add remark..."
                       value={entry.remark || ''}
                       onChange={(e) => handleEntryChange(entry.machineId, 'remark', e.target.value)}
-                      className="text-sm"
                     />
-                  </TableCell>
+                  </div>
                 )}
-              </TableRow>
-            )})}
-          </TableBody>
-           <TableFooter>
-                <TableRow>
-                    <TableCell colSpan={footerColSpan} className="text-right font-bold text-lg">Round Total</TableCell>
-                    <TableCell className="font-bold text-lg">{roundTotal.toLocaleString()}</TableCell>
-                    {columnVisibility.remark && <TableCell />}
-                </TableRow>
-            </TableFooter>
-        </Table>
+            </CardContent>
+          </Card>
+        )})}
       </div>
     </div>
   );
 }
+
+    
