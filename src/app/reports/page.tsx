@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
-import { Calendar as CalendarIcon, Download, Filter, Percent, Clock, Wrench, Check } from "lucide-react"
+import { Calendar as CalendarIcon, Download, Filter, Percent, Clock, Wrench, Check, ClipboardList } from "lucide-react"
 import { addDays, format, parseISO } from "date-fns"
 import type { DateRange } from "react-day-picker"
 
@@ -47,7 +47,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Label } from "@/components/ui/label"
 import { initialOperators, initialMachines, shifts as initialShifts } from "@/lib/data"
-import type { Machine, Operator, ProductionLog, ShiftInfo } from "@/lib/types"
+import type { Machine, Operator, ProductionLog, ShiftInfo, MarketRequirement } from "@/lib/types"
 
 interface ReportDataRow {
   date: string;
@@ -100,15 +100,22 @@ export default function ReportsPage() {
     const [allReportData, setAllReportData] = React.useState<ReportDataRow[]>([]);
     const [filteredReportData, setFilteredReportData] = React.useState<ReportDataRow[]>([]);
     const [breakdownData, setBreakdownData] = React.useState<ReportDataRow[]>([]);
+    const [marketRequirements, setMarketRequirements] = React.useState<MarketRequirement[]>([]);
+    const [totalDemand, setTotalDemand] = React.useState(0);
 
     React.useEffect(() => {
         const loadedOperators = JSON.parse(localStorage.getItem('tyretrack-operators') || 'null') || initialOperators;
         const loadedMachines = JSON.parse(localStorage.getItem('tyretrack-machines') || 'null') || initialMachines;
         const loadedShifts = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || initialShifts;
+        const loadedMarketRequirements: MarketRequirement[] = JSON.parse(localStorage.getItem('tyretrack-market-requirements') || 'null') || [];
 
         setAllOperators(loadedOperators);
         setAllMachines(loadedMachines);
         setAllShifts(loadedShifts);
+        setMarketRequirements(loadedMarketRequirements);
+
+        const total = loadedMarketRequirements.reduce((sum, req) => sum + (req.demand || 0), 0);
+        setTotalDemand(total);
 
         const logs: ReportDataRow[] = [];
         for (let i = 0; i < localStorage.length; i++) {
@@ -203,6 +210,7 @@ export default function ReportsPage() {
             <TabsTrigger value="production">Production Report</TabsTrigger>
             <TabsTrigger value="oee">OEE Analysis</TabsTrigger>
             <TabsTrigger value="breakdown">Breakdown Log</TabsTrigger>
+            <TabsTrigger value="demand">Demand Report</TabsTrigger>
           </TabsList>
           <Button onClick={handleExport}><Download className="mr-2 h-4 w-4" />Export to Excel</Button>
         </div>
@@ -403,6 +411,64 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        
+        <TabsContent value="demand">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Market Demand Report</CardTitle>
+                <CardDescription>
+                  This report shows the latest market demand data uploaded to the system.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="border rounded-lg max-h-96 overflow-y-auto">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-muted/50">
+                        <TableRow>
+                          <TableHead>Machine</TableHead>
+                          <TableHead>SAP Code</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead className="text-right">Demand</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {marketRequirements.length > 0 ? marketRequirements.map((req, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{req.machine}</TableCell>
+                            <TableCell>{req.sapCode}</TableCell>
+                            <TableCell>{req.sku}</TableCell>
+                            <TableCell className="text-right">{req.demand.toLocaleString()}</TableCell>
+                          </TableRow>
+                        )) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                              No market requirement data has been uploaded.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Demand</CardTitle>
+                <ClipboardList className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {totalDemand.toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Total units based on the last upload.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
       </Tabs>
     </div>
   )
