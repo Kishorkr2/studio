@@ -68,7 +68,7 @@ export function Sidebar({
   if (isMobile) {
     return (
       <Sheet open={isExpanded} onOpenChange={onToggle}>
-        <SheetContent side="left" className="w-72 p-0">
+        <SheetContent side="left" className="w-64 p-0">
           <aside className="flex h-full flex-col">{children}</aside>
         </SheetContent>
       </Sheet>
@@ -79,7 +79,7 @@ export function Sidebar({
     <aside
       className={cn(
         "fixed left-0 top-0 z-20 flex h-screen flex-col border-r transition-[width] duration-300 ease-in-out",
-        isExpanded ? "w-72" : "w-20",
+        isExpanded ? "w-64" : "w-20",
         className
       )}
     >
@@ -108,7 +108,7 @@ export const SidebarMenu = React.forwardRef<
   HTMLUListElement,
   React.HTMLAttributes<HTMLUListElement>
 >(({ className, ...props }, ref) => (
-  <ul ref={ref} className={cn("space-y-2 p-4", className)} {...props} />
+  <ul ref={ref} className={cn("space-y-1 p-4", className)} {...props} />
 ))
 SidebarMenu.displayName = "SidebarMenu"
 
@@ -142,7 +142,7 @@ export const SidebarInset = React.forwardRef<
       ref={ref}
       className={cn(
         "transition-[margin-left] duration-300 ease-in-out",
-        !isMobile && (isExpanded ? "md:ml-72" : "ml-20"),
+        !isMobile && (isExpanded ? "md:ml-64" : "ml-20"),
         className
       )}
       {...props}
