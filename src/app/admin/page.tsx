@@ -44,6 +44,10 @@ const getInitialState = <T,>(key: string, defaultValue: T): T => {
   const storedValue = localStorage.getItem(key);
   if (storedValue) {
     try {
+      // Don't parse if the value is an empty array string, which can happen with old data.
+      if (storedValue === '[]' && Array.isArray(defaultValue)) {
+        return defaultValue;
+      }
       return JSON.parse(storedValue);
     } catch (e) {
       console.error(`Error parsing JSON from localStorage key "${key}":`, e);
@@ -93,7 +97,13 @@ export default function AdminPage() {
   };
 
   const handleDeleteOperator = (id: string) => {
-    setOperators(ops => ops.filter(op => op.id !== id));
+    setOperators(ops => {
+        const newOps = ops.filter(op => op.id !== id);
+        if (newOps.length === 0) {
+            localStorage.removeItem(LOCAL_STORAGE_KEYS.OPERATORS);
+        }
+        return newOps;
+    });
     toast({
         title: "Operator Removed",
         description: `Operator with ID ${id} has been removed.`,
@@ -193,6 +203,7 @@ export default function AdminPage() {
 
   const handleClearRequirements = () => {
     setMarketRequirements([]);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.MARKET_REQUIREMENTS);
     toast({
         title: "Market Requirements Cleared",
         description: "All uploaded market requirement data has been removed.",
@@ -244,6 +255,11 @@ export default function AdminPage() {
   };
 
   const handleClearDataConfirm = () => {
+    Object.keys(localStorage).forEach(key => {
+        if(key.startsWith('production-log-')) {
+            localStorage.removeItem(key);
+        }
+    });
     toast({
       title: 'Success!',
       description: 'All production data has been cleared.',
@@ -284,7 +300,13 @@ export default function AdminPage() {
           });
           return;
       }
-      setMachines(currentMachines => currentMachines.filter(m => m.id !== id));
+      setMachines(currentMachines => {
+        const newMachines = currentMachines.filter(m => m.id !== id);
+        if (newMachines.length === 0) {
+            localStorage.removeItem(LOCAL_STORAGE_KEYS.MACHINES);
+        }
+        return newMachines;
+      });
       toast({
           title: 'Machine Removed',
           description: `Machine ${id} has been removed.`,
@@ -296,7 +318,7 @@ export default function AdminPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
       <Tabs defaultValue="operators">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           <TabsTrigger value="operators">Operator Management</TabsTrigger>
           <TabsTrigger value="shifts">Shift Management</TabsTrigger>
           <TabsTrigger value="plan">Production Plan</TabsTrigger>
@@ -682,5 +704,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    

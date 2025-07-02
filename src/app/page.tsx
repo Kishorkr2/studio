@@ -108,15 +108,15 @@ export default function DashboardPage() {
     });
   }, [allMachines, allProductionPlan]);
 
-  const generateRoundTimes = (shift: ShiftInfo | undefined): string[] => {
+  const generateRoundTimes = useCallback((shift: ShiftInfo | undefined): string[] => {
     if (!shift) return [];
     
     const times: string[] = [];
-    const [startHourStr] = shift.startTime.split(':');
+    const [startHourStr, startMinuteStr] = shift.startTime.split(':');
     let currentHour = parseInt(startHourStr, 10);
 
-    // If start time is X:30, the first round is at the next hour (X+1):00.
-    if (shift.startTime.includes(':30')) {
+    // If start time is on the half hour, the first round is at the next full hour.
+    if (startMinuteStr === '30') {
         currentHour = (currentHour + 1) % 24;
     }
 
@@ -125,12 +125,12 @@ export default function DashboardPage() {
         const hour = (currentHour + i) % 24;
         const ampm = hour >= 12 ? 'PM' : 'AM';
         let displayHour = hour % 12;
-        if (displayHour === 0) displayHour = 12; // 0 should be 12 AM, 12 should be 12 PM.
+        if (displayHour === 0) displayHour = 12; // For 12 AM and 12 PM
         times.push(`${displayHour}:00 ${ampm}`);
     }
 
     return times;
-  };
+  }, []);
   
   useEffect(() => {
     if(typeof window === 'undefined' || !selectedShift) return;
@@ -158,7 +158,7 @@ export default function DashboardPage() {
       setProductionLog({});
       setEntries(getInitialEntries());
     }
-  }, [selectedDate, selectedShift, getLogKey, getInitialEntries]);
+  }, [selectedDate, selectedShift, getLogKey, getInitialEntries, generateRoundTimes]);
   
   useEffect(() => {
     if (typeof window !== 'undefined' && selectedShift) {
@@ -276,13 +276,13 @@ export default function DashboardPage() {
 
       <Card>
         <CardContent className="p-4">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:flex md:flex-wrap items-center gap-4">
+            <div className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-center gap-4">
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant={"outline"}
-                        className={cn("w-full sm:w-[240px] justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
+                        className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
@@ -294,7 +294,7 @@ export default function DashboardPage() {
                   </Popover>
 
                   <Select value={selectedShift?.name || ''} onValueChange={handleShiftChange}>
-                    <SelectTrigger className="w-full sm:w-[220px]">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select shift" />
                     </SelectTrigger>
                     <SelectContent>
@@ -303,7 +303,7 @@ export default function DashboardPage() {
                   </Select>
 
                    <Select value={selectedRound} onValueChange={setSelectedRound}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectTrigger>
                       <Clock className="mr-2 h-4 w-4" />
                       <SelectValue placeholder="Select time" />
                     </SelectTrigger>
@@ -326,7 +326,7 @@ export default function DashboardPage() {
                   
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="w-full sm:w-auto">
+                      <Button variant="outline">
                         <SlidersHorizontal className="mr-2 h-4 w-4" />
                         Columns
                       </Button>
@@ -360,7 +360,7 @@ export default function DashboardPage() {
 
               </div>
               
-              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full lg:w-auto">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex gap-6 text-center justify-around w-full sm:w-auto">
                       <div>
                           <p className="text-sm font-medium text-muted-foreground">Round Total</p>
@@ -464,5 +464,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
