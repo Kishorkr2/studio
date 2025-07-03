@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import type { MarketRequirement, ProductionLog, TreadStock } from '@/lib/types';
-import { CalendarIcon, Save, SlidersHorizontal } from 'lucide-react';
+import { Save, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -17,9 +17,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
 
 const TREAD_OPENING_STOCK_KEY = 'tyretrack-tread-opening-stock';
 const TREAD_DAILY_PRODUCTION_KEY = 'tyretrack-tread-daily-production';
@@ -30,10 +27,7 @@ export default function TreadExtrusionPage() {
   const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
   const [openingStockData, setOpeningStockData] = useState<TreadStock[]>([]);
   const [tyreProductionData, setTyreProductionData] = useState<Record<string, number>>({});
-  
   const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, number>>>({});
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [dailyProductionEntries, setDailyProductionEntries] = useState<Record<string, number>>({});
 
   const [columnVisibility, setColumnVisibility] = useState({
     sapCode: true,
@@ -62,7 +56,7 @@ export default function TreadExtrusionPage() {
     });
     setOpeningStockData(initialOpeningStock);
 
-    // Load daily production log
+    // Load daily production log for total calculation
     const savedDailyProduction = JSON.parse(localStorage.getItem(TREAD_DAILY_PRODUCTION_KEY) || '{}');
     setDailyProductionLog(savedDailyProduction);
 
@@ -85,11 +79,6 @@ export default function TreadExtrusionPage() {
     }
     setTyreProductionData(tyreProduction);
   }, []);
-
-  useEffect(() => {
-    const dateKey = format(selectedDate, 'yyyy-MM-dd');
-    setDailyProductionEntries(dailyProductionLog[dateKey] || {});
-  }, [selectedDate, dailyProductionLog]);
   
   const handleOpeningStockChange = (sku: string, value: string) => {
     const numericValue = parseInt(value, 10) || 0;
@@ -105,26 +94,6 @@ export default function TreadExtrusionPage() {
     toast({
       title: 'Success!',
       description: 'Opening stock data has been saved.',
-      action: <Save className="text-green-500" />,
-    });
-  };
-
-  const handleDailyProductionChange = (sku: string, value: string) => {
-    const numericValue = parseInt(value, 10) || 0;
-    setDailyProductionEntries(currentEntries => ({
-      ...currentEntries,
-      [sku]: numericValue
-    }));
-  };
-  
-  const handleSaveDailyProduction = () => {
-    const dateKey = format(selectedDate, 'yyyy-MM-dd');
-    const newLog = { ...dailyProductionLog, [dateKey]: dailyProductionEntries };
-    setDailyProductionLog(newLog);
-    localStorage.setItem(TREAD_DAILY_PRODUCTION_KEY, JSON.stringify(newLog));
-    toast({
-      title: 'Success!',
-      description: `Tread production for ${format(selectedDate, "PPP")} has been saved.`,
       action: <Save className="text-green-500" />,
     });
   };
@@ -171,7 +140,7 @@ export default function TreadExtrusionPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Tread Extrusion Section</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Tread Extrusion Planning</h1>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
             <div>
@@ -301,64 +270,6 @@ export default function TreadExtrusionPage() {
                     </TableBody>
                 </Table>
             </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Daily Tread Production</CardTitle>
-          <CardDescription>Enter the quantity of tread produced for each SKU for a specific day.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn("w-full sm:w-[280px] justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} initialFocus />
-              </PopoverContent>
-            </Popover>
-            <Button onClick={handleSaveDailyProduction}><Save className="mr-2 h-4 w-4" /> Save Daily Production</Button>
-          </div>
-          <div className="border rounded-lg max-h-96 overflow-y-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>SKU</TableHead>
-                  <TableHead className="text-right">Production Quantity</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredMarketRequirements.length > 0 ? filteredMarketRequirements.map(req => (
-                  <TableRow key={req.sku}>
-                    <TableCell className="font-medium">{req.sku}</TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        className="w-32 ml-auto text-right"
-                        placeholder="0"
-                        value={dailyProductionEntries[req.sku] || ''}
-                        onChange={(e) => handleDailyProductionChange(req.sku, e.target.value)}
-                      />
-                    </TableCell>
-                  </TableRow>
-                )) : (
-                  <TableRow>
-                    <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
-                      No SKUs available for the current filters.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
         </CardContent>
       </Card>
     </div>

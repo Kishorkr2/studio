@@ -33,12 +33,13 @@ import {
 } from '@/components/ui/sidebar';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
-import { BotMessageSquare, Cog, LayoutDashboard, LineChart, Truck, Wifi, WifiOff, ClipboardList } from 'lucide-react';
+import { BotMessageSquare, Cog, LayoutDashboard, LineChart, Truck, Wifi, WifiOff, ClipboardList, ListPlus } from 'lucide-react';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/tread-extrusion', label: 'Tread Extrusion', icon: ClipboardList },
+  { href: '/daily-tread-production', label: 'Daily Production', icon: ListPlus },
   { href: '/optimize', label: 'AI Optimizer', icon: BotMessageSquare },
   { href: '/reports', label: 'Reports', icon: LineChart },
   { href: '/admin', label: 'Admin', icon: Cog },
