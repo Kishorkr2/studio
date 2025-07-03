@@ -31,12 +31,16 @@ export function ThemeProvider({
   attribute = "class",
   enableSystem = true,
 }: ThemeProviderProps) {
-  const [theme, setTheme] = React.useState<Theme>(() => {
-    if (typeof window === 'undefined') {
-      return defaultTheme;
-    }
-    return (localStorage.getItem(storageKey) as Theme) || defaultTheme;
-  });
+  // Initialize with the default theme to ensure server and client match on first render.
+  const [theme, setTheme] = React.useState<Theme>(defaultTheme);
+
+  React.useEffect(() => {
+    // On the client, after mounting, read the stored theme from localStorage
+    // and update the state. This triggers a re-render with the user's saved theme.
+    const storedTheme = (localStorage.getItem(storageKey) as Theme) || defaultTheme;
+    setTheme(storedTheme);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   React.useEffect(() => {
     const root = window.document.documentElement;
@@ -54,11 +58,9 @@ export function ThemeProvider({
 
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(storageKey, theme);
-      }
-      setTheme(theme);
+    setTheme: (newTheme: Theme) => {
+      localStorage.setItem(storageKey, newTheme);
+      setTheme(newTheme);
     },
   };
 
