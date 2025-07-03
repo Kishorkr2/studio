@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, CheckCircle, Clock, Save, SlidersHorizontal, Wifi, WifiOff } from 'lucide-react';
+import { CalendarIcon, CheckCircle, Clock, Eraser, Save, SlidersHorizontal, Wifi, WifiOff } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -244,6 +244,14 @@ export default function DashboardPage() {
     });
   };
 
+  const handleClearEntries = () => {
+    setEntries(getInitialEntries());
+    toast({
+      title: 'Entries Cleared',
+      description: 'The production entries for this round have been reset.',
+    });
+  };
+
   const handleShiftChange = (name: string) => {
     const newShift = allShifts.find(s => s.name === name);
     if(newShift) setSelectedShift(newShift);
@@ -363,10 +371,16 @@ export default function DashboardPage() {
                   </div>
               </div>
 
-              <Button onClick={handleSaveRound} size="lg" className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white">
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Round
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button onClick={handleClearEntries} variant="outline" size="lg" className="w-full sm:w-auto">
+                    <Eraser className="mr-2 h-4 w-4" />
+                    Clear
+                </Button>
+                <Button onClick={handleSaveRound} size="lg" className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white">
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Round
+                </Button>
+              </div>
           </div>
         </CardContent>
       </Card>
@@ -438,5 +452,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
