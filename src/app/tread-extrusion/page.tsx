@@ -29,7 +29,7 @@ export default function TreadExtrusionPage() {
   
   const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
   const [openingStockData, setOpeningStockData] = useState<TreadStock[]>([]);
-  const [tyreConsumption, setTyreConsumption] = useState<Record<string, number>>({});
+  const [tyreProductionData, setTyreProductionData] = useState<Record<string, number>>({});
   
   const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, number>>>({});
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -40,7 +40,7 @@ export default function TreadExtrusionPage() {
     demand: true,
     openingStock: true,
     production: true,
-    consumption: true,
+    tyreProduction: true,
     currentTreadStock: true,
     treadBalanceToProduce: true,
   });
@@ -66,8 +66,8 @@ export default function TreadExtrusionPage() {
     const savedDailyProduction = JSON.parse(localStorage.getItem(TREAD_DAILY_PRODUCTION_KEY) || '{}');
     setDailyProductionLog(savedDailyProduction);
 
-    // Calculate tyre consumption from all production logs
-    const consumption: Record<string, number> = {};
+    // Calculate tyre production from all production logs
+    const tyreProduction: Record<string, number> = {};
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith('production-log-')) {
@@ -76,14 +76,14 @@ export default function TreadExtrusionPage() {
               if (logEntry.entries) {
                 logEntry.entries.forEach(entry => {
                     if (entry.sku && entry.quantity > 0) {
-                        consumption[entry.sku] = (consumption[entry.sku] || 0) + entry.quantity;
+                        tyreProduction[entry.sku] = (tyreProduction[entry.sku] || 0) + entry.quantity;
                     }
                 });
               }
             });
         }
     }
-    setTyreConsumption(consumption);
+    setTyreProductionData(tyreProduction);
   }, []);
 
   useEffect(() => {
@@ -152,20 +152,20 @@ export default function TreadExtrusionPage() {
     return filteredMarketRequirements.map(req => {
       const openingStockInfo = openingStockData.find(t => t.sku === req.sku) || { openingStock: 0 };
       const totalProduction = totalProductionBySku[req.sku] || 0;
-      const consumption = tyreConsumption[req.sku] || 0;
-      const currentTreadStock = openingStockInfo.openingStock + totalProduction - consumption;
-      const treadBalanceToProduce = Math.max(0, req.demand - openingStockInfo.openingStock - consumption);
+      const tyreProduction = tyreProductionData[req.sku] || 0;
+      const currentTreadStock = openingStockInfo.openingStock + totalProduction - tyreProduction;
+      const treadBalanceToProduce = Math.max(0, req.demand - openingStockInfo.openingStock - tyreProduction);
       
       return {
         ...req,
         openingStock: openingStockInfo.openingStock,
         production: totalProduction,
-        consumption,
+        tyreProduction,
         currentTreadStock,
         treadBalanceToProduce,
       };
     });
-  }, [filteredMarketRequirements, openingStockData, tyreConsumption, totalProductionBySku]);
+  }, [filteredMarketRequirements, openingStockData, tyreProductionData, totalProductionBySku]);
   
   const visibleColumnsCount = 1 + Object.values(columnVisibility).filter(Boolean).length;
 
@@ -214,10 +214,10 @@ export default function TreadExtrusionPage() {
                     Total Production
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
-                    checked={columnVisibility.consumption}
-                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, consumption: !!value}))}
+                    checked={columnVisibility.tyreProduction}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, tyreProduction: !!value}))}
                   >
-                    Consumption (Tyres)
+                    Tyre Production
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={columnVisibility.currentTreadStock}
@@ -260,7 +260,7 @@ export default function TreadExtrusionPage() {
                             {columnVisibility.demand && <TableHead className="text-right">Demand</TableHead>}
                             {columnVisibility.openingStock && <TableHead className="text-right">Opening Stock</TableHead>}
                             {columnVisibility.production && <TableHead className="text-right">Total Production</TableHead>}
-                            {columnVisibility.consumption && <TableHead className="text-right">Consumption (Tyres)</TableHead>}
+                            {columnVisibility.tyreProduction && <TableHead className="text-right">Tyre Production</TableHead>}
                             {columnVisibility.currentTreadStock && <TableHead className="text-right">Current Tread Stock</TableHead>}
                             {columnVisibility.treadBalanceToProduce && <TableHead className="text-right">Tread Balance to Produce</TableHead>}
                         </TableRow>
@@ -283,7 +283,7 @@ export default function TreadExtrusionPage() {
                                     </TableCell>
                                 )}
                                 {columnVisibility.production && <TableCell className="text-right">{item.production.toLocaleString()}</TableCell>}
-                                {columnVisibility.consumption && <TableCell className="text-right">{item.consumption.toLocaleString()}</TableCell>}
+                                {columnVisibility.tyreProduction && <TableCell className="text-right">{item.tyreProduction.toLocaleString()}</TableCell>}
                                 {columnVisibility.currentTreadStock && <TableCell className="text-right font-bold">{item.currentTreadStock.toLocaleString()}</TableCell>}
                                 {columnVisibility.treadBalanceToProduce && (
                                   <TableCell className={cn("text-right font-bold", item.treadBalanceToProduce > 0 ? "text-destructive" : "text-green-600")}>
