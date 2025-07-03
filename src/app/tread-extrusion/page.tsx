@@ -7,8 +7,16 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import type { MarketRequirement, ProductionLog, TreadStock } from '@/lib/types';
-import { Save } from 'lucide-react';
+import { Save, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const TREAD_STOCK_KEY = 'tyretrack-tread-stock';
 
@@ -18,6 +26,16 @@ export default function TreadExtrusionPage() {
   const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
   const [treadData, setTreadData] = useState<TreadStock[]>([]);
   const [tyreConsumption, setTyreConsumption] = useState<Record<string, number>>({});
+  
+  const [columnVisibility, setColumnVisibility] = useState({
+    sapCode: true,
+    demand: true,
+    openingStock: true,
+    production: true,
+    consumption: true,
+    closingBalance: true,
+    treadBalanceToProduce: true,
+  });
 
   useEffect(() => {
     // Load market requirements
@@ -90,6 +108,8 @@ export default function TreadExtrusionPage() {
       };
     });
   }, [marketRequirements, treadData, tyreConsumption]);
+  
+  const visibleColumnsCount = 1 + Object.values(columnVisibility).filter(Boolean).length;
 
   return (
     <div className="space-y-6">
@@ -100,56 +120,118 @@ export default function TreadExtrusionPage() {
               <CardTitle>Tread Stock &amp; Planning</CardTitle>
               <CardDescription>Manage tread inventory and plan production to meet market demand.</CardDescription>
             </div>
-            <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" /> Save Data</Button>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    <SlidersHorizontal className="mr-2 h-4 w-4" />
+                    Columns
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={columnVisibility.sapCode}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, sapCode: !!value}))}
+                  >
+                    SAP Code
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={columnVisibility.demand}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, demand: !!value}))}
+                  >
+                    Demand
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={columnVisibility.openingStock}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, openingStock: !!value}))}
+                  >
+                    Opening Stock
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={columnVisibility.production}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, production: !!value}))}
+                  >
+                    Production
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={columnVisibility.consumption}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, consumption: !!value}))}
+                  >
+                    Consumption (Tyres)
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={columnVisibility.closingBalance}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, closingBalance: !!value}))}
+                  >
+                    Closing Balance
+                  </DropdownMenuCheckboxItem>
+                   <DropdownMenuCheckboxItem
+                    checked={columnVisibility.treadBalanceToProduce}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, treadBalanceToProduce: !!value}))}
+                  >
+                    Tread Balance to Produce
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" /> Save Data</Button>
+            </div>
         </CardHeader>
         <CardContent>
             <div className="border rounded-lg">
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>SAP Code</TableHead>
+                            {columnVisibility.sapCode && <TableHead>SAP Code</TableHead>}
                             <TableHead>SKU</TableHead>
-                            <TableHead className="text-right">Demand</TableHead>
-                            <TableHead className="text-right">Opening Stock</TableHead>
-                            <TableHead className="text-right">Production</TableHead>
-                            <TableHead className="text-right">Consumption (Tyres)</TableHead>
-                            <TableHead className="text-right">Closing Balance</TableHead>
-                            <TableHead className="text-right">Tread Balance to Produce</TableHead>
+                            {columnVisibility.demand && <TableHead className="text-right">Demand</TableHead>}
+                            {columnVisibility.openingStock && <TableHead className="text-right">Opening Stock</TableHead>}
+                            {columnVisibility.production && <TableHead className="text-right">Production</TableHead>}
+                            {columnVisibility.consumption && <TableHead className="text-right">Consumption (Tyres)</TableHead>}
+                            {columnVisibility.closingBalance && <TableHead className="text-right">Closing Balance</TableHead>}
+                            {columnVisibility.treadBalanceToProduce && <TableHead className="text-right">Tread Balance to Produce</TableHead>}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {combinedData.length > 0 ? combinedData.map(item => (
                             <TableRow key={item.sku}>
-                                <TableCell>{item.sapCode}</TableCell>
+                                {columnVisibility.sapCode && <TableCell>{item.sapCode}</TableCell>}
                                 <TableCell className="font-medium">{item.sku}</TableCell>
-                                <TableCell className="text-right">{item.demand.toLocaleString()}</TableCell>
-                                <TableCell className="text-right">
-                                    <Input
-                                        type="number"
-                                        className="w-28 ml-auto text-right"
-                                        placeholder="0"
-                                        value={item.openingStock === 0 ? '' : item.openingStock}
-                                        onChange={(e) => handleDataChange(item.sku, 'openingStock', e.target.value)}
-                                    />
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <Input
-                                        type="number"
-                                        className="w-28 ml-auto text-right"
-                                        placeholder="0"
-                                        value={item.production === 0 ? '' : item.production}
-                                        onChange={(e) => handleDataChange(item.sku, 'production', e.target.value)}
-                                    />
-                                </TableCell>
-                                <TableCell className="text-right">{item.consumption.toLocaleString()}</TableCell>
-                                <TableCell className="text-right font-bold">{item.closingBalance.toLocaleString()}</TableCell>
-                                <TableCell className={cn("text-right font-bold", item.treadBalanceToProduce > 0 ? "text-destructive" : "text-green-600")}>
-                                  {item.treadBalanceToProduce.toLocaleString()}
-                                </TableCell>
+                                {columnVisibility.demand && <TableCell className="text-right">{item.demand.toLocaleString()}</TableCell>}
+                                {columnVisibility.openingStock && (
+                                    <TableCell className="text-right">
+                                        <Input
+                                            type="number"
+                                            className="w-28 ml-auto text-right"
+                                            placeholder="0"
+                                            value={item.openingStock === 0 ? '' : item.openingStock}
+                                            onChange={(e) => handleDataChange(item.sku, 'openingStock', e.target.value)}
+                                        />
+                                    </TableCell>
+                                )}
+                                {columnVisibility.production && (
+                                    <TableCell className="text-right">
+                                        <Input
+                                            type="number"
+                                            className="w-28 ml-auto text-right"
+                                            placeholder="0"
+                                            value={item.production === 0 ? '' : item.production}
+                                            onChange={(e) => handleDataChange(item.sku, 'production', e.target.value)}
+                                        />
+                                    </TableCell>
+                                )}
+                                {columnVisibility.consumption && <TableCell className="text-right">{item.consumption.toLocaleString()}</TableCell>}
+                                {columnVisibility.closingBalance && <TableCell className="text-right font-bold">{item.closingBalance.toLocaleString()}</TableCell>}
+                                {columnVisibility.treadBalanceToProduce && (
+                                  <TableCell className={cn("text-right font-bold", item.treadBalanceToProduce > 0 ? "text-destructive" : "text-green-600")}>
+                                    {item.treadBalanceToProduce.toLocaleString()}
+                                  </TableCell>
+                                )}
                             </TableRow>
                         )) : (
                             <TableRow>
-                                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                                <TableCell colSpan={visibleColumnsCount} className="h-24 text-center text-muted-foreground">
                                     No market requirements found. Please upload demand data in the Admin panel.
                                 </TableCell>
                             </TableRow>
