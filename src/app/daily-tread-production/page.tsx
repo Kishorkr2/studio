@@ -16,13 +16,18 @@ import { format } from 'date-fns';
 
 const TREAD_DAILY_PRODUCTION_KEY = 'tyretrack-tread-daily-production';
 
+interface DailyProductionEntry {
+  quantity: number;
+  trolleyNo: string;
+}
+
 export default function DailyTreadProductionPage() {
   const { toast } = useToast();
   
   const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
-  const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, number>>>({});
+  const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, DailyProductionEntry>>>({});
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [dailyProductionEntries, setDailyProductionEntries] = useState<Record<string, number>>({});
+  const [dailyProductionEntries, setDailyProductionEntries] = useState<Record<string, DailyProductionEntry>>({});
   
   const [sapCodeFilter, setSapCodeFilter] = useState('');
   const [skuFilter, setSkuFilter] = useState('');
@@ -38,7 +43,20 @@ export default function DailyTreadProductionPage() {
     
     // Load daily production log
     const savedDailyProduction = JSON.parse(localStorage.getItem(TREAD_DAILY_PRODUCTION_KEY) || '{}');
-    setDailyProductionLog(savedDailyProduction);
+    // Normalize old data structure to new one for backward compatibility
+    const normalizedLog: Record<string, Record<string, DailyProductionEntry>> = {};
+    for (const dateKey in savedDailyProduction) {
+      normalizedLog[dateKey] = {};
+      for (const sku in savedDailyProduction[dateKey]) {
+        const entry = savedDailyProduction[dateKey][sku];
+        if (typeof entry === 'number') {
+          normalizedLog[dateKey][sku] = { quantity: entry, trolleyNo: '' };
+        } else {
+          normalizedLog[dateKey][sku] = entry || { quantity: 0, trolleyNo: ''};
+        }
+      }
+    }
+    setDailyProductionLog(normalizedLog);
   }, []);
 
   useEffect(() => {
@@ -47,11 +65,19 @@ export default function DailyTreadProductionPage() {
     setDailyProductionEntries(dailyProductionLog[dateKey] || {});
   }, [selectedDate, dailyProductionLog]);
 
-  const handleDailyProductionChange = (sku: string, value: string) => {
-    const numericValue = parseInt(value, 10) || 0;
+  const handleDailyProductionChange = (sku: string, field: 'quantity' | 'trolleyNo', value: string) => {
+    const currentEntry = dailyProductionEntries[sku] || { quantity: 0, trolleyNo: '' };
+    const newEntry = { ...currentEntry };
+
+    if (field === 'quantity') {
+      newEntry.quantity = parseInt(value, 10) || 0;
+    } else {
+      newEntry.trolleyNo = value;
+    }
+    
     setDailyProductionEntries(currentEntries => ({
       ...currentEntries,
-      [sku]: numericValue
+      [sku]: newEntry
     }));
   };
   
@@ -89,7 +115,7 @@ export default function DailyTreadProductionPage() {
       <Card>
         <CardHeader>
           <CardTitle>Log Tread Production</CardTitle>
-          <CardDescription>Enter the quantity of tread produced for each SKU for a specific day.</CardDescription>
+          <CardDescription>Enter the quantity of tread produced and the trolley number for each SKU.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -130,6 +156,7 @@ export default function DailyTreadProductionPage() {
               <TableHeader className="sticky top-0 bg-background">
                 <TableRow>
                   <TableHead>SKU</TableHead>
+                  <TableHead>Trolley No</TableHead>
                   <TableHead className="text-right">Production Quantity</TableHead>
                 </TableRow>
               </TableHeader>
@@ -137,19 +164,27 @@ export default function DailyTreadProductionPage() {
                 {filteredMarketRequirements.length > 0 ? filteredMarketRequirements.map((req, index) => (
                   <TableRow key={`${req.sku}-${index}`}>
                     <TableCell className="font-medium">{req.sku}</TableCell>
+                    <TableCell>
+                      <Input
+                        className="w-32"
+                        placeholder="e.g., T-123"
+                        value={dailyProductionEntries[req.sku]?.trolleyNo || ''}
+                        onChange={(e) => handleDailyProductionChange(req.sku, 'trolleyNo', e.target.value)}
+                      />
+                    </TableCell>
                     <TableCell className="text-right">
                       <Input
                         type="number"
                         className="w-32 ml-auto text-right"
                         placeholder="0"
-                        value={dailyProductionEntries[req.sku] || ''}
-                        onChange={(e) => handleDailyProductionChange(req.sku, e.target.value)}
+                        value={dailyProductionEntries[req.sku]?.quantity || ''}
+                        onChange={(e) => handleDailyProductionChange(req.sku, 'quantity', e.target.value)}
                       />
                     </TableCell>
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
                       No SKUs available. Please upload market requirements in the Admin panel.
                     </TableCell>
                   </TableRow>

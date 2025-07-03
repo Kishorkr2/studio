@@ -22,13 +22,18 @@ import {
 const TREAD_OPENING_STOCK_KEY = 'tyretrack-tread-opening-stock';
 const TREAD_DAILY_PRODUCTION_KEY = 'tyretrack-tread-daily-production';
 
+interface DailyProductionEntry {
+  quantity: number;
+  trolleyNo: string;
+}
+
 export default function TreadExtrusionPage() {
   const { toast } = useToast();
   
   const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
   const [openingStockData, setOpeningStockData] = useState<TreadStock[]>([]);
   const [tyreProductionData, setTyreProductionData] = useState<Record<string, number>>({});
-  const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, number>>>({});
+  const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, DailyProductionEntry | number>>>({});
 
   const [columnVisibility, setColumnVisibility] = useState({
     sapCode: true,
@@ -103,7 +108,9 @@ export default function TreadExtrusionPage() {
     const totals: Record<string, number> = {};
     for (const date in dailyProductionLog) {
       for (const sku in dailyProductionLog[date]) {
-        totals[sku] = (totals[sku] || 0) + dailyProductionLog[date][sku];
+        const entry = dailyProductionLog[date][sku];
+        const quantity = typeof entry === 'number' ? entry : (entry?.quantity || 0);
+        totals[sku] = (totals[sku] || 0) + quantity;
       }
     }
     return totals;
