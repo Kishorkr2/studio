@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -80,14 +79,14 @@ export default function TreadExtrusionPage() {
       const stock = treadData.find(t => t.sku === req.sku) || { openingStock: 0, production: 0 };
       const consumption = tyreConsumption[req.sku] || 0;
       const closingBalance = stock.openingStock + stock.production - consumption;
-      const shortfall = req.demand - closingBalance;
+      const treadBalanceToProduce = Math.max(0, req.demand - closingBalance);
       
       return {
         ...req,
         ...stock,
         consumption,
         closingBalance,
-        shortfall,
+        treadBalanceToProduce,
       };
     });
   }, [marketRequirements, treadData, tyreConsumption]);
@@ -98,7 +97,7 @@ export default function TreadExtrusionPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
             <div>
-              <CardTitle>Tread Stock & Planning</CardTitle>
+              <CardTitle>Tread Stock &amp; Planning</CardTitle>
               <CardDescription>Manage tread inventory and plan production to meet market demand.</CardDescription>
             </div>
             <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" /> Save Data</Button>
@@ -115,7 +114,7 @@ export default function TreadExtrusionPage() {
                             <TableHead className="text-right">Production</TableHead>
                             <TableHead className="text-right">Consumption (Tyres)</TableHead>
                             <TableHead className="text-right">Closing Balance</TableHead>
-                            <TableHead className="text-right">Shortfall / Surplus</TableHead>
+                            <TableHead className="text-right">Tread Balance to Produce</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -144,8 +143,8 @@ export default function TreadExtrusionPage() {
                                 </TableCell>
                                 <TableCell className="text-right">{item.consumption.toLocaleString()}</TableCell>
                                 <TableCell className="text-right font-bold">{item.closingBalance.toLocaleString()}</TableCell>
-                                <TableCell className={cn("text-right font-bold", item.shortfall > 0 ? "text-destructive" : "text-green-600")}>
-                                  {item.shortfall.toLocaleString()}
+                                <TableCell className={cn("text-right font-bold", item.treadBalanceToProduce > 0 ? "text-destructive" : "text-green-600")}>
+                                  {item.treadBalanceToProduce.toLocaleString()}
                                 </TableCell>
                             </TableRow>
                         )) : (
