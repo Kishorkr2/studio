@@ -105,6 +105,7 @@ export default function TreadExtrusionPage() {
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead>SAP Code</TableHead>
                             <TableHead>SKU</TableHead>
                             <TableHead className="text-right">Demand</TableHead>
                             <TableHead className="text-right">Opening Stock</TableHead>
@@ -116,6 +117,7 @@ export default function TreadExtrusionPage() {
                     <TableBody>
                         {combinedData.length > 0 ? combinedData.map(item => (
                             <TableRow key={item.sku}>
+                                <TableCell>{item.sapCode}</TableCell>
                                 <TableCell className="font-medium">{item.sku}</TableCell>
                                 <TableCell className="text-right">{item.demand.toLocaleString()}</TableCell>
                                 <TableCell className="text-right">
@@ -141,7 +143,7 @@ export default function TreadExtrusionPage() {
                             </TableRow>
                         )) : (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                                     No market requirements found. Please upload demand data in the Admin panel.
                                 </TableCell>
                             </TableRow>
