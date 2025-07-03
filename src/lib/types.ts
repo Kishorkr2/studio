@@ -20,6 +20,7 @@ export interface MachineProductionData {
   quantity: number;
   operatorId?: string;
   remark?: string;
+  trolleyNo?: string;
 }
 
 export interface ShiftInfo {
