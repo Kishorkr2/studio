@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import type { MarketRequirement, ProductionLog, TreadStock } from '@/lib/types';
 import { Save } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const TREAD_STOCK_KEY = 'tyretrack-tread-stock';
 
@@ -79,12 +80,14 @@ export default function TreadExtrusionPage() {
       const stock = treadData.find(t => t.sku === req.sku) || { openingStock: 0, production: 0 };
       const consumption = tyreConsumption[req.sku] || 0;
       const closingBalance = stock.openingStock + stock.production - consumption;
+      const shortfall = req.demand - closingBalance;
       
       return {
         ...req,
         ...stock,
         consumption,
         closingBalance,
+        shortfall,
       };
     });
   }, [marketRequirements, treadData, tyreConsumption]);
@@ -95,8 +98,8 @@ export default function TreadExtrusionPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
             <div>
-              <CardTitle>Tread Stock Management</CardTitle>
-              <CardDescription>Enter opening stock and daily production for each tread SKU.</CardDescription>
+              <CardTitle>Tread Stock & Planning</CardTitle>
+              <CardDescription>Manage tread inventory and plan production to meet market demand.</CardDescription>
             </div>
             <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" /> Save Data</Button>
         </CardHeader>
@@ -112,6 +115,7 @@ export default function TreadExtrusionPage() {
                             <TableHead className="text-right">Production</TableHead>
                             <TableHead className="text-right">Consumption (Tyres)</TableHead>
                             <TableHead className="text-right">Closing Balance</TableHead>
+                            <TableHead className="text-right">Shortfall / Surplus</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -140,10 +144,13 @@ export default function TreadExtrusionPage() {
                                 </TableCell>
                                 <TableCell className="text-right">{item.consumption.toLocaleString()}</TableCell>
                                 <TableCell className="text-right font-bold">{item.closingBalance.toLocaleString()}</TableCell>
+                                <TableCell className={cn("text-right font-bold", item.shortfall > 0 ? "text-destructive" : "text-green-600")}>
+                                  {item.shortfall.toLocaleString()}
+                                </TableCell>
                             </TableRow>
                         )) : (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                                     No market requirements found. Please upload demand data in the Admin panel.
                                 </TableCell>
                             </TableRow>
