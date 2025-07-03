@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -20,11 +21,15 @@ export default function DailyTreadProductionPage() {
   
   const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
   const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, number>>>({});
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [dailyProductionEntries, setDailyProductionEntries] = useState<Record<string, number>>({});
   
   const [sapCodeFilter, setSapCodeFilter] = useState('');
   const [skuFilter, setSkuFilter] = useState('');
+
+  useEffect(() => {
+    setSelectedDate(new Date());
+  }, []);
 
   useEffect(() => {
     // Load market requirements
@@ -37,6 +42,7 @@ export default function DailyTreadProductionPage() {
   }, []);
 
   useEffect(() => {
+    if (!selectedDate) return;
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     setDailyProductionEntries(dailyProductionLog[dateKey] || {});
   }, [selectedDate, dailyProductionLog]);
@@ -50,6 +56,14 @@ export default function DailyTreadProductionPage() {
   };
   
   const handleSaveDailyProduction = () => {
+    if (!selectedDate) {
+      toast({
+        variant: 'destructive',
+        title: 'Please wait',
+        description: 'The date is still loading. Please try again in a moment.',
+      });
+      return;
+    }
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const newLog = { ...dailyProductionLog, [dateKey]: dailyProductionEntries };
     setDailyProductionLog(newLog);
