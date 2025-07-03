@@ -79,7 +79,7 @@ export default function TreadExtrusionPage() {
       const stock = treadData.find(t => t.sku === req.sku) || { openingStock: 0, production: 0 };
       const consumption = tyreConsumption[req.sku] || 0;
       const closingBalance = stock.openingStock + stock.production - consumption;
-      const treadBalanceToProduce = Math.max(0, req.demand - closingBalance);
+      const treadBalanceToProduce = Math.max(0, req.demand - stock.openingStock - consumption);
       
       return {
         ...req,
