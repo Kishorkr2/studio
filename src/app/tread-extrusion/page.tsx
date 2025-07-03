@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -33,7 +34,7 @@ export default function TreadExtrusionPage() {
     openingStock: true,
     production: true,
     consumption: true,
-    closingBalance: true,
+    currentTreadStock: true,
     treadBalanceToProduce: true,
   });
 
@@ -96,14 +97,14 @@ export default function TreadExtrusionPage() {
     return marketRequirements.map(req => {
       const stock = treadData.find(t => t.sku === req.sku) || { openingStock: 0, production: 0 };
       const consumption = tyreConsumption[req.sku] || 0;
-      const closingBalance = stock.openingStock + stock.production - consumption;
+      const currentTreadStock = stock.openingStock + stock.production - consumption;
       const treadBalanceToProduce = Math.max(0, req.demand - stock.openingStock - consumption);
       
       return {
         ...req,
         ...stock,
         consumption,
-        closingBalance,
+        currentTreadStock,
         treadBalanceToProduce,
       };
     });
@@ -162,10 +163,10 @@ export default function TreadExtrusionPage() {
                     Consumption (Tyres)
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
-                    checked={columnVisibility.closingBalance}
-                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, closingBalance: !!value}))}
+                    checked={columnVisibility.currentTreadStock}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, currentTreadStock: !!value}))}
                   >
-                    Closing Balance
+                    Current Tread Stock
                   </DropdownMenuCheckboxItem>
                    <DropdownMenuCheckboxItem
                     checked={columnVisibility.treadBalanceToProduce}
@@ -189,7 +190,7 @@ export default function TreadExtrusionPage() {
                             {columnVisibility.openingStock && <TableHead className="text-right">Opening Stock</TableHead>}
                             {columnVisibility.production && <TableHead className="text-right">Production</TableHead>}
                             {columnVisibility.consumption && <TableHead className="text-right">Consumption (Tyres)</TableHead>}
-                            {columnVisibility.closingBalance && <TableHead className="text-right">Closing Balance</TableHead>}
+                            {columnVisibility.currentTreadStock && <TableHead className="text-right">Current Tread Stock</TableHead>}
                             {columnVisibility.treadBalanceToProduce && <TableHead className="text-right">Tread Balance to Produce</TableHead>}
                         </TableRow>
                     </TableHeader>
@@ -222,7 +223,7 @@ export default function TreadExtrusionPage() {
                                     </TableCell>
                                 )}
                                 {columnVisibility.consumption && <TableCell className="text-right">{item.consumption.toLocaleString()}</TableCell>}
-                                {columnVisibility.closingBalance && <TableCell className="text-right font-bold">{item.closingBalance.toLocaleString()}</TableCell>}
+                                {columnVisibility.currentTreadStock && <TableCell className="text-right font-bold">{item.currentTreadStock.toLocaleString()}</TableCell>}
                                 {columnVisibility.treadBalanceToProduce && (
                                   <TableCell className={cn("text-right font-bold", item.treadBalanceToProduce > 0 ? "text-destructive" : "text-green-600")}>
                                     {item.treadBalanceToProduce.toLocaleString()}
