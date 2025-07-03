@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -45,6 +44,9 @@ export default function TreadExtrusionPage() {
     currentTreadStock: true,
     treadBalanceToProduce: true,
   });
+
+  const [sapCodeFilter, setSapCodeFilter] = useState('');
+  const [skuFilter, setSkuFilter] = useState('');
 
   useEffect(() => {
     // Load market requirements
@@ -136,11 +138,18 @@ export default function TreadExtrusionPage() {
     }
     return totals;
   }, [dailyProductionLog]);
+  
+  const filteredMarketRequirements = useMemo(() => {
+    return marketRequirements.filter(req =>
+      (req.sapCode?.toLowerCase() || '').includes(sapCodeFilter.toLowerCase()) &&
+      (req.sku?.toLowerCase() || '').includes(skuFilter.toLowerCase())
+    );
+  }, [marketRequirements, sapCodeFilter, skuFilter]);
 
   const combinedData = useMemo(() => {
-    if (marketRequirements.length === 0) return [];
+    if (filteredMarketRequirements.length === 0) return [];
     
-    return marketRequirements.map(req => {
+    return filteredMarketRequirements.map(req => {
       const openingStockInfo = openingStockData.find(t => t.sku === req.sku) || { openingStock: 0 };
       const totalProduction = totalProductionBySku[req.sku] || 0;
       const consumption = tyreConsumption[req.sku] || 0;
@@ -156,7 +165,7 @@ export default function TreadExtrusionPage() {
         treadBalanceToProduce,
       };
     });
-  }, [marketRequirements, openingStockData, tyreConsumption, totalProductionBySku]);
+  }, [filteredMarketRequirements, openingStockData, tyreConsumption, totalProductionBySku]);
   
   const visibleColumnsCount = 1 + Object.values(columnVisibility).filter(Boolean).length;
 
@@ -228,6 +237,20 @@ export default function TreadExtrusionPage() {
             </div>
         </CardHeader>
         <CardContent>
+            <div className="flex gap-4 my-4">
+              <Input
+                placeholder="Filter by SAP Code..."
+                value={sapCodeFilter}
+                onChange={(e) => setSapCodeFilter(e.target.value)}
+                className="max-w-sm"
+              />
+              <Input
+                placeholder="Filter by SKU..."
+                value={skuFilter}
+                onChange={(e) => setSkuFilter(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
             <div className="border rounded-lg">
                 <Table>
                     <TableHeader>
@@ -271,7 +294,7 @@ export default function TreadExtrusionPage() {
                         )) : (
                             <TableRow>
                                 <TableCell colSpan={visibleColumnsCount} className="h-24 text-center text-muted-foreground">
-                                    No market requirements found. Please upload demand data in the Admin panel.
+                                    No data matches your criteria.
                                 </TableCell>
                             </TableRow>
                         )}
@@ -313,7 +336,7 @@ export default function TreadExtrusionPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {marketRequirements.length > 0 ? marketRequirements.map(req => (
+                {filteredMarketRequirements.length > 0 ? filteredMarketRequirements.map(req => (
                   <TableRow key={req.sku}>
                     <TableCell className="font-medium">{req.sku}</TableCell>
                     <TableCell className="text-right">
@@ -329,7 +352,7 @@ export default function TreadExtrusionPage() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
-                      No SKUs available. Upload market requirements first.
+                      No SKUs available for the current filters.
                     </TableCell>
                   </TableRow>
                 )}
