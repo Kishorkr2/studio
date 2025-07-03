@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import type { MarketRequirement, ProductionLog, TreadStock } from '@/lib/types';
-import { Save, SlidersHorizontal } from 'lucide-react';
+import { CalendarIcon, Save, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -18,16 +18,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 
-const TREAD_STOCK_KEY = 'tyretrack-tread-stock';
+const TREAD_OPENING_STOCK_KEY = 'tyretrack-tread-opening-stock';
+const TREAD_DAILY_PRODUCTION_KEY = 'tyretrack-tread-daily-production';
 
 export default function TreadExtrusionPage() {
   const { toast } = useToast();
   
   const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
-  const [treadData, setTreadData] = useState<TreadStock[]>([]);
+  const [openingStockData, setOpeningStockData] = useState<TreadStock[]>([]);
   const [tyreConsumption, setTyreConsumption] = useState<Record<string, number>>({});
   
+  const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, number>>>({});
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [dailyProductionEntries, setDailyProductionEntries] = useState<Record<string, number>>({});
+
   const [columnVisibility, setColumnVisibility] = useState({
     sapCode: true,
     demand: true,
@@ -43,15 +51,18 @@ export default function TreadExtrusionPage() {
     const loadedMarketReqs = JSON.parse(localStorage.getItem('tyretrack-market-requirements') || '[]') as MarketRequirement[];
     setMarketRequirements(loadedMarketReqs);
     
-    // Load saved tread stock data
-    const savedTreadData = JSON.parse(localStorage.getItem(TREAD_STOCK_KEY) || '[]') as TreadStock[];
+    // Load saved opening stock data
+    const savedOpeningStock = JSON.parse(localStorage.getItem(TREAD_OPENING_STOCK_KEY) || '[]') as TreadStock[];
     
-    // Initialize tread data from market requirements if it's not already saved
-    const initialTreadData = loadedMarketReqs.map(req => {
-        const existing = savedTreadData.find(t => t.sku === req.sku);
-        return existing || { sku: req.sku, openingStock: 0, production: 0 };
+    const initialOpeningStock = loadedMarketReqs.map(req => {
+        const existing = savedOpeningStock.find(t => t.sku === req.sku);
+        return existing || { sku: req.sku, openingStock: 0, production: 0 }; // production is unused here
     });
-    setTreadData(initialTreadData);
+    setOpeningStockData(initialOpeningStock);
+
+    // Load daily production log
+    const savedDailyProduction = JSON.parse(localStorage.getItem(TREAD_DAILY_PRODUCTION_KEY) || '{}');
+    setDailyProductionLog(savedDailyProduction);
 
     // Calculate tyre consumption from all production logs
     const consumption: Record<string, number> = {};
@@ -72,43 +83,80 @@ export default function TreadExtrusionPage() {
     }
     setTyreConsumption(consumption);
   }, []);
+
+  useEffect(() => {
+    const dateKey = format(selectedDate, 'yyyy-MM-dd');
+    setDailyProductionEntries(dailyProductionLog[dateKey] || {});
+  }, [selectedDate, dailyProductionLog]);
   
-  const handleDataChange = (sku: string, field: 'openingStock' | 'production', value: string) => {
+  const handleOpeningStockChange = (sku: string, value: string) => {
     const numericValue = parseInt(value, 10) || 0;
-    setTreadData(currentData =>
+    setOpeningStockData(currentData =>
       currentData.map(item =>
-        item.sku === sku ? { ...item, [field]: numericValue } : item
+        item.sku === sku ? { ...item, openingStock: numericValue } : item
       )
     );
   };
   
-  const handleSave = () => {
-    localStorage.setItem(TREAD_STOCK_KEY, JSON.stringify(treadData));
+  const handleSaveOpeningStock = () => {
+    localStorage.setItem(TREAD_OPENING_STOCK_KEY, JSON.stringify(openingStockData));
     toast({
       title: 'Success!',
-      description: 'Tread extrusion data has been saved.',
+      description: 'Opening stock data has been saved.',
       action: <Save className="text-green-500" />,
     });
   };
+
+  const handleDailyProductionChange = (sku: string, value: string) => {
+    const numericValue = parseInt(value, 10) || 0;
+    setDailyProductionEntries(currentEntries => ({
+      ...currentEntries,
+      [sku]: numericValue
+    }));
+  };
+  
+  const handleSaveDailyProduction = () => {
+    const dateKey = format(selectedDate, 'yyyy-MM-dd');
+    const newLog = { ...dailyProductionLog, [dateKey]: dailyProductionEntries };
+    setDailyProductionLog(newLog);
+    localStorage.setItem(TREAD_DAILY_PRODUCTION_KEY, JSON.stringify(newLog));
+    toast({
+      title: 'Success!',
+      description: `Tread production for ${format(selectedDate, "PPP")} has been saved.`,
+      action: <Save className="text-green-500" />,
+    });
+  };
+
+  const totalProductionBySku = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const date in dailyProductionLog) {
+      for (const sku in dailyProductionLog[date]) {
+        totals[sku] = (totals[sku] || 0) + dailyProductionLog[date][sku];
+      }
+    }
+    return totals;
+  }, [dailyProductionLog]);
 
   const combinedData = useMemo(() => {
     if (marketRequirements.length === 0) return [];
     
     return marketRequirements.map(req => {
-      const stock = treadData.find(t => t.sku === req.sku) || { openingStock: 0, production: 0 };
+      const openingStockInfo = openingStockData.find(t => t.sku === req.sku) || { openingStock: 0 };
+      const totalProduction = totalProductionBySku[req.sku] || 0;
       const consumption = tyreConsumption[req.sku] || 0;
-      const currentTreadStock = stock.openingStock + stock.production - consumption;
-      const treadBalanceToProduce = Math.max(0, req.demand - stock.openingStock - consumption);
+      const currentTreadStock = openingStockInfo.openingStock + totalProduction - consumption;
+      const treadBalanceToProduce = Math.max(0, req.demand - openingStockInfo.openingStock - consumption);
       
       return {
         ...req,
-        ...stock,
+        openingStock: openingStockInfo.openingStock,
+        production: totalProduction,
         consumption,
         currentTreadStock,
         treadBalanceToProduce,
       };
     });
-  }, [marketRequirements, treadData, tyreConsumption]);
+  }, [marketRequirements, openingStockData, tyreConsumption, totalProductionBySku]);
   
   const visibleColumnsCount = 1 + Object.values(columnVisibility).filter(Boolean).length;
 
@@ -154,7 +202,7 @@ export default function TreadExtrusionPage() {
                     checked={columnVisibility.production}
                     onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, production: !!value}))}
                   >
-                    Production
+                    Total Production
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={columnVisibility.consumption}
@@ -176,7 +224,7 @@ export default function TreadExtrusionPage() {
                   </DropdownMenuCheckboxItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" /> Save Data</Button>
+              <Button onClick={handleSaveOpeningStock}><Save className="mr-2 h-4 w-4" /> Save Opening Stock</Button>
             </div>
         </CardHeader>
         <CardContent>
@@ -188,7 +236,7 @@ export default function TreadExtrusionPage() {
                             <TableHead>SKU</TableHead>
                             {columnVisibility.demand && <TableHead className="text-right">Demand</TableHead>}
                             {columnVisibility.openingStock && <TableHead className="text-right">Opening Stock</TableHead>}
-                            {columnVisibility.production && <TableHead className="text-right">Production</TableHead>}
+                            {columnVisibility.production && <TableHead className="text-right">Total Production</TableHead>}
                             {columnVisibility.consumption && <TableHead className="text-right">Consumption (Tyres)</TableHead>}
                             {columnVisibility.currentTreadStock && <TableHead className="text-right">Current Tread Stock</TableHead>}
                             {columnVisibility.treadBalanceToProduce && <TableHead className="text-right">Tread Balance to Produce</TableHead>}
@@ -207,21 +255,11 @@ export default function TreadExtrusionPage() {
                                             className="w-28 ml-auto text-right"
                                             placeholder="0"
                                             value={item.openingStock === 0 ? '' : item.openingStock}
-                                            onChange={(e) => handleDataChange(item.sku, 'openingStock', e.target.value)}
+                                            onChange={(e) => handleOpeningStockChange(item.sku, e.target.value)}
                                         />
                                     </TableCell>
                                 )}
-                                {columnVisibility.production && (
-                                    <TableCell className="text-right">
-                                        <Input
-                                            type="number"
-                                            className="w-28 ml-auto text-right"
-                                            placeholder="0"
-                                            value={item.production === 0 ? '' : item.production}
-                                            onChange={(e) => handleDataChange(item.sku, 'production', e.target.value)}
-                                        />
-                                    </TableCell>
-                                )}
+                                {columnVisibility.production && <TableCell className="text-right">{item.production.toLocaleString()}</TableCell>}
                                 {columnVisibility.consumption && <TableCell className="text-right">{item.consumption.toLocaleString()}</TableCell>}
                                 {columnVisibility.currentTreadStock && <TableCell className="text-right font-bold">{item.currentTreadStock.toLocaleString()}</TableCell>}
                                 {columnVisibility.treadBalanceToProduce && (
@@ -240,6 +278,64 @@ export default function TreadExtrusionPage() {
                     </TableBody>
                 </Table>
             </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Daily Tread Production</CardTitle>
+          <CardDescription>Enter the quantity of tread produced for each SKU for a specific day.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn("w-full sm:w-[280px] justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} initialFocus />
+              </PopoverContent>
+            </Popover>
+            <Button onClick={handleSaveDailyProduction}><Save className="mr-2 h-4 w-4" /> Save Daily Production</Button>
+          </div>
+          <div className="border rounded-lg max-h-96 overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>SKU</TableHead>
+                  <TableHead className="text-right">Production Quantity</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {marketRequirements.length > 0 ? marketRequirements.map(req => (
+                  <TableRow key={req.sku}>
+                    <TableCell className="font-medium">{req.sku}</TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        className="w-32 ml-auto text-right"
+                        placeholder="0"
+                        value={dailyProductionEntries[req.sku] || ''}
+                        onChange={(e) => handleDailyProductionChange(req.sku, e.target.value)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
+                      No SKUs available. Upload market requirements first.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
