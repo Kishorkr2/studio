@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -235,8 +236,8 @@ export default function TreadExtrusionPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {combinedData.length > 0 ? combinedData.map(item => (
-                            <TableRow key={item.sku}>
+                        {combinedData.length > 0 ? combinedData.map((item, index) => (
+                            <TableRow key={`${item.sku}-${index}`}>
                                 {columnVisibility.sapCode && <TableCell>{item.sapCode}</TableCell>}
                                 <TableCell className="font-medium">{item.sku}</TableCell>
                                 {columnVisibility.demand && <TableCell className="text-right">{item.demand.toLocaleString()}</TableCell>}

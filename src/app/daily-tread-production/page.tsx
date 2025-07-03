@@ -134,8 +134,8 @@ export default function DailyTreadProductionPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredMarketRequirements.length > 0 ? filteredMarketRequirements.map(req => (
-                  <TableRow key={req.sku}>
+                {filteredMarketRequirements.length > 0 ? filteredMarketRequirements.map((req, index) => (
+                  <TableRow key={`${req.sku}-${index}`}>
                     <TableCell className="font-medium">{req.sku}</TableCell>
                     <TableCell className="text-right">
                       <Input
