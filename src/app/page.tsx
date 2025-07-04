@@ -75,22 +75,37 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    const loadedShifts = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || shifts;
-    const loadedMachines = JSON.parse(localStorage.getItem('tyretrack-machines') || 'null') || initialMachines;
-    const loadedOperators = JSON.parse(localStorage.getItem('tyretrack-operators') || 'null') || initialOperators;
-    const loadedProductionPlan = JSON.parse(localStorage.getItem('tyretrack-production-plan') || 'null') || initialProductionPlan;
+    const loadData = () => {
+      const loadedShifts = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || shifts;
+      const loadedMachines = JSON.parse(localStorage.getItem('tyretrack-machines') || 'null') || initialMachines;
+      const loadedOperators = JSON.parse(localStorage.getItem('tyretrack-operators') || 'null') || initialOperators;
+      const loadedProductionPlan = JSON.parse(localStorage.getItem('tyretrack-production-plan') || 'null') || initialProductionPlan;
 
-    setAllShifts(loadedShifts);
-    setAllMachines(loadedMachines);
-    setAllOperators(loadedOperators);
-    setAllProductionPlan(loadedProductionPlan);
-
-    setAvailableOperators(loadedOperators.filter((op: Operator) => !op.isAbsent));
+      setAllShifts(loadedShifts);
+      setAllMachines(loadedMachines);
+      setAllOperators(loadedOperators);
+      setAllProductionPlan(loadedProductionPlan);
+      
+      if (loadedShifts.length > 0 && !selectedShift) {
+        setSelectedShift(loadedShifts[0]);
+      }
+    };
     
-    if (loadedShifts.length > 0) {
-      setSelectedShift(loadedShifts[0]);
-    }
-  }, []);
+    loadData();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key?.startsWith('tyretrack-')) {
+        loadData();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [selectedShift]);
+  
+  useEffect(() => {
+    setAvailableOperators(allOperators.filter((op: Operator) => !op.isAbsent));
+  }, [allOperators]);
   
   const getLogKey = useCallback((date: Date, shift: ShiftInfo | undefined) => {
     if (!shift) return '';
@@ -152,14 +167,9 @@ export default function DashboardPage() {
 
       const newRoundTimes = generateRoundTimes(selectedShift);
       setRoundTimes(newRoundTimes);
-      const firstRound = newRoundTimes[0] || '';
-      setSelectedRound(firstRound);
-
-      const firstRoundLog = parsedLog[firstRound];
-      if (firstRoundLog) {
-        setEntries(firstRoundLog.entries);
-      } else {
-        setEntries(getInitialEntries());
+      
+      if (!newRoundTimes.includes(selectedRound) || !selectedRound) {
+        setSelectedRound(newRoundTimes[0] || '');
       }
 
     } catch (error) {
@@ -167,7 +177,7 @@ export default function DashboardPage() {
       setProductionLog({});
       setEntries(getInitialEntries());
     }
-  }, [selectedDate, selectedShift, getLogKey, getInitialEntries, generateRoundTimes]);
+  }, [selectedDate, selectedShift, getLogKey, getInitialEntries, generateRoundTimes, selectedRound]);
   
   useEffect(() => {
     if (typeof window !== 'undefined' && selectedShift) {
@@ -180,15 +190,33 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!selectedRound) return;
-    const loggedEntry = productionLog[selectedRound];
-    if (loggedEntry) {
-      const availableMachineIds = allMachines.filter(m => m.isAvailable).map(m => m.id);
-      const filteredEntries = loggedEntry.entries.filter(e => availableMachineIds.includes(e.machineId));
-      setEntries(filteredEntries);
-    } else {
-      setEntries(getInitialEntries());
-    }
-  }, [selectedRound, productionLog, getInitialEntries, allMachines]);
+
+    const availableMachines = allMachines.filter(m => m.isAvailable);
+    const roundLogEntries = productionLog[selectedRound]?.entries || [];
+    const logMap = new Map(roundLogEntries.map(e => [e.machineId, e]));
+
+    const newEntries = availableMachines.map(machine => {
+      const existingEntry = logMap.get(machine.id);
+      if (existingEntry) {
+        return { ...existingEntry, name: machine.name };
+      }
+      
+      const planItem = allProductionPlan.find(p => p.machineId === machine.id);
+      return {
+        machineId: machine.id,
+        name: machine.name,
+        status: 'Online',
+        sku: planItem?.skus?.[0] || '',
+        quantity: 0,
+        operatorId: '',
+        remark: '',
+        trolleyNo: '',
+        noOfSpool: '',
+      };
+    });
+
+    setEntries(newEntries);
+  }, [selectedRound, productionLog, allMachines, allProductionPlan]);
   
   useEffect(() => {
     if (isOnline) {
