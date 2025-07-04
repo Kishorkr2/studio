@@ -165,17 +165,27 @@ export default function DashboardPage() {
     const logMap = new Map(roundLogEntries.map(e => [e.machineId, e]));
 
     const newEntries = availableMachines.map(machine => {
+      const planItem = allProductionPlan.find(p => p.machineId === machine.id);
+      const machineSkus = planItem?.skus || [];
       const existingEntry = logMap.get(machine.id);
+
       if (existingEntry) {
-        return { ...existingEntry, name: machine.name };
+        // If an entry exists, use it, but ensure the SKU is still valid.
+        // If the saved SKU is no longer in the plan, default to the first available SKU.
+        const updatedSku = machineSkus.includes(existingEntry.sku) ? existingEntry.sku : (machineSkus[0] || '');
+        return { 
+          ...existingEntry, 
+          name: machine.name,
+          sku: updatedSku,
+        };
       }
       
-      const planItem = allProductionPlan.find(p => p.machineId === machine.id);
+      // If no entry exists, create a new one.
       return {
         machineId: machine.id,
         name: machine.name,
         status: 'Online',
-        sku: planItem?.skus?.[0] || '',
+        sku: machineSkus[0] || '', // Default to the first SKU in the plan
         quantity: 0,
         operatorId: '',
         remark: '',
@@ -186,6 +196,7 @@ export default function DashboardPage() {
 
     setEntries(newEntries);
   }, [selectedRound, productionLog, allMachines, allProductionPlan]);
+
 
   const handleEntryChange = (machineId: string, field: 'operatorId' | 'quantity' | 'remark' | 'sku' | 'trolleyNo' | 'noOfSpool', value: string) => {
     setEntries(prevEntries =>
