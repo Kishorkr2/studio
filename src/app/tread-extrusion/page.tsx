@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import type { MarketRequirement, ProductionLog, TreadStock, ShiftInfo } from '@/lib/types';
+import type { MarketRequirement, ProductionLog, TreadStock, ShiftInfo, MachineProductionData } from '@/lib/types';
 import { Save, SlidersHorizontal, ClipboardList, Factory, Scale } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -18,26 +18,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { shifts as initialShifts } from '@/lib/data';
-
-const TREAD_OPENING_STOCK_KEY = 'tyretrack-tread-opening-stock';
-const TREAD_DAILY_PRODUCTION_KEY = 'tyretrack-tread-daily-production';
+import * as DataService from '@/lib/data-service';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DailyProductionEntry {
   quantity: number;
   trolleyNo: string;
+  noOfSpool: string;
 }
 
 export default function TreadExtrusionPage() {
   const { toast } = useToast();
   
+  const [loading, setLoading] = useState(true);
   const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
   const [openingStockData, setOpeningStockData] = useState<TreadStock[]>([]);
   const [tyreProductionData, setTyreProductionData] = useState<Record<string, number>>({});
-  const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, Record<string, DailyProductionEntry> | DailyProductionEntry | number>>>(
-    {}
-  );
-  const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
+  const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, Record<string, DailyProductionEntry>>>>({});
 
   const [columnVisibility, setColumnVisibility] = useState({
     sapCode: true,
@@ -53,45 +50,43 @@ export default function TreadExtrusionPage() {
   const [skuFilter, setSkuFilter] = useState('');
 
   useEffect(() => {
-    // Load shifts
-    const loadedShifts: ShiftInfo[] = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || initialShifts;
-    setAllShifts(loadedShifts);
+    setLoading(true);
 
-    // Load market requirements
-    const loadedMarketReqs = JSON.parse(localStorage.getItem('tyretrack-market-requirements') || '[]') as MarketRequirement[];
-    setMarketRequirements(loadedMarketReqs);
+    const unsubMarketReq = DataService.subscribeToCollection<MarketRequirement>('marketRequirements', setMarketRequirements);
     
-    // Load saved opening stock data
-    const savedOpeningStock = JSON.parse(localStorage.getItem(TREAD_OPENING_STOCK_KEY) || '[]') as TreadStock[];
-    
-    const initialOpeningStock = loadedMarketReqs.map(req => {
-        const existing = savedOpeningStock.find(t => t.sku === req.sku);
-        return existing || { sku: req.sku, openingStock: 0, production: 0 }; // production is unused here
-    });
-    setOpeningStockData(initialOpeningStock);
+    const fetchInitialData = async () => {
+        // Fetch daily production (tread)
+        const dailyProdLog = await DataService.getDailyProductionLog();
+        setDailyProductionLog(dailyProdLog);
 
-    // Load daily production log for total calculation
-    const savedDailyProduction = JSON.parse(localStorage.getItem(TREAD_DAILY_PRODUCTION_KEY) || '{}');
-    setDailyProductionLog(savedDailyProduction);
-
-    // Calculate tyre production from all production logs
-    const tyreProduction: Record<string, number> = {};
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('production-log-')) {
-            const logData: ProductionLog = JSON.parse(localStorage.getItem(key) || '{}');
-            Object.values(logData).forEach(logEntry => {
-              if (logEntry.entries) {
-                logEntry.entries.forEach(entry => {
-                    if (entry.sku && entry.quantity > 0) {
-                        tyreProduction[entry.sku] = (tyreProduction[entry.sku] || 0) + entry.quantity;
-                    }
-                });
-              }
+        // Fetch tyre production (green tyre)
+        const history = await DataService.getFullProductionHistory();
+        const tyreProduction: Record<string, number> = {};
+        history.forEach(logDoc => {
+            Object.values(logDoc as ProductionLog).forEach((logEntry: any) => {
+                if (logEntry.entries) {
+                    logEntry.entries.forEach((entry: MachineProductionData) => {
+                        if (entry.sku && entry.quantity > 0) {
+                            tyreProduction[entry.sku] = (tyreProduction[entry.sku] || 0) + entry.quantity;
+                        }
+                    });
+                }
             });
-        }
+        });
+        setTyreProductionData(tyreProduction);
+
+        // Fetch opening stock
+        const savedOpeningStock = await DataService.getTreadOpeningStock();
+        setOpeningStockData(savedOpeningStock);
+        
+        setLoading(false);
+    };
+
+    fetchInitialData();
+
+    return () => {
+        unsubMarketReq();
     }
-    setTyreProductionData(tyreProduction);
   }, []);
   
   const handleOpeningStockChange = (sku: string, value: string) => {
@@ -103,8 +98,8 @@ export default function TreadExtrusionPage() {
     );
   };
   
-  const handleSaveOpeningStock = () => {
-    localStorage.setItem(TREAD_OPENING_STOCK_KEY, JSON.stringify(openingStockData));
+  const handleSaveOpeningStock = async () => {
+    await DataService.saveTreadOpeningStock(openingStockData);
     toast({
       title: 'Success!',
       description: 'Opening stock data has been saved.',
@@ -114,40 +109,22 @@ export default function TreadExtrusionPage() {
 
   const totalProductionBySku = useMemo(() => {
     const totals: Record<string, number> = {};
-    if (allShifts.length === 0) return totals;
-
     for (const dateKey in dailyProductionLog) {
         const dateData = dailyProductionLog[dateKey];
         if (!dateData || typeof dateData !== 'object') continue;
 
-        const firstKey = Object.keys(dateData)[0];
-        if (!firstKey) continue;
-        
-        const isNewFormat = allShifts.some(shift => shift.name === firstKey);
-
-        if (isNewFormat) {
-            // Handle new format: { [dateKey]: { [shiftName]: { [sku]: entry } } }
-            for (const shiftName in dateData) {
-                const shiftEntries = dateData[shiftName] as Record<string, DailyProductionEntry | number>;
-                if (shiftEntries && typeof shiftEntries === 'object') {
-                    for (const sku in shiftEntries) {
-                        const entry = shiftEntries[sku];
-                        const quantity = typeof entry === 'number' ? entry : (entry?.quantity || 0);
-                        totals[sku] = (totals[sku] || 0) + quantity;
-                    }
+        for (const shiftName in dateData) {
+            const shiftEntries = dateData[shiftName] as Record<string, DailyProductionEntry>;
+            if (shiftEntries && typeof shiftEntries === 'object') {
+                for (const sku in shiftEntries) {
+                    const entry = shiftEntries[sku];
+                    totals[sku] = (totals[sku] || 0) + (entry.quantity || 0);
                 }
-            }
-        } else {
-            // Handle old format: { [dateKey]: { [sku]: entry } }
-            for (const sku in dateData) {
-                const entry = dateData[sku] as DailyProductionEntry | number;
-                const quantity = typeof entry === 'number' ? entry : (entry?.quantity || 0);
-                totals[sku] = (totals[sku] || 0) + quantity;
             }
         }
     }
     return totals;
-  }, [dailyProductionLog, allShifts]);
+  }, [dailyProductionLog]);
   
   const filteredMarketRequirements = useMemo(() => {
     return marketRequirements.filter(req =>
@@ -157,14 +134,12 @@ export default function TreadExtrusionPage() {
   }, [marketRequirements, sapCodeFilter, skuFilter]);
 
   const combinedData = useMemo(() => {
-    if (filteredMarketRequirements.length === 0) return [];
-    
     return filteredMarketRequirements.map(req => {
       const openingStockInfo = openingStockData.find(t => t.sku === req.sku) || { openingStock: 0 };
       const totalProduction = totalProductionBySku[req.sku] || 0;
       const tyreProduction = tyreProductionData[req.sku] || 0;
       const currentTreadStock = openingStockInfo.openingStock + totalProduction - tyreProduction;
-      const treadBalanceToProduce = Math.max(0, req.demand - openingStockInfo.openingStock - tyreProduction);
+      const treadBalanceToProduce = Math.max(0, req.demand - currentTreadStock);
       
       return {
         ...req,
@@ -188,6 +163,28 @@ export default function TreadExtrusionPage() {
     const totalCurrentStock = combinedData.reduce((acc, item) => acc + (item.currentTreadStock || 0), 0);
     return { totalDemand, totalProduction, totalCurrentStock };
   }, [combinedData]);
+
+  if (loading) {
+      return (
+        <div className="space-y-6">
+            <h1 className="text-3xl font-bold tracking-tight">Tread Extrusion Planning</h1>
+            <div className="grid gap-6 md:grid-cols-3">
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+            </div>
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/3" />
+                    <Skeleton className="h-4 w-1/2" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-48 w-full" />
+                </CardContent>
+            </Card>
+        </div>
+      );
+  }
 
   return (
     <div className="space-y-6">
@@ -331,7 +328,7 @@ export default function TreadExtrusionPage() {
                                             type="number"
                                             className="w-28 ml-auto text-right"
                                             placeholder="0"
-                                            value={item.openingStock === 0 ? '' : item.openingStock}
+                                            value={openingStockData.find(s => s.sku === item.sku)?.openingStock || ''}
                                             onChange={(e) => handleOpeningStockChange(item.sku, e.target.value)}
                                         />
                                     </TableCell>

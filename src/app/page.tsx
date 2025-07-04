@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, CheckCircle, Clock, Eraser, Save, SlidersHorizontal, Wifi, WifiOff } from 'lucide-react';
+import { CalendarIcon, CheckCircle, Clock, Eraser, Save, SlidersHorizontal, Loader2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -44,12 +44,13 @@ import { format } from "date-fns";
 import type { Machine, MachineProductionData, ShiftInfo, Operator, ProductionLog, ProductionPlanItem } from '@/lib/types';
 import { initialOperators, initialMachines, initialProductionPlan, shifts } from '@/lib/data';
 import { cn } from '@/lib/utils';
-import { useOnlineStatus } from '@/hooks/use-online-status';
+import * as DataService from '@/lib/data-service';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
   const { toast } = useToast();
-  const isOnline = useOnlineStatus();
 
+  const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
@@ -74,42 +75,30 @@ export default function DashboardPage() {
     remark: true,
   });
 
+  // --- Data Fetching and Subscriptions ---
   useEffect(() => {
-    const loadData = () => {
-      const loadedShifts = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || shifts;
-      const loadedMachines = JSON.parse(localStorage.getItem('tyretrack-machines') || 'null') || initialMachines;
-      const loadedOperators = JSON.parse(localStorage.getItem('tyretrack-operators') || 'null') || initialOperators;
-      const loadedProductionPlan = JSON.parse(localStorage.getItem('tyretrack-production-plan') || 'null') || initialProductionPlan;
-
-      setAllShifts(loadedShifts);
-      setAllMachines(loadedMachines);
-      setAllOperators(loadedOperators);
-      setAllProductionPlan(loadedProductionPlan);
-      
-      if (loadedShifts.length > 0 && !selectedShift) {
-        setSelectedShift(loadedShifts[0]);
-      }
-    };
+    setLoading(true);
+    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', (data) => {
+        setAllShifts(data);
+        if (data.length > 0 && !selectedShift) {
+            setSelectedShift(data[0]);
+        }
+    }, shifts);
+    const unsubMachines = DataService.subscribeToCollection<Machine>('machines', setAllMachines, initialMachines);
+    const unsubOperators = DataService.subscribeToCollection<Operator>('operators', (data) => {
+        setAllOperators(data);
+        setAvailableOperators(data.filter(op => !op.isAbsent));
+    }, initialOperators);
+    const unsubProductionPlan = DataService.subscribeToCollection<ProductionPlanItem>('productionPlan', setAllProductionPlan, initialProductionPlan);
     
-    loadData();
+    setLoading(false);
 
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key?.startsWith('tyretrack-')) {
-        loadData();
-      }
+    return () => {
+        unsubShifts();
+        unsubMachines();
+        unsubOperators();
+        unsubProductionPlan();
     };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [selectedShift]);
-  
-  useEffect(() => {
-    setAvailableOperators(allOperators.filter((op: Operator) => !op.isAbsent));
-  }, [allOperators]);
-  
-  const getLogKey = useCallback((date: Date, shift: ShiftInfo | undefined) => {
-    if (!shift) return '';
-    return `production-log-${format(date, "yyyy-MM-dd")}-${shift.name.replace(/\s+/g, '-')}`;
   }, []);
 
   const getInitialEntries = useCallback((): MachineProductionData[] => {
@@ -138,10 +127,8 @@ export default function DashboardPage() {
     let currentHour = parseInt(startHourStr, 10);
     
     if (shift.name.toLowerCase().includes('day')) {
-        // Day shift starts e.g. 7:30, first round is 8:00 AM
         currentHour = 8;
     } else {
-        // Night shift starts e.g. 19:30, first round is 8:00 PM
         currentHour = 20;
     }
     
@@ -157,36 +144,18 @@ export default function DashboardPage() {
   }, []);
   
   useEffect(() => {
-    if(typeof window === 'undefined' || !selectedShift) return;
+    if(!selectedShift) return;
 
-    const logKey = getLogKey(selectedDate, selectedShift);
-    try {
-      const savedLog = localStorage.getItem(logKey);
-      const parsedLog = savedLog ? JSON.parse(savedLog) : {};
-      setProductionLog(parsedLog);
-
-      const newRoundTimes = generateRoundTimes(selectedShift);
-      setRoundTimes(newRoundTimes);
-      
-      if (!newRoundTimes.includes(selectedRound) || !selectedRound) {
-        setSelectedRound(newRoundTimes[0] || '');
-      }
-
-    } catch (error) {
-      console.error("Failed to parse production log from localStorage", error);
-      setProductionLog({});
-      setEntries(getInitialEntries());
+    const newRoundTimes = generateRoundTimes(selectedShift);
+    setRoundTimes(newRoundTimes);
+    
+    if (!newRoundTimes.includes(selectedRound) || !selectedRound) {
+      setSelectedRound(newRoundTimes[0] || '');
     }
-  }, [selectedDate, selectedShift, getLogKey, getInitialEntries, generateRoundTimes, selectedRound]);
   
-  useEffect(() => {
-    if (typeof window !== 'undefined' && selectedShift) {
-        const logKey = getLogKey(selectedDate, selectedShift);
-        if (logKey) {
-            localStorage.setItem(logKey, JSON.stringify(productionLog));
-        }
-    }
-  }, [productionLog, selectedDate, selectedShift, getLogKey]);
+    const unsub = DataService.subscribeToProductionLog(selectedDate, selectedShift, setProductionLog);
+    return () => unsub();
+  }, [selectedDate, selectedShift, generateRoundTimes, selectedRound]);
 
   useEffect(() => {
     if (!selectedRound) return;
@@ -217,38 +186,6 @@ export default function DashboardPage() {
 
     setEntries(newEntries);
   }, [selectedRound, productionLog, allMachines, allProductionPlan]);
-  
-  useEffect(() => {
-    if (isOnline) {
-      const syncData = async () => {
-        let changesMade = false;
-        const updatedLog = { ...productionLog };
-
-        for (const round of Object.keys(updatedLog)) {
-          if (updatedLog[round].status === 'pending') {
-            console.log(`Syncing round: ${round}`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            updatedLog[round].status = 'synced';
-            changesMade = true;
-            
-            toast({
-              title: 'Data Synced!',
-              description: `Round ${round} data has been synced.`,
-              action: <CheckCircle className="text-green-500" />,
-            });
-          }
-        }
-
-        if (changesMade) {
-          setProductionLog(updatedLog);
-        }
-      };
-
-      const timeoutId = setTimeout(syncData, 2000);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isOnline, productionLog, toast]);
 
   const handleEntryChange = (machineId: string, field: 'operatorId' | 'quantity' | 'remark' | 'sku' | 'trolleyNo' | 'noOfSpool', value: string) => {
     setEntries(prevEntries =>
@@ -263,32 +200,28 @@ export default function DashboardPage() {
     );
   };
   
-  const handleSaveRound = () => {
-    if (!selectedRound) {
+  const handleSaveRound = async () => {
+    if (!selectedRound || !selectedShift) {
         toast({
             variant: "destructive",
             title: "Cannot Save",
-            description: "Please select a round time first.",
+            description: "Please select a shift and round time first.",
         });
         return;
     }
-    setProductionLog(prevLog => ({
-      ...prevLog,
-      [selectedRound]: {
-          entries: entries,
-          status: 'pending'
-      },
-    }));
+    
+    await DataService.saveProductionRound(selectedDate, selectedShift, selectedRound, entries);
 
     toast({
-      title: 'Round Data Saved Locally',
-      description: `Data for round ${selectedRound} will sync when online.`,
-      action: <Save className="text-blue-500" />,
+      title: 'Round Data Saved',
+      description: `Data for round ${selectedRound} has been saved to the cloud.`,
+      action: <Save className="text-green-500" />,
     });
   };
 
-  const handleClearShiftData = () => {
+  const handleClearShiftData = async () => {
     if (!selectedShift) return;
+    await DataService.clearShiftData(selectedDate, selectedShift);
     setProductionLog({});
     setEntries(getInitialEntries());
     if (roundTimes.length > 0) {
@@ -314,6 +247,26 @@ export default function DashboardPage() {
       .flatMap(logEntry => logEntry.entries)
       .reduce((acc, entry) => acc + (entry.quantity || 0), 0);
   }, [productionLog]);
+
+  if(loading) {
+    return (
+        <div className="space-y-6">
+            <h1 className="text-3xl font-bold tracking-tight">Green Tyre Production Entry</h1>
+            <Card>
+                <CardContent className="p-4 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                    <Skeleton className="h-20 w-full" />
+                </CardContent>
+            </Card>
+            <Skeleton className="h-64 w-full" />
+        </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full gap-6">
@@ -362,7 +315,10 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between w-full">
                             <span>{time}</span>
                             {logEntry?.status === 'pending' && (
-                                <div className="w-2 h-2 rounded-full bg-yellow-500 ml-2" title="Pending Sync"></div>
+                                <Loader2 className="w-4 h-4 ml-2 animate-spin text-yellow-500" title="Syncing..." />
+                            )}
+                            {logEntry?.status === 'synced' && (
+                                <CheckCircle className="w-4 h-4 ml-2 text-green-500" title="Synced"/>
                             )}
                         </div>
                       </SelectItem>

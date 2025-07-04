@@ -15,9 +15,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { shifts as initialShifts } from '@/lib/data';
-
-
-const TREAD_DAILY_PRODUCTION_KEY = 'tyretrack-tread-daily-production';
+import * as DataService from '@/lib/data-service';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DailyProductionEntry {
   quantity: number;
@@ -28,9 +27,10 @@ interface DailyProductionEntry {
 export default function DailyTreadProductionPage() {
   const { toast } = useToast();
   
+  const [loading, setLoading] = useState(true);
   const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
   const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, Record<string, DailyProductionEntry>>>>({});
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dailyProductionEntries, setDailyProductionEntries] = useState<Record<string, DailyProductionEntry>>({});
   
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
@@ -40,72 +40,27 @@ export default function DailyTreadProductionPage() {
   const [skuFilter, setSkuFilter] = useState('');
 
   useEffect(() => {
-    setSelectedDate(new Date());
-  }, []);
+    setLoading(true);
+    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', (data) => {
+        setAllShifts(data);
+        if (data.length > 0 && !selectedShift) {
+            setSelectedShift(data[0]);
+        }
+    }, initialShifts);
 
-  useEffect(() => {
-    // Load shifts
-    const loadedShifts: ShiftInfo[] = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || initialShifts;
-    setAllShifts(loadedShifts);
-    if (loadedShifts.length > 0) {
-        setSelectedShift(loadedShifts[0]);
-    }
-
-    // Load market requirements
-    const loadedMarketReqs = JSON.parse(localStorage.getItem('tyretrack-market-requirements') || '[]') as MarketRequirement[];
-    setMarketRequirements(loadedMarketReqs);
+    const unsubMarketReq = DataService.subscribeToCollection<MarketRequirement>('marketRequirements', setMarketRequirements);
     
-    // Load daily production log and migrate old data if necessary
-    const savedDailyProduction = JSON.parse(localStorage.getItem(TREAD_DAILY_PRODUCTION_KEY) || '{}');
-    const normalizedLog: Record<string, Record<string, Record<string, DailyProductionEntry>>> = {};
-    const defaultShiftName = (loadedShifts.length > 0 && loadedShifts[0].name) || 'Day Shift';
-
-    for (const dateKey in savedDailyProduction) {
-      const dateData = savedDailyProduction[dateKey];
-      if (!dateData || typeof dateData !== 'object' || Array.isArray(dateData)) continue;
-
-      const firstKey = Object.keys(dateData)[0];
-      if (!firstKey) continue;
-      
-      const isNewFormat = loadedShifts.some(shift => shift.name === firstKey);
-
-      if (isNewFormat) {
-        // Data is already in the new format { [dateKey]: { [shiftName]: { [sku]: entry } } }
-        normalizedLog[dateKey] = {};
-        for (const shiftName in dateData) {
-          normalizedLog[dateKey][shiftName] = {};
-          const shiftEntries = dateData[shiftName];
-          for (const sku in shiftEntries) {
-            const entry = shiftEntries[sku];
-            if (typeof entry === 'number') {
-              normalizedLog[dateKey][shiftName][sku] = { quantity: entry, trolleyNo: '', noOfSpool: '' };
-            } else {
-              normalizedLog[dateKey][shiftName][sku] = {
-                 quantity: entry?.quantity || 0,
-                 trolleyNo: entry?.trolleyNo || '',
-                 noOfSpool: entry?.noOfSpool || '',
-              };
-            }
-          }
-        }
-      } else {
-        // Data is in the old format { [dateKey]: { [sku]: entry } }. Migrate it.
-        normalizedLog[dateKey] = { [defaultShiftName]: {} };
-        for (const sku in dateData) {
-          const entry = dateData[sku];
-          if (typeof entry === 'number') {
-            normalizedLog[dateKey][defaultShiftName][sku] = { quantity: entry, trolleyNo: '', noOfSpool: '' };
-          } else {
-            normalizedLog[dateKey][defaultShiftName][sku] = {
-              quantity: entry?.quantity || 0,
-              trolleyNo: entry?.trolleyNo || '',
-              noOfSpool: entry?.noOfSpool || '',
-            };
-          }
-        }
-      }
+    const fetchLog = async () => {
+        const log = await DataService.getDailyProductionLog();
+        setDailyProductionLog(log);
+        setLoading(false);
     }
-    setDailyProductionLog(normalizedLog);
+    fetchLog();
+
+    return () => {
+        unsubShifts();
+        unsubMarketReq();
+    }
   }, []);
 
   useEffect(() => {
@@ -129,7 +84,7 @@ export default function DailyTreadProductionPage() {
     });
   };
   
-  const handleSaveDailyProduction = () => {
+  const handleSaveDailyProduction = async () => {
     if (!selectedDate || !selectedShift) {
       toast({
         variant: 'destructive',
@@ -148,8 +103,8 @@ export default function DailyTreadProductionPage() {
     
     const newLog = { ...dailyProductionLog, [dateKey]: updatedLogForDate };
 
-    setDailyProductionLog(newLog);
-    localStorage.setItem(TREAD_DAILY_PRODUCTION_KEY, JSON.stringify(newLog));
+    await DataService.saveDailyProductionLog(newLog);
+    setDailyProductionLog(newLog); // Optimistic update
     toast({
       title: 'Success!',
       description: `Tread production for ${selectedShift.name} on ${format(selectedDate, "PPP")} has been saved.`,
@@ -163,6 +118,23 @@ export default function DailyTreadProductionPage() {
       (req.sku?.toLowerCase() || '').includes(skuFilter.toLowerCase())
     );
   }, [marketRequirements, sapCodeFilter, skuFilter]);
+  
+  if (loading) {
+      return (
+        <div className="space-y-6">
+            <h1 className="text-3xl font-bold tracking-tight">Daily Tread Production</h1>
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/3" />
+                    <Skeleton className="h-4 w-1/2" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-48 w-full" />
+                </CardContent>
+            </Card>
+        </div>
+      );
+  }
 
   return (
     <div className="space-y-6">

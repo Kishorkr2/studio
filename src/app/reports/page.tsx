@@ -46,8 +46,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Label } from "@/components/ui/label"
-import { initialOperators, initialMachines, shifts as initialShifts } from "@/lib/data"
-import type { Machine, Operator, ProductionLog, ShiftInfo, MarketRequirement } from "@/lib/types"
+import * as DataService from "@/lib/data-service"
+import type { Machine, Operator, ProductionLog, ShiftInfo, MarketRequirement, MachineProductionData } from "@/lib/types"
 
 interface ReportDataRow {
   date: string;
@@ -106,54 +106,62 @@ export default function ReportsPage() {
     const [totalDemand, setTotalDemand] = React.useState(0);
 
     React.useEffect(() => {
-        const loadedOperators = JSON.parse(localStorage.getItem('tyretrack-operators') || 'null') || initialOperators;
-        const loadedMachines = JSON.parse(localStorage.getItem('tyretrack-machines') || 'null') || initialMachines;
-        const loadedShifts = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || initialShifts;
-        const loadedMarketRequirements: MarketRequirement[] = JSON.parse(localStorage.getItem('tyretrack-market-requirements') || 'null') || [];
+        const unsubOperators = DataService.subscribeToCollection<Operator>('operators', setAllOperators);
+        const unsubMachines = DataService.subscribeToCollection<Machine>('machines', setAllMachines);
+        const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', setAllShifts);
+        const unsubMarketReq = DataService.subscribeToCollection<MarketRequirement>('marketRequirements', (data) => {
+            setMarketRequirements(data);
+            const total = data.reduce((sum, req) => sum + (req.demand || 0), 0);
+            setTotalDemand(total);
+        });
 
-        setAllOperators(loadedOperators);
-        setAllMachines(loadedMachines);
-        setAllShifts(loadedShifts);
-        setMarketRequirements(loadedMarketRequirements);
+        const fetchAllLogs = async () => {
+            const history = await DataService.getFullProductionHistory();
+            const logs: ReportDataRow[] = [];
+            const operatorMap = new Map(allOperators.map(op => [op.id, op.name]));
+            const machineMap = new Map(allMachines.map(m => [m.id, m.name]));
 
-        const total = loadedMarketRequirements.reduce((sum, req) => sum + (req.demand || 0), 0);
-        setTotalDemand(total);
-
-        const logs: ReportDataRow[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('production-log-')) {
-                const logData: ProductionLog = JSON.parse(localStorage.getItem(key) || '{}');
-                const keyParts = key.replace('production-log-', '').split('-');
+            history.forEach(logDoc => {
+                const keyParts = logDoc.id.replace('production-log-', '').split('-');
                 const dateStr = keyParts.slice(0, 3).join('-');
-                
-                Object.entries(logData).forEach(([round, logEntry]) => {
+                const shiftName = keyParts.slice(3).join(' ').replace('-', ' ');
+
+                Object.entries(logDoc as ProductionLog).forEach(([round, logEntry] : [string, any]) => {
                     if (logEntry.entries) {
-                      logEntry.entries.forEach(entry => {
-                          const operator = loadedOperators.find((op: Operator) => op.id === entry.operatorId);
-                          const machine = loadedMachines.find((m: Machine) => m.id === entry.machineId);
-                          logs.push({
-                              date: dateStr,
-                              shift: key.includes('Day-Shift') ? 'Day Shift' : 'Night Shift',
-                              round,
-                              operatorId: entry.operatorId,
-                              operatorName: operator?.name || 'N/A',
-                              machineId: entry.machineId,
-                              machineName: machine?.name || 'N/A',
-                              sku: entry.sku,
-                              quantity: entry.quantity,
-                              remark: entry.remark,
-                              trolleyNo: entry.trolleyNo,
-                              noOfSpool: entry.noOfSpool,
-                          });
-                      });
+                        logEntry.entries.forEach((entry: MachineProductionData) => {
+                            logs.push({
+                                date: dateStr,
+                                shift: shiftName,
+                                round,
+                                operatorId: entry.operatorId,
+                                operatorName: operatorMap.get(entry.operatorId || '') || 'N/A',
+                                machineId: entry.machineId,
+                                machineName: machineMap.get(entry.machineId) || 'N/A',
+                                sku: entry.sku,
+                                quantity: entry.quantity,
+                                remark: entry.remark,
+                                trolleyNo: entry.trolleyNo,
+                                noOfSpool: entry.noOfSpool,
+                            });
+                        });
                     }
                 });
-            }
+            });
+            setAllReportData(logs);
+            setBreakdownData(logs.filter(item => item.remark && item.remark.trim() !== ''));
+        };
+
+        if (allOperators.length > 0 && allMachines.length > 0) {
+            fetchAllLogs();
         }
-        setAllReportData(logs);
-        setBreakdownData(logs.filter(item => item.remark && item.remark.trim() !== ''));
-    }, []);
+
+        return () => {
+            unsubOperators();
+            unsubMachines();
+            unsubShifts();
+            unsubMarketReq();
+        };
+    }, [allOperators, allMachines]);
 
     const handleApplyFilters = React.useCallback(() => {
         let data = [...allReportData];
@@ -164,8 +172,12 @@ export default function ReportsPage() {
             const to = new Date(date.to);
             to.setHours(23,59,59,999);
             data = data.filter(item => {
-                const itemDate = parseISO(item.date);
-                return itemDate >= from && itemDate <= to;
+                try {
+                    const itemDate = parseISO(item.date);
+                    return itemDate >= from && itemDate <= to;
+                } catch (e) {
+                    return false;
+                }
             });
         }
         
@@ -280,38 +292,40 @@ export default function ReportsPage() {
               <CardDescription>Detailed report based on your filter selection.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Shift</TableHead>
-                    <TableHead>Operator</TableHead>
-                    <TableHead>TBM</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Trolley No</TableHead>
-                    <TableHead>No of Spool</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredReportData.length > 0 ? filteredReportData.map((row, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{format(parseISO(row.date), "yyyy-MM-dd")}</TableCell>
-                      <TableCell>{row.shift}</TableCell>
-                      <TableCell className="font-medium">{row.operatorName}</TableCell>
-                      <TableCell>{row.machineName}</TableCell>
-                      <TableCell>{row.sku}</TableCell>
-                      <TableCell>{row.trolleyNo || '-'}</TableCell>
-                      <TableCell>{row.noOfSpool || '-'}</TableCell>
-                      <TableCell className="text-right">{row.quantity}</TableCell>
-                    </TableRow>
-                  )) : (
+              <div className="border rounded-lg max-h-[60vh] overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background">
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">No data available for the selected filters.</TableCell>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Shift</TableHead>
+                      <TableHead>Operator</TableHead>
+                      <TableHead>TBM</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Trolley No</TableHead>
+                      <TableHead>No of Spool</TableHead>
+                      <TableHead className="text-right">Quantity</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredReportData.length > 0 ? filteredReportData.map((row, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{format(parseISO(row.date), "yyyy-MM-dd")}</TableCell>
+                        <TableCell>{row.shift}</TableCell>
+                        <TableCell className="font-medium">{row.operatorName}</TableCell>
+                        <TableCell>{row.machineName}</TableCell>
+                        <TableCell>{row.sku}</TableCell>
+                        <TableCell>{row.trolleyNo || '-'}</TableCell>
+                        <TableCell>{row.noOfSpool || '-'}</TableCell>
+                        <TableCell className="text-right">{row.quantity}</TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">No data available for the selected filters.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -397,32 +411,34 @@ export default function ReportsPage() {
               <CardDescription>A log of all machine downtime events based on entered remarks.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Machine</TableHead>
-                    <TableHead>Shift</TableHead>
-                    <TableHead>Round</TableHead>
-                    <TableHead>Remark</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {breakdownData.length > 0 ? breakdownData.map((row, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{format(parseISO(row.date), "yyyy-MM-dd")}</TableCell>
-                      <TableCell className="font-medium">{row.machineName}</TableCell>
-                      <TableCell>{row.shift}</TableCell>
-                      <TableCell>{row.round}</TableCell>
-                      <TableCell>{row.remark}</TableCell>
+              <div className="border rounded-lg max-h-[60vh] overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background">
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Machine</TableHead>
+                      <TableHead>Shift</TableHead>
+                      <TableHead>Round</TableHead>
+                      <TableHead>Remark</TableHead>
                     </TableRow>
-                  )) : (
-                     <TableRow>
-                      <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">No breakdowns with remarks logged in the selected period.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {breakdownData.length > 0 ? breakdownData.map((row, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{format(parseISO(row.date), "yyyy-MM-dd")}</TableCell>
+                        <TableCell className="font-medium">{row.machineName}</TableCell>
+                        <TableCell>{row.shift}</TableCell>
+                        <TableCell>{row.round}</TableCell>
+                        <TableCell>{row.remark}</TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">No breakdowns with remarks logged in the selected period.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

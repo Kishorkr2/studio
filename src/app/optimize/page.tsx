@@ -16,46 +16,38 @@ import { optimizeOperatorAssignment } from './actions';
 import type { OptimizeOperatorAssignmentOutput } from '@/ai/flows/optimize-operator-assignment';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const getInitialState = <T,>(key: string, defaultValue: T): T => {
-  if (typeof window === "undefined") {
-    return defaultValue;
-  }
-  const storedValue = localStorage.getItem(key);
-  if (storedValue) {
-    try {
-      return JSON.parse(storedValue);
-    } catch (e) {
-      console.error(`Error parsing JSON from localStorage key "${key}":`, e);
-      return defaultValue;
-    }
-  }
-  return defaultValue;
-};
+import * as DataService from '@/lib/data-service';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function OptimizePage() {
-  const [operators, setOperators] = useState<Operator[]>(() => getInitialState('tyretrack-operators', initialOperators));
-  const [machines, setMachines] = useState<Machine[]>(() => getInitialState('tyretrack-machines', initialMachines));
-  const [allShifts, setAllShifts] = useState<ShiftInfo[]>(() => getInitialState('tyretrack-shifts', shifts));
+  const [loading, setLoading] = useState(true);
+  const [operators, setOperators] = useState<Operator[]>([]);
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
   const [shift, setShift] = useState<ShiftInfo | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<OptimizeOperatorAssignmentOutput | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (allShifts.length > 0 && !shift) {
-      setShift(allShifts[0]);
-    }
-  }, [allShifts, shift]);
+    setLoading(true);
+    const unsubOperators = DataService.subscribeToCollection<Operator>('operators', setOperators, initialOperators);
+    const unsubMachines = DataService.subscribeToCollection<Machine>('machines', setMachines, initialMachines);
+    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', (data) => {
+        setAllShifts(data);
+        if (data.length > 0 && !shift) {
+            setShift(data[0]);
+        }
+    }, shifts);
+    
+    setLoading(false);
 
-  useEffect(() => {
-    localStorage.setItem('tyretrack-operators', JSON.stringify(operators));
-  }, [operators]);
-
-  useEffect(() => {
-    localStorage.setItem('tyretrack-machines', JSON.stringify(machines));
-  }, [machines]);
-
+    return () => {
+        unsubOperators();
+        unsubMachines();
+        unsubShifts();
+    };
+  }, [shift]);
 
   const handleOptimize = async () => {
     if (!shift) {
@@ -72,7 +64,7 @@ export default function OptimizePage() {
       const input = {
         operators: operators.map(op => ({ operatorId: op.id, skillRating: op.skillRating })),
         machines: machines.map(m => ({ machineId: m.id, isAvailable: m.isAvailable })),
-        shiftTimes: shift,
+        shiftTimes: { startTime: shift.startTime, endTime: shift.endTime },
         absenteeism: operators.map(op => ({ operatorId: op.id, isAbsent: op.isAbsent })),
       };
       const response = await optimizeOperatorAssignment(input);
@@ -88,12 +80,16 @@ export default function OptimizePage() {
     setIsLoading(false);
   };
 
-  const handleOperatorChange = (id: string, field: keyof Operator, value: any) => {
-    setOperators(ops => ops.map(op => (op.id === id ? { ...op, [field]: value } : op)));
+  const handleOperatorChange = async (id: string, field: keyof Operator, value: any) => {
+    const updatedOperators = operators.map(op => (op.id === id ? { ...op, [field]: value } : op));
+    setOperators(updatedOperators);
+    await DataService.updateOperator(id, { [field]: value });
   };
 
-  const handleMachineChange = (id: string, field: keyof Machine, value: any) => {
-    setMachines(macs => macs.map(m => (m.id === id ? { ...m, [field]: value } : m)));
+  const handleMachineChange = async (id: string, field: keyof Machine, value: any) => {
+    const updatedMachines = machines.map(m => (m.id === id ? { ...m, [field]: value } : m));
+    setMachines(updatedMachines);
+    await DataService.updateMachines(updatedMachines);
   };
   
   const handleShiftChange = (name: string) => {
@@ -103,9 +99,26 @@ export default function OptimizePage() {
     }
   };
 
-  const addOperator = () => {
-    const newId = `OP-${String(Date.now()).slice(-4)}`;
-    setOperators([...operators, {id: newId, name: 'New Hire', skillRating: 1, isAbsent: false}]);
+  const addOperator = async () => {
+    await DataService.addOperator({name: 'New Hire', skillRating: 1, isAbsent: false});
+  }
+  
+  const removeOperator = async (id: string) => {
+    await DataService.deleteOperator(id);
+  }
+  
+  if (loading) {
+    return (
+        <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-1 space-y-6">
+                <Skeleton className="h-48 w-full" />
+                <Skeleton className="h-72 w-full" />
+            </div>
+            <div className="lg:col-span-2">
+                <Skeleton className="min-h-full h-96 w-full" />
+            </div>
+        </div>
+    );
   }
 
   return (
@@ -156,7 +169,7 @@ export default function OptimizePage() {
                     <div key={op.id} className="p-3 rounded-md border space-y-3">
                         <div className="flex items-center justify-between">
                             <Input value={op.name} onChange={e => handleOperatorChange(op.id, 'name', e.target.value)} className="text-sm font-semibold border-none p-0 h-auto focus-visible:ring-0"/>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setOperators(ops => ops.filter(o => o.id !== op.id))}><Trash className="h-4 w-4"/></Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeOperator(op.id)}><Trash className="h-4 w-4"/></Button>
                         </div>
                         <div>
                             <Label>Skill: {op.skillRating}</Label>
