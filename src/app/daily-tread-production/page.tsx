@@ -7,12 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import type { MarketRequirement } from '@/lib/types';
+import type { MarketRequirement, ShiftInfo } from '@/lib/types';
 import { CalendarIcon, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { shifts as initialShifts } from '@/lib/data';
+
 
 const TREAD_DAILY_PRODUCTION_KEY = 'tyretrack-tread-daily-production';
 
@@ -25,10 +28,13 @@ export default function DailyTreadProductionPage() {
   const { toast } = useToast();
   
   const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
-  const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, DailyProductionEntry>>>({});
+  const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, Record<string, DailyProductionEntry>>>>({});
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [dailyProductionEntries, setDailyProductionEntries] = useState<Record<string, DailyProductionEntry>>({});
   
+  const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
+  const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
+
   const [sapCodeFilter, setSapCodeFilter] = useState('');
   const [skuFilter, setSkuFilter] = useState('');
 
@@ -37,22 +43,56 @@ export default function DailyTreadProductionPage() {
   }, []);
 
   useEffect(() => {
+    // Load shifts
+    const loadedShifts: ShiftInfo[] = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || initialShifts;
+    setAllShifts(loadedShifts);
+    if (loadedShifts.length > 0) {
+        setSelectedShift(loadedShifts[0]);
+    }
+
     // Load market requirements
     const loadedMarketReqs = JSON.parse(localStorage.getItem('tyretrack-market-requirements') || '[]') as MarketRequirement[];
     setMarketRequirements(loadedMarketReqs);
     
-    // Load daily production log
+    // Load daily production log and migrate old data if necessary
     const savedDailyProduction = JSON.parse(localStorage.getItem(TREAD_DAILY_PRODUCTION_KEY) || '{}');
-    // Normalize old data structure to new one for backward compatibility
-    const normalizedLog: Record<string, Record<string, DailyProductionEntry>> = {};
+    const normalizedLog: Record<string, Record<string, Record<string, DailyProductionEntry>>> = {};
+    const defaultShiftName = (loadedShifts.length > 0 && loadedShifts[0].name) || 'Day Shift';
+
     for (const dateKey in savedDailyProduction) {
-      normalizedLog[dateKey] = {};
-      for (const sku in savedDailyProduction[dateKey]) {
-        const entry = savedDailyProduction[dateKey][sku];
-        if (typeof entry === 'number') {
-          normalizedLog[dateKey][sku] = { quantity: entry, trolleyNo: '' };
-        } else {
-          normalizedLog[dateKey][sku] = entry || { quantity: 0, trolleyNo: ''};
+      const dateData = savedDailyProduction[dateKey];
+      if (!dateData || typeof dateData !== 'object' || Array.isArray(dateData)) continue;
+
+      const firstKey = Object.keys(dateData)[0];
+      if (!firstKey) continue;
+      
+      const isNewFormat = loadedShifts.some(shift => shift.name === firstKey);
+
+      if (isNewFormat) {
+        // Data is already in the new format { [dateKey]: { [shiftName]: { [sku]: entry } } }
+        normalizedLog[dateKey] = {};
+        for (const shiftName in dateData) {
+          normalizedLog[dateKey][shiftName] = {};
+          const shiftEntries = dateData[shiftName];
+          for (const sku in shiftEntries) {
+            const entry = shiftEntries[sku];
+            if (typeof entry === 'number') {
+              normalizedLog[dateKey][shiftName][sku] = { quantity: entry, trolleyNo: '' };
+            } else {
+              normalizedLog[dateKey][shiftName][sku] = entry || { quantity: 0, trolleyNo: '' };
+            }
+          }
+        }
+      } else {
+        // Data is in the old format { [dateKey]: { [sku]: entry } }. Migrate it.
+        normalizedLog[dateKey] = { [defaultShiftName]: {} };
+        for (const sku in dateData) {
+          const entry = dateData[sku];
+          if (typeof entry === 'number') {
+            normalizedLog[dateKey][defaultShiftName][sku] = { quantity: entry, trolleyNo: '' };
+          } else {
+            normalizedLog[dateKey][defaultShiftName][sku] = entry || { quantity: 0, trolleyNo: '' };
+          }
         }
       }
     }
@@ -60,10 +100,11 @@ export default function DailyTreadProductionPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedDate) return;
+    if (!selectedDate || !selectedShift) return;
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
-    setDailyProductionEntries(dailyProductionLog[dateKey] || {});
-  }, [selectedDate, dailyProductionLog]);
+    const shiftName = selectedShift.name;
+    setDailyProductionEntries(dailyProductionLog[dateKey]?.[shiftName] || {});
+  }, [selectedDate, selectedShift, dailyProductionLog]);
 
   const handleDailyProductionChange = (sku: string, field: 'quantity' | 'trolleyNo', value: string) => {
     const currentEntry = dailyProductionEntries[sku] || { quantity: 0, trolleyNo: '' };
@@ -82,21 +123,29 @@ export default function DailyTreadProductionPage() {
   };
   
   const handleSaveDailyProduction = () => {
-    if (!selectedDate) {
+    if (!selectedDate || !selectedShift) {
       toast({
         variant: 'destructive',
         title: 'Please wait',
-        description: 'The date is still loading. Please try again in a moment.',
+        description: 'The date or shift is still loading. Please try again in a moment.',
       });
       return;
     }
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
-    const newLog = { ...dailyProductionLog, [dateKey]: dailyProductionEntries };
+    const shiftName = selectedShift.name;
+
+    const updatedLogForDate = {
+      ...(dailyProductionLog[dateKey] || {}),
+      [shiftName]: dailyProductionEntries,
+    };
+    
+    const newLog = { ...dailyProductionLog, [dateKey]: updatedLogForDate };
+
     setDailyProductionLog(newLog);
     localStorage.setItem(TREAD_DAILY_PRODUCTION_KEY, JSON.stringify(newLog));
     toast({
       title: 'Success!',
-      description: `Tread production for ${format(selectedDate, "PPP")} has been saved.`,
+      description: `Tread production for ${selectedShift.name} on ${format(selectedDate, "PPP")} has been saved.`,
       action: <Save className="text-green-500" />,
     });
   };
@@ -119,20 +168,31 @@ export default function DailyTreadProductionPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn("w-full sm:w-[280px] justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} initialFocus />
-              </PopoverContent>
-            </Popover>
+             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn("w-full sm:w-[240px] justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} initialFocus />
+                  </PopoverContent>
+                </Popover>
+
+                <Select value={selectedShift?.name} onValueChange={(name) => setSelectedShift(allShifts.find(s => s.name === name))}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Select shift" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {allShifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
             <Button onClick={handleSaveDailyProduction}><Save className="mr-2 h-4 w-4" /> Save Daily Production</Button>
           </div>
 

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import type { MarketRequirement, ProductionLog, TreadStock } from '@/lib/types';
+import type { MarketRequirement, ProductionLog, TreadStock, ShiftInfo } from '@/lib/types';
 import { Save, SlidersHorizontal, ClipboardList, Factory, Scale } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { shifts as initialShifts } from '@/lib/data';
 
 const TREAD_OPENING_STOCK_KEY = 'tyretrack-tread-opening-stock';
 const TREAD_DAILY_PRODUCTION_KEY = 'tyretrack-tread-daily-production';
@@ -33,7 +34,10 @@ export default function TreadExtrusionPage() {
   const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
   const [openingStockData, setOpeningStockData] = useState<TreadStock[]>([]);
   const [tyreProductionData, setTyreProductionData] = useState<Record<string, number>>({});
-  const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, DailyProductionEntry | number>>>({});
+  const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, Record<string, DailyProductionEntry> | DailyProductionEntry | number>>>(
+    {}
+  );
+  const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
 
   const [columnVisibility, setColumnVisibility] = useState({
     sapCode: true,
@@ -49,6 +53,10 @@ export default function TreadExtrusionPage() {
   const [skuFilter, setSkuFilter] = useState('');
 
   useEffect(() => {
+    // Load shifts
+    const loadedShifts: ShiftInfo[] = JSON.parse(localStorage.getItem('tyretrack-shifts') || 'null') || initialShifts;
+    setAllShifts(loadedShifts);
+
     // Load market requirements
     const loadedMarketReqs = JSON.parse(localStorage.getItem('tyretrack-market-requirements') || '[]') as MarketRequirement[];
     setMarketRequirements(loadedMarketReqs);
@@ -106,15 +114,40 @@ export default function TreadExtrusionPage() {
 
   const totalProductionBySku = useMemo(() => {
     const totals: Record<string, number> = {};
-    for (const date in dailyProductionLog) {
-      for (const sku in dailyProductionLog[date]) {
-        const entry = dailyProductionLog[date][sku];
-        const quantity = typeof entry === 'number' ? entry : (entry?.quantity || 0);
-        totals[sku] = (totals[sku] || 0) + quantity;
-      }
+    if (allShifts.length === 0) return totals;
+
+    for (const dateKey in dailyProductionLog) {
+        const dateData = dailyProductionLog[dateKey];
+        if (!dateData || typeof dateData !== 'object') continue;
+
+        const firstKey = Object.keys(dateData)[0];
+        if (!firstKey) continue;
+        
+        const isNewFormat = allShifts.some(shift => shift.name === firstKey);
+
+        if (isNewFormat) {
+            // Handle new format: { [dateKey]: { [shiftName]: { [sku]: entry } } }
+            for (const shiftName in dateData) {
+                const shiftEntries = dateData[shiftName] as Record<string, DailyProductionEntry | number>;
+                if (shiftEntries && typeof shiftEntries === 'object') {
+                    for (const sku in shiftEntries) {
+                        const entry = shiftEntries[sku];
+                        const quantity = typeof entry === 'number' ? entry : (entry?.quantity || 0);
+                        totals[sku] = (totals[sku] || 0) + quantity;
+                    }
+                }
+            }
+        } else {
+            // Handle old format: { [dateKey]: { [sku]: entry } }
+            for (const sku in dateData) {
+                const entry = dateData[sku] as DailyProductionEntry | number;
+                const quantity = typeof entry === 'number' ? entry : (entry?.quantity || 0);
+                totals[sku] = (totals[sku] || 0) + quantity;
+            }
+        }
     }
     return totals;
-  }, [dailyProductionLog]);
+  }, [dailyProductionLog, allShifts]);
   
   const filteredMarketRequirements = useMemo(() => {
     return marketRequirements.filter(req =>
