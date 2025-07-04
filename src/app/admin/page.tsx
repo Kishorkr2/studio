@@ -108,16 +108,16 @@ export default function AdminPage() {
           const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet) as any[];
 
           const parsedData: MarketRequirement[] = jsonFromSheet.map(row => ({
-            machine: String(row.Machine || ''),
-            sapCode: String(row['SAP Code'] || ''),
-            sku: String(row.SKU || ''),
+            machine: String(row.Machine || '').trim(),
+            sapCode: String(row['SAP Code'] || '').trim(),
+            sku: String(row.SKU || '').trim(),
             demand: Number(row.Demand || 0),
           }));
 
-          if (parsedData.length > 0 && parsedData[0].machine && parsedData[0].sku && parsedData[0].demand) {
+          if (parsedData.length > 0 && parsedData[0].machine && parsedData[0].sku) {
              await DataService.setMarketRequirements(parsedData);
              
-             const machineNameToIdMap = new Map(machines.map(m => [m.name, m.id]));
+             const machineNameToIdMap = new Map(machines.map(m => [m.name.trim(), m.id]));
              const newProductionPlanItems = new Map<string, string[]>();
 
              for (const req of parsedData) {
@@ -127,7 +127,7 @@ export default function AdminPage() {
                          newProductionPlanItems.set(machineId, []);
                      }
                      const skus = newProductionPlanItems.get(machineId)!;
-                     if (!skus.includes(req.sku)) {
+                     if (req.sku && !skus.includes(req.sku)) {
                          skus.push(req.sku);
                      }
                  }
@@ -137,6 +137,10 @@ export default function AdminPage() {
                  machineId,
                  skus,
              }));
+
+             if (newProductionPlan.length === 0 && parsedData.length > 0) {
+                 throw new Error("No machine names in the file matched the machines in the system. Please check for typos or extra spaces.");
+             }
 
              await DataService.updateProductionPlan(newProductionPlan);
 
