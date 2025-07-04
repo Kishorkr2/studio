@@ -280,8 +280,10 @@ export default function AdminPage() {
   };
 
   const handleAddMachine = () => {
-      const newId = `TBM-${String(machines.length + 1).padStart(2, '0')}`;
-      const newMachines = [...machines, { id: newId, name: `New Machine ${machines.length + 1}`, isAvailable: true }];
+      const newIdNumber = machines.length > 0 ? Math.max(...machines.map(m => parseInt(m.id.replace('TBM-', '')) || 0)) + 1 : 1;
+      const newId = `TBM-${String(newIdNumber).padStart(2, '0')}`;
+      const newName = `New Machine ${newIdNumber}`;
+      const newMachines = [...machines, { id: newId, name: newName, isAvailable: true }];
       setMachines(newMachines);
   };
 
