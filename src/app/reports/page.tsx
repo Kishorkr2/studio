@@ -99,6 +99,8 @@ export default function ReportsPage() {
     const [allOperators, setAllOperators] = React.useState<Operator[]>([]);
     const [allMachines, setAllMachines] = React.useState<Machine[]>([]);
     const [allShifts, setAllShifts] = React.useState<ShiftInfo[]>([]);
+    const [rawProductionLogs, setRawProductionLogs] = React.useState<any[]>([]);
+    
     const [allReportData, setAllReportData] = React.useState<ReportDataRow[]>([]);
     const [filteredReportData, setFilteredReportData] = React.useState<ReportDataRow[]>([]);
     const [breakdownData, setBreakdownData] = React.useState<ReportDataRow[]>([]);
@@ -114,54 +116,56 @@ export default function ReportsPage() {
             const total = data.reduce((sum, req) => sum + (req.demand || 0), 0);
             setTotalDemand(total);
         });
-
-        const fetchAllLogs = async () => {
-            const history = await DataService.getFullProductionHistory();
-            const logs: ReportDataRow[] = [];
-            const operatorMap = new Map(allOperators.map(op => [op.id, op.name]));
-            const machineMap = new Map(allMachines.map(m => [m.id, m.name]));
-
-            history.forEach(logDoc => {
-                const keyParts = logDoc.id.replace('production-log-', '').split('-');
-                const dateStr = keyParts.slice(0, 3).join('-');
-                const shiftName = keyParts.slice(3).join(' ').replace('-', ' ');
-
-                Object.entries(logDoc as ProductionLog).forEach(([round, logEntry] : [string, any]) => {
-                    if (logEntry.entries) {
-                        logEntry.entries.forEach((entry: MachineProductionData) => {
-                            logs.push({
-                                date: dateStr,
-                                shift: shiftName,
-                                round,
-                                operatorId: entry.operatorId,
-                                operatorName: operatorMap.get(entry.operatorId || '') || 'N/A',
-                                machineId: entry.machineId,
-                                machineName: machineMap.get(entry.machineId) || 'N/A',
-                                sku: entry.sku,
-                                quantity: entry.quantity,
-                                remark: entry.remark,
-                                trolleyNo: entry.trolleyNo,
-                                noOfSpool: entry.noOfSpool,
-                            });
-                        });
-                    }
-                });
-            });
-            setAllReportData(logs);
-            setBreakdownData(logs.filter(item => item.remark && item.remark.trim() !== ''));
-        };
-
-        if (allOperators.length > 0 && allMachines.length > 0) {
-            fetchAllLogs();
-        }
+        const unsubHistory = DataService.subscribeToCollection<any>('productionLogs', setRawProductionLogs);
 
         return () => {
             unsubOperators();
             unsubMachines();
             unsubShifts();
             unsubMarketReq();
+            unsubHistory();
         };
-    }, [allOperators, allMachines]);
+    }, []);
+
+    React.useEffect(() => {
+        if (rawProductionLogs.length === 0 || allOperators.length === 0 || allMachines.length === 0) {
+            return;
+        }
+
+        const operatorMap = new Map(allOperators.map(op => [op.id, op.name]));
+        const machineMap = new Map(allMachines.map(m => [m.id, m.name]));
+        
+        const logs: ReportDataRow[] = [];
+        rawProductionLogs.forEach(logDoc => {
+            const { id, ...logData } = logDoc;
+            const keyParts = id.replace('production-log-', '').split('-');
+            const dateStr = keyParts.slice(0, 3).join('-');
+            const shiftName = keyParts.slice(3).join(' ').replace('-', ' ');
+
+            Object.entries(logData as ProductionLog).forEach(([round, logEntry] : [string, any]) => {
+                if (logEntry.entries) {
+                    logEntry.entries.forEach((entry: MachineProductionData) => {
+                        logs.push({
+                            date: dateStr,
+                            shift: shiftName,
+                            round,
+                            operatorId: entry.operatorId,
+                            operatorName: operatorMap.get(entry.operatorId || '') || 'N/A',
+                            machineId: entry.machineId,
+                            machineName: machineMap.get(entry.machineId) || 'N/A',
+                            sku: entry.sku,
+                            quantity: entry.quantity,
+                            remark: entry.remark,
+                            trolleyNo: entry.trolleyNo,
+                            noOfSpool: entry.noOfSpool,
+                        });
+                    });
+                }
+            });
+        });
+        setAllReportData(logs);
+        setBreakdownData(logs.filter(item => item.remark && item.remark.trim() !== ''));
+    }, [rawProductionLogs, allOperators, allMachines]);
 
     const handleApplyFilters = React.useCallback(() => {
         let data = [...allReportData];

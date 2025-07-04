@@ -52,17 +52,6 @@ export const subscribeToProductionLog = (date: Date, shift: ShiftInfo, setLog: (
     });
 };
 
-// --- Single Read Functions ---
-export const getFullProductionHistory = async (): Promise<any[]> => {
-    const logsCol = collection(db, 'productionLogs');
-    const snapshot = await getDocs(logsCol);
-    const allLogs: any[] = [];
-    snapshot.forEach(doc => {
-        allLogs.push({ id: doc.id, ...doc.data() });
-    });
-    return allLogs;
-};
-
 // --- Write Functions ---
 
 export const updateOperator = async (id: string, data: Partial<Operator>) => await setDoc(doc(db, 'operators', id), data, { merge: true });
@@ -144,30 +133,30 @@ export const saveDailyProductionLog = async (log: any) => {
     await batch.commit();
 }
 
-export const getDailyProductionLog = async () => {
-    const snapshot = await getDocs(collection(db, 'dailyTreadProduction'));
-    const log: any = {};
-    snapshot.forEach(doc => {
-        log[doc.id] = doc.data();
-    });
-    return log;
-};
-
-
 export const saveTreadOpeningStock = async (stock: TreadStock[]) => {
     const batch = writeBatch(db);
+    const stockCollection = collection(db, 'treadOpeningStock');
+    
+    // Get all SKUs from the new stock data
+    const newSkus = new Set(stock.map(item => item.sku));
+    
+    // Find existing documents to update
+    const existingDocs = await getDocs(query(stockCollection, where('sku', 'in', Array.from(newSkus))));
+    const existingSkuMap = new Map(existingDocs.docs.map(d => [d.data().sku, d.id]));
+
     stock.forEach(item => {
-        const docRef = doc(db, 'treadOpeningStock', item.sku);
-        batch.set(docRef, item);
+        if (existingSkuMap.has(item.sku)) {
+            // Update existing document
+            const docRef = doc(db, 'treadOpeningStock', existingSkuMap.get(item.sku)!);
+            batch.set(docRef, item);
+        } else {
+            // Create new document with SKU as ID for easier lookup
+             const docRef = doc(db, 'treadOpeningStock', item.sku);
+             batch.set(docRef, item);
+        }
     });
     await batch.commit();
 };
-
-export const getTreadOpeningStock = async (): Promise<TreadStock[]> => {
-    const snapshot = await getDocs(collection(db, 'treadOpeningStock'));
-    return snapshot.docs.map(doc => doc.data() as TreadStock);
-};
-
 
 export const clearAllProductionData = async () => {
     const batch = writeBatch(db);

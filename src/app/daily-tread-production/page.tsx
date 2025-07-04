@@ -50,16 +50,19 @@ export default function DailyTreadProductionPage() {
 
     const unsubMarketReq = DataService.subscribeToCollection<MarketRequirement>('marketRequirements', setMarketRequirements);
     
-    const fetchLog = async () => {
-        const log = await DataService.getDailyProductionLog();
+    const unsubLog = DataService.subscribeToCollection<any>('dailyTreadProduction', (docs) => {
+        const log: any = {};
+        docs.forEach(doc => {
+            log[doc.id] = doc;
+        });
         setDailyProductionLog(log);
         setLoading(false);
-    }
-    fetchLog();
+    });
 
     return () => {
         unsubShifts();
         unsubMarketReq();
+        unsubLog();
     }
   }, []);
 
@@ -104,7 +107,7 @@ export default function DailyTreadProductionPage() {
     const newLog = { ...dailyProductionLog, [dateKey]: updatedLogForDate };
 
     await DataService.saveDailyProductionLog(newLog);
-    setDailyProductionLog(newLog); // Optimistic update
+    // No need to set state here, the listener will do it.
     toast({
       title: 'Success!',
       description: `Tread production for ${selectedShift.name} on ${format(selectedDate, "PPP")} has been saved.`,

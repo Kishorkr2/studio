@@ -53,17 +53,22 @@ export default function TreadExtrusionPage() {
     setLoading(true);
 
     const unsubMarketReq = DataService.subscribeToCollection<MarketRequirement>('marketRequirements', setMarketRequirements);
-    
-    const fetchInitialData = async () => {
-        // Fetch daily production (tread)
-        const dailyProdLog = await DataService.getDailyProductionLog();
-        setDailyProductionLog(dailyProdLog);
+    const unsubOpeningStock = DataService.subscribeToCollection<TreadStock>('treadOpeningStock', setOpeningStockData);
 
-        // Fetch tyre production (green tyre)
-        const history = await DataService.getFullProductionHistory();
+    const unsubDailyProd = DataService.subscribeToCollection<any>('dailyTreadProduction', (docs) => {
+        const log: any = {};
+        docs.forEach(doc => {
+            log[doc.id] = doc;
+        });
+        setDailyProductionLog(log);
+    });
+
+    const unsubHistory = DataService.subscribeToCollection<any>('productionLogs', (history) => {
         const tyreProduction: Record<string, number> = {};
         history.forEach(logDoc => {
-            Object.values(logDoc as ProductionLog).forEach((logEntry: any) => {
+            // The document ID is not needed here, only the content.
+            const logContent = logDoc as Omit<typeof logDoc, 'id'>;
+            Object.values(logContent as ProductionLog).forEach((logEntry: any) => {
                 if (logEntry.entries) {
                     logEntry.entries.forEach((entry: MachineProductionData) => {
                         if (entry.sku && entry.quantity > 0) {
@@ -74,28 +79,35 @@ export default function TreadExtrusionPage() {
             });
         });
         setTyreProductionData(tyreProduction);
-
-        // Fetch opening stock
-        const savedOpeningStock = await DataService.getTreadOpeningStock();
-        setOpeningStockData(savedOpeningStock);
-        
-        setLoading(false);
-    };
-
-    fetchInitialData();
+    });
+    
+    setLoading(false);
 
     return () => {
         unsubMarketReq();
+        unsubOpeningStock();
+        unsubDailyProd();
+        unsubHistory();
     }
   }, []);
   
   const handleOpeningStockChange = (sku: string, value: string) => {
     const numericValue = parseInt(value, 10) || 0;
-    setOpeningStockData(currentData =>
-      currentData.map(item =>
-        item.sku === sku ? { ...item, openingStock: numericValue } : item
-      )
-    );
+    
+    // Find if an entry exists
+    const existingIndex = openingStockData.findIndex(item => item.sku === sku);
+    
+    if (existingIndex > -1) {
+      // Update existing entry
+      setOpeningStockData(currentData =>
+        currentData.map(item =>
+          item.sku === sku ? { ...item, openingStock: numericValue } : item
+        )
+      );
+    } else {
+      // Add new entry if it doesn't exist
+      setOpeningStockData(currentData => [...currentData, { sku, openingStock: numericValue, production: 0 }]);
+    }
   };
   
   const handleSaveOpeningStock = async () => {
