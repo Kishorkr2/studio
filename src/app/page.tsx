@@ -70,6 +70,7 @@ export default function DashboardPage() {
     operator: true,
     sku: true,
     trolleyNo: true,
+    noOfSpool: true,
     remark: true,
   });
 
@@ -109,6 +110,7 @@ export default function DashboardPage() {
         operatorId: '',
         remark: '',
         trolleyNo: '',
+        noOfSpool: '',
       };
     });
   }, [allMachines, allProductionPlan]);
@@ -220,7 +222,7 @@ export default function DashboardPage() {
     }
   }, [isOnline, productionLog, toast]);
 
-  const handleEntryChange = (machineId: string, field: 'operatorId' | 'quantity' | 'remark' | 'sku' | 'trolleyNo', value: string) => {
+  const handleEntryChange = (machineId: string, field: 'operatorId' | 'quantity' | 'remark' | 'sku' | 'trolleyNo' | 'noOfSpool', value: string) => {
     setEntries(prevEntries =>
       prevEntries.map(entry =>
         entry.machineId === machineId
@@ -372,6 +374,13 @@ export default function DashboardPage() {
                   >
                     Trolley No
                   </DropdownMenuCheckboxItem>
+                   <DropdownMenuCheckboxItem
+                    className="capitalize"
+                    checked={columnVisibility.noOfSpool}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, noOfSpool: !!value}))}
+                  >
+                    No of Spool
+                  </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     className="capitalize"
                     checked={columnVisibility.remark}
@@ -437,7 +446,7 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle>{entry.name}</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+            <CardContent className="grid gap-6 md:grid-cols-3 lg:grid-cols-6">
                 {columnVisibility.operator && (
                   <div className="space-y-2">
                     <Label htmlFor={`operator-${entry.machineId}`}>Operator Name</Label>
@@ -484,6 +493,17 @@ export default function DashboardPage() {
                       placeholder="e.g., T-123"
                       value={entry.trolleyNo || ''}
                       onChange={(e) => handleEntryChange(entry.machineId, 'trolleyNo', e.target.value)}
+                    />
+                  </div>
+                )}
+                {columnVisibility.noOfSpool && (
+                  <div className="space-y-2">
+                    <Label htmlFor={`spool-${entry.machineId}`}>No of Spool</Label>
+                    <Input
+                      id={`spool-${entry.machineId}`}
+                      placeholder="e.g., S-456"
+                      value={entry.noOfSpool || ''}
+                      onChange={(e) => handleEntryChange(entry.machineId, 'noOfSpool', e.target.value)}
                     />
                   </div>
                 )}

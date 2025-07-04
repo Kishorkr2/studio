@@ -21,6 +21,7 @@ export interface MachineProductionData {
   operatorId?: string;
   remark?: string;
   trolleyNo?: string;
+  noOfSpool?: string;
 }
 
 export interface ShiftInfo {
