@@ -142,7 +142,7 @@ export default function AdminPage() {
 
              toast({
                 title: 'File Processed & Plan Synced',
-                description: `Loaded ${parsedData.length} market requirements and updated the production plan.`,
+                description: `Loaded ${parsedData.length} requirements. The previous market demand and production plan have been replaced.`,
              });
           } else {
              throw new Error("Invalid file format. Please check headers: Machine, SAP Code, SKU, Demand");

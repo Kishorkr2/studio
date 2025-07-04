@@ -102,8 +102,10 @@ export default function DashboardPage() {
   }, []);
 
   const getInitialEntries = useCallback((): MachineProductionData[] => {
-    const availableMachines = allMachines.filter(m => m.isAvailable);
-    return availableMachines.map(machine => {
+    const planMachineIds = new Set(allProductionPlan.map(p => p.machineId));
+    const machinesForPlan = allMachines.filter(m => m.isAvailable && planMachineIds.has(m.id));
+    
+    return machinesForPlan.map(machine => {
       const planItem = allProductionPlan.find(p => p.machineId === machine.id);
       return {
         machineId: machine.id,
@@ -160,11 +162,13 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedRound) return;
 
-    const availableMachines = allMachines.filter(m => m.isAvailable);
+    const planMachineIds = new Set(allProductionPlan.map(p => p.machineId));
+    const machinesForPlan = allMachines.filter(m => m.isAvailable && planMachineIds.has(m.id));
+
     const roundLogEntries = productionLog[selectedRound]?.entries || [];
     const logMap = new Map(roundLogEntries.map(e => [e.machineId, e]));
 
-    const newEntries = availableMachines.map(machine => {
+    const newEntries = machinesForPlan.map(machine => {
       const planItem = allProductionPlan.find(p => p.machineId === machine.id);
       const machineSkus = planItem?.skus || [];
       const existingEntry = logMap.get(machine.id);
@@ -180,7 +184,7 @@ export default function DashboardPage() {
         };
       }
       
-      // If no entry exists, create a new one.
+      // If no entry exists, create a new one based on the plan.
       return {
         machineId: machine.id,
         name: machine.name,
