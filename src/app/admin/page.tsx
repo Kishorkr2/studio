@@ -22,34 +22,36 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import * as XLSX from 'xlsx';
-import {
-  getOperators,
-  saveOperators,
-  getShifts,
-  saveShifts,
-  getProductionPlan,
-  saveProductionPlan,
-  getMachines,
-  saveMachines,
-  getMarketRequirements,
-  saveMarketRequirements,
-  seedInitialData,
-  clearMarketRequirements,
-  clearAllProductionData,
-} from '@/lib/data-service';
+import { initialOperators, shifts as initialShifts, initialProductionPlan, initialMachines } from '@/lib/data';
+
+const getInitialState = <T,>(key: string, defaultValue: T): T => {
+  if (typeof window === "undefined") {
+    return defaultValue;
+  }
+  const storedValue = localStorage.getItem(key);
+  if (storedValue) {
+    try {
+      return JSON.parse(storedValue);
+    } catch (e) {
+      console.error(`Error parsing JSON from localStorage key "${key}":`, e);
+      return defaultValue;
+    }
+  }
+  return defaultValue;
+};
+
 
 export default function AdminPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [operators, setOperators] = useState<Operator[]>([]);
-  const [managedShifts, setManagedShifts] = useState<ShiftInfo[]>([]);
-  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>([]);
-  const [machines, setMachines] = useState<Machine[]>([]);
-  const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
+  const [isClient, setIsClient] = useState(false);
+  const [operators, setOperators] = useState<Operator[]>(() => getInitialState('tyretrack-operators', initialOperators));
+  const [managedShifts, setManagedShifts] = useState<ShiftInfo[]>(() => getInitialState('tyretrack-shifts', initialShifts));
+  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>(() => getInitialState('tyretrack-production-plan', initialProductionPlan));
+  const [machines, setMachines] = useState<Machine[]>(() => getInitialState('tyretrack-machines', initialMachines));
+  const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>(() => getInitialState('tyretrack-market-requirements', []));
   
   const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
   const [newSku, setNewSku] = useState('');
@@ -61,56 +63,36 @@ export default function AdminPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      try {
-        await seedInitialData(); // Seeds only if collections are empty
+    setIsClient(true);
+  }, []);
+  
+  useEffect(() => {
+    if (isClient) localStorage.setItem('tyretrack-operators', JSON.stringify(operators));
+  }, [operators, isClient]);
+  useEffect(() => {
+    if (isClient) localStorage.setItem('tyretrack-shifts', JSON.stringify(managedShifts));
+  }, [managedShifts, isClient]);
+  useEffect(() => {
+    if (isClient) localStorage.setItem('tyretrack-production-plan', JSON.stringify(productionPlan));
+  }, [productionPlan, isClient]);
+  useEffect(() => {
+    if (isClient) localStorage.setItem('tyretrack-machines', JSON.stringify(machines));
+  }, [machines, isClient]);
+  useEffect(() => {
+    if (isClient) localStorage.setItem('tyretrack-market-requirements', JSON.stringify(marketRequirements));
+  }, [marketRequirements, isClient]);
 
-        const [
-          loadedOperators,
-          loadedShifts,
-          loadedPlan,
-          loadedMachines,
-          loadedReqs,
-        ] = await Promise.all([
-          getOperators(),
-          getShifts(),
-          getProductionPlan(),
-          getMachines(),
-          getMarketRequirements(),
-        ]);
 
-        setOperators(loadedOperators);
-        setManagedShifts(loadedShifts);
-        setProductionPlan(loadedPlan);
-        setMachines(loadedMachines);
-        setMarketRequirements(loadedReqs);
-      } catch (error) {
-        console.error("Failed to load data:", error);
-        toast({
-          variant: "destructive",
-          title: "Failed to load data",
-          description: "Could not fetch data from the database. Please check your connection and Firebase setup.",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadData();
-  }, [toast]);
-
-  const handleAddOperator = async () => {
+  const handleAddOperator = () => {
     const newId = `OP-${String(Date.now()).slice(-4)}`;
     const newOperators = [...operators, { id: newId, name: 'New Operator', skillRating: 3, isAbsent: false }];
     setOperators(newOperators);
-    await saveOperators(newOperators);
     toast({ title: "Operator Added" });
   };
 
-  const handleDeleteOperator = async (id: string) => {
+  const handleDeleteOperator = (id: string) => {
     const newOps = operators.filter(op => op.id !== id);
     setOperators(newOps);
-    await saveOperators(newOps);
     toast({
         title: "Operator Removed",
         description: `Operator with ID ${id} has been removed.`,
@@ -125,8 +107,7 @@ export default function AdminPage() {
     );
   };
 
-  const handleSaveShifts = async () => {
-    await saveShifts(managedShifts);
+  const handleSaveShifts = () => {
     toast({
       title: 'Shifts Updated',
       description: `All shift times have been saved successfully.`,
@@ -137,7 +118,7 @@ export default function AdminPage() {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = async (e) => {
+      reader.onload = (e) => {
         try {
           const data = e.target?.result;
           const workbook = XLSX.read(data, { type: 'array' });
@@ -153,7 +134,6 @@ export default function AdminPage() {
           }));
 
           if (parsedData.length > 0 && parsedData[0].machine && parsedData[0].sku && parsedData[0].demand) {
-             await saveMarketRequirements(parsedData);
              setMarketRequirements(parsedData);
              
              // Sync with production plan
@@ -178,7 +158,6 @@ export default function AdminPage() {
                  skus,
              }));
 
-             await saveProductionPlan(newProductionPlan);
              setProductionPlan(newProductionPlan);
 
              toast({
@@ -211,8 +190,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleClearRequirements = async () => {
-    await clearMarketRequirements();
+  const handleClearRequirements = () => {
     setMarketRequirements([]);
     toast({
         title: "Market Requirements Cleared",
@@ -220,7 +198,7 @@ export default function AdminPage() {
     });
   };
 
-  const handleSavePlanItem = async (item: ProductionPlanItem) => {
+  const handleSavePlanItem = (item: ProductionPlanItem) => {
     if (!item.machineId || item.skus.length === 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Machine must be selected and at least one SKU must be added.' });
       return;
@@ -234,16 +212,14 @@ export default function AdminPage() {
       newPlan = [...productionPlan, item];
     }
     setProductionPlan(newPlan);
-    await saveProductionPlan(newPlan);
 
     toast({ title: 'Plan Saved', description: `Production plan for ${machines.find(m => m.id === item.machineId)?.name} has been updated.`});
     setEditingPlan(null);
   };
 
-  const handleDeletePlanItem = async (machineId: string) => {
+  const handleDeletePlanItem = (machineId: string) => {
     const newPlan = productionPlan.filter(p => p.machineId !== machineId);
     setProductionPlan(newPlan);
-    await saveProductionPlan(newPlan);
     toast({ title: 'Plan Item Removed', description: `Plan for ${machines.find(m => m.id === machineId)?.name} has been removed.`});
   };
 
@@ -268,8 +244,14 @@ export default function AdminPage() {
       }
   };
 
-  const handleClearDataConfirm = async () => {
-    await clearAllProductionData();
+  const handleClearDataConfirm = () => {
+    if (typeof window !== 'undefined') {
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('production-log-')) {
+                localStorage.removeItem(key);
+            }
+        });
+    }
     toast({
       title: 'Success!',
       description: 'All production data has been cleared.',
@@ -289,22 +271,20 @@ export default function AdminPage() {
       );
   };
 
-  const handleSaveMachines = async () => {
-      await saveMachines(machines);
+  const handleSaveMachines = () => {
       toast({
           title: 'Machines Updated',
           description: 'All machine names and statuses have been saved successfully.',
       });
   };
 
-  const handleAddMachine = async () => {
+  const handleAddMachine = () => {
       const newId = `TBM-${String(machines.length + 1).padStart(2, '0')}`;
       const newMachines = [...machines, { id: newId, name: `New Machine ${machines.length + 1}`, isAvailable: true }];
       setMachines(newMachines);
-      await saveMachines(newMachines);
   };
 
-  const handleDeleteMachine = async (id: string) => {
+  const handleDeleteMachine = (id: string) => {
       if (productionPlan.some(p => p.machineId === id)) {
           toast({
               variant: 'destructive',
@@ -315,7 +295,6 @@ export default function AdminPage() {
       }
       const newMachines = machines.filter(m => m.id !== id);
       setMachines(newMachines);
-      await saveMachines(newMachines);
       toast({
           title: 'Machine Removed',
           description: `Machine ${id} has been removed.`,
@@ -332,13 +311,12 @@ export default function AdminPage() {
     setEditingReq(null);
   };
 
-  const saveEditingRequirement = async () => {
+  const saveEditingRequirement = () => {
     if (editingReq && editingReqIndex !== null) {
         const newReqs = marketRequirements.map((item, index) => 
             index === editingReqIndex ? editingReq : item
         );
         setMarketRequirements(newReqs);
-        await saveMarketRequirements(newReqs);
         toast({
             title: "Requirement Saved",
             description: "Your changes have been saved."
@@ -353,17 +331,16 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteRequirement = async (indexToDelete: number) => {
+  const handleDeleteRequirement = (indexToDelete: number) => {
     const newReqs = marketRequirements.filter((_, index) => index !== indexToDelete);
     setMarketRequirements(newReqs);
-    await saveMarketRequirements(newReqs);
     toast({
         title: "Requirement Deleted",
         description: "The market requirement has been removed."
     });
   };
   
-  if (isLoading) {
+  if (!isClient) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
