@@ -160,36 +160,24 @@ export default function DashboardPage() {
   }, [selectedDate, selectedShift, generateRoundTimes, selectedRound]);
 
   useEffect(() => {
-    if (!selectedRound) return;
+    if (!selectedRound) {
+        setEntries([]);
+        return;
+    };
 
+    // Step 1: Build the UI structure based on the current plan and machine availability.
     const planMachineIds = new Set(allProductionPlan.map(p => p.machineId));
     const machinesForPlan = allMachines.filter(m => m.isAvailable && planMachineIds.has(m.id));
 
-    const roundLogEntries = productionLog[selectedRound]?.entries || [];
-    const logMap = new Map(roundLogEntries.map(e => [e.machineId, e]));
-
-    const newEntries = machinesForPlan.map(machine => {
+    let updatedEntries = machinesForPlan.map(machine => {
       const planItem = allProductionPlan.find(p => p.machineId === machine.id);
       const machineSkus = planItem?.skus || [];
-      const existingEntry = logMap.get(machine.id);
-
-      if (existingEntry) {
-        // If an entry exists, use it, but ensure the SKU is still valid.
-        // If the saved SKU is no longer in the plan, default to the first available SKU.
-        const updatedSku = machineSkus.includes(existingEntry.sku) ? existingEntry.sku : (machineSkus[0] || '');
-        return { 
-          ...existingEntry, 
-          name: machine.name,
-          sku: updatedSku,
-        };
-      }
       
-      // If no entry exists, create a new one based on the plan.
       return {
         machineId: machine.id,
         name: machine.name,
-        status: 'Online',
-        sku: machineSkus[0] || '', // Default to the first SKU in the plan
+        status: 'Online' as const,
+        sku: machineSkus[0] || '',
         quantity: 0,
         operatorId: '',
         remark: '',
@@ -198,7 +186,29 @@ export default function DashboardPage() {
       };
     });
 
-    setEntries(newEntries);
+    // Step 2: Populate the UI structure with data from the log for the current round.
+    const roundLogEntries = productionLog[selectedRound]?.entries || [];
+    if (roundLogEntries.length > 0) {
+        const logMap = new Map(roundLogEntries.map(e => [e.machineId, e]));
+
+        updatedEntries = updatedEntries.map(entry => {
+            const loggedEntry = logMap.get(entry.machineId);
+            if (loggedEntry) {
+                const planItem = allProductionPlan.find(p => p.machineId === entry.machineId);
+                const machineSkus = planItem?.skus || [];
+                const validatedSku = machineSkus.includes(loggedEntry.sku) ? loggedEntry.sku : entry.sku;
+                
+                return {
+                    ...entry,
+                    ...loggedEntry,
+                    sku: validatedSku,
+                };
+            }
+            return entry;
+        });
+    }
+
+    setEntries(updatedEntries);
   }, [selectedRound, productionLog, allMachines, allProductionPlan]);
 
 
