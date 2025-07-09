@@ -140,46 +140,56 @@ export default function DashboardPage() {
   }, [selectedDate, selectedShift, generateRoundTimes, selectedRound]);
 
   useEffect(() => {
-    if (!selectedRound || allMachines.length === 0) {
+    // If we don't have a plan, we can't show any machines.
+    if (!allProductionPlan.length || !allMachines.length) {
       setEntries([]);
       return;
     }
 
-    // 1. Create a map of the current production plan for efficient lookup.
-    const planMap = new Map(allProductionPlan.map(p => [p.machineId, p.skus]));
-    
-    // 2. Filter machines that are available AND in the current plan.
-    const machinesForPlan = allMachines.filter(m => m.isAvailable && planMap.has(m.id));
+    // Create lookup maps for efficiency
+    const machineMap = new Map(allMachines.map(m => [m.id, m]));
+    const logMap = new Map(
+      (productionLog[selectedRound]?.entries || []).map(e => [e.machineId, e])
+    );
 
-    // 3. Get the logged entries for the currently selected round.
-    const roundLogEntries = productionLog[selectedRound]?.entries || [];
-    const logMap = new Map(roundLogEntries.map(e => [e.machineId, e]));
+    // Build the entries list directly from the production plan.
+    // The plan is the single source of truth for which machines and SKUs to display.
+    const newEntries = allProductionPlan
+      .map(planItem => {
+        const machine = machineMap.get(planItem.machineId);
 
-    // 4. Map over the planned machines to create the final list of entries for display.
-    const newEntries = machinesForPlan.map(machine => {
-      const loggedEntry = logMap.get(machine.id);
-      const machineSkus = planMap.get(machine.id) || [];
-      
-      let finalSku = machineSkus[0] || ''; // Default to the first SKU in the plan.
+        // Only include machines that are in the plan AND are available.
+        if (!machine || !machine.isAvailable) {
+          return null;
+        }
 
-      // If there's a logged entry, check if its SKU is still valid in the new plan.
-      if (loggedEntry && loggedEntry.sku && machineSkus.includes(loggedEntry.sku)) {
-        finalSku = loggedEntry.sku;
-      }
+        // Get the log data for this specific machine, if it exists.
+        const loggedEntry = logMap.get(planItem.machineId);
 
-      // Build the final entry object, merging plan data with log data.
-      return {
-        machineId: machine.id,
-        name: machine.name,
-        status: 'Online' as const,
-        sku: finalSku,
-        quantity: loggedEntry?.quantity || 0,
-        operatorId: loggedEntry?.operatorId || '',
-        remark: loggedEntry?.remark || '',
-        trolleyNo: loggedEntry?.trolleyNo || '',
-        noOfSpool: loggedEntry?.noOfSpool || '',
-      };
-    });
+        // The SKU is ALWAYS the first one from the current plan.
+        // This ensures the view is always synced with the uploaded requirement.
+        let sku = planItem.skus[0] || '';
+
+        // If there's a logged entry AND its SKU is STILL VALID in the new plan, we keep it.
+        // This prevents the user from losing their selection if they just saved and the plan hasn't changed.
+        if (loggedEntry && loggedEntry.sku && planItem.skus.includes(loggedEntry.sku)) {
+          sku = loggedEntry.sku;
+        }
+
+        return {
+          machineId: machine.id,
+          name: machine.name,
+          status: 'Online' as const,
+          sku: sku,
+          // Populate other fields from the log, or default to empty/zero.
+          quantity: loggedEntry?.quantity || 0,
+          operatorId: loggedEntry?.operatorId || '',
+          remark: loggedEntry?.remark || '',
+          trolleyNo: loggedEntry?.trolleyNo || '',
+          noOfSpool: loggedEntry?.noOfSpool || '',
+        };
+      })
+      .filter((entry): entry is MachineProductionData => entry !== null); // Remove any nulls from skipped machines.
 
     setEntries(newEntries);
   }, [selectedRound, productionLog, allMachines, allProductionPlan]);
