@@ -144,40 +144,43 @@ export default function DashboardPage() {
       setEntries([]);
       return;
     }
-  
-    const planMachineIds = new Set(allProductionPlan.map(p => p.machineId));
-    const machinesForPlan = allMachines.filter(m => m.isAvailable && planMachineIds.has(m.id));
+
+    // 1. Create a map of the current production plan for efficient lookup.
+    const planMap = new Map(allProductionPlan.map(p => [p.machineId, p.skus]));
+    
+    // 2. Filter machines that are available AND in the current plan.
+    const machinesForPlan = allMachines.filter(m => m.isAvailable && planMap.has(m.id));
+
+    // 3. Get the logged entries for the currently selected round.
     const roundLogEntries = productionLog[selectedRound]?.entries || [];
     const logMap = new Map(roundLogEntries.map(e => [e.machineId, e]));
-  
+
+    // 4. Map over the planned machines to create the final list of entries for display.
     const newEntries = machinesForPlan.map(machine => {
-      const planItem = allProductionPlan.find(p => p.machineId === machine.id);
-      const machineSkus = planItem?.skus || [];
       const loggedEntry = logMap.get(machine.id);
-  
-      // The SKU from the log is only valid if it's still in the current plan for this machine.
-      // Otherwise, default to the first SKU in the current plan.
-      const finalSku = (loggedEntry && machineSkus.includes(loggedEntry.sku))
-        ? loggedEntry.sku
-        : (machineSkus[0] || '');
-  
-      // Build the entry, prioritizing the current machine name and the calculated final SKU.
-      // Then, fill in data from the log if it exists.
-      const entry: MachineProductionData = {
+      const machineSkus = planMap.get(machine.id) || [];
+      
+      let finalSku = machineSkus[0] || ''; // Default to the first SKU in the plan.
+
+      // If there's a logged entry, check if its SKU is still valid in the new plan.
+      if (loggedEntry && loggedEntry.sku && machineSkus.includes(loggedEntry.sku)) {
+        finalSku = loggedEntry.sku;
+      }
+
+      // Build the final entry object, merging plan data with log data.
+      return {
         machineId: machine.id,
-        name: machine.name, // Always use the current machine name
-        status: 'Online',
-        sku: finalSku, // Use the validated or default SKU
+        name: machine.name,
+        status: 'Online' as const,
+        sku: finalSku,
         quantity: loggedEntry?.quantity || 0,
         operatorId: loggedEntry?.operatorId || '',
         remark: loggedEntry?.remark || '',
         trolleyNo: loggedEntry?.trolleyNo || '',
         noOfSpool: loggedEntry?.noOfSpool || '',
       };
-      
-      return entry;
     });
-  
+
     setEntries(newEntries);
   }, [selectedRound, productionLog, allMachines, allProductionPlan]);
 
