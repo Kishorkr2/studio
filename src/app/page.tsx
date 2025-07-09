@@ -35,7 +35,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -101,26 +100,6 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const getInitialEntries = useCallback((): MachineProductionData[] => {
-    const planMachineIds = new Set(allProductionPlan.map(p => p.machineId));
-    const machinesForPlan = allMachines.filter(m => m.isAvailable && planMachineIds.has(m.id));
-    
-    return machinesForPlan.map(machine => {
-      const planItem = allProductionPlan.find(p => p.machineId === machine.id);
-      return {
-        machineId: machine.id,
-        name: machine.name,
-        status: 'Online',
-        sku: planItem?.skus?.[0] || '',
-        quantity: 0,
-        operatorId: '',
-        remark: '',
-        trolleyNo: '',
-        noOfSpool: '',
-      };
-    });
-  }, [allMachines, allProductionPlan]);
-
   const generateRoundTimes = useCallback((shift: ShiftInfo | undefined): string[] => {
     if (!shift) return [];
     
@@ -160,39 +139,44 @@ export default function DashboardPage() {
   }, [selectedDate, selectedShift, generateRoundTimes, selectedRound]);
 
   useEffect(() => {
-    if (!selectedRound) {
+    if (!selectedRound || allMachines.length === 0) {
       setEntries([]);
       return;
     }
-
+  
     const planMachineIds = new Set(allProductionPlan.map(p => p.machineId));
     const machinesForPlan = allMachines.filter(m => m.isAvailable && planMachineIds.has(m.id));
     const roundLogEntries = productionLog[selectedRound]?.entries || [];
     const logMap = new Map(roundLogEntries.map(e => [e.machineId, e]));
-
+  
     const newEntries = machinesForPlan.map(machine => {
       const planItem = allProductionPlan.find(p => p.machineId === machine.id);
       const machineSkus = planItem?.skus || [];
       const loggedEntry = logMap.get(machine.id);
-
+  
+      // The SKU from the log is only valid if it's still in the current plan for this machine.
+      // Otherwise, default to the first SKU in the current plan.
       const finalSku = (loggedEntry && machineSkus.includes(loggedEntry.sku))
         ? loggedEntry.sku
         : (machineSkus[0] || '');
-
-      return {
+  
+      // Build the entry, prioritizing the current machine name and the calculated final SKU.
+      // Then, fill in data from the log if it exists.
+      const entry: MachineProductionData = {
         machineId: machine.id,
-        name: machine.name,
-        status: 'Online' as const,
-        quantity: 0,
-        operatorId: '',
-        remark: '',
-        trolleyNo: '',
-        noOfSpool: '',
-        ...(loggedEntry || {}),
-        sku: finalSku,
+        name: machine.name, // Always use the current machine name
+        status: 'Online',
+        sku: finalSku, // Use the validated or default SKU
+        quantity: loggedEntry?.quantity || 0,
+        operatorId: loggedEntry?.operatorId || '',
+        remark: loggedEntry?.remark || '',
+        trolleyNo: loggedEntry?.trolleyNo || '',
+        noOfSpool: loggedEntry?.noOfSpool || '',
       };
+      
+      return entry;
     });
-
+  
     setEntries(newEntries);
   }, [selectedRound, productionLog, allMachines, allProductionPlan]);
 
@@ -232,11 +216,7 @@ export default function DashboardPage() {
   const handleClearShiftData = async () => {
     if (!selectedShift) return;
     await DataService.clearShiftData(selectedDate, selectedShift);
-    setProductionLog({});
-    setEntries(getInitialEntries());
-    if (roundTimes.length > 0) {
-      setSelectedRound(roundTimes[0]);
-    }
+    // The onSnapshot listener will automatically clear the log and trigger a re-render.
     toast({
       title: 'Shift Data Cleared',
       description: `All production entries for ${selectedShift.name} on ${format(selectedDate, "PPP")} have been removed.`,
@@ -432,6 +412,14 @@ export default function DashboardPage() {
 
 
       <div className="flex-1 overflow-y-auto space-y-4">
+        {entries.length === 0 && !loading && (
+          <Card>
+            <CardContent className="p-10 text-center text-muted-foreground">
+              <p>No machines scheduled for production in the current plan.</p>
+              <p className="text-sm">Please upload a market requirement file in the Admin panel.</p>
+            </CardContent>
+          </Card>
+        )}
         {entries.map(entry => {
           const planItem = allProductionPlan.find(p => p.machineId === entry.machineId);
           const machineSkus = planItem?.skus || [];
@@ -519,3 +507,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
