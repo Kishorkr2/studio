@@ -161,54 +161,39 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!selectedRound) {
-        setEntries([]);
-        return;
-    };
+      setEntries([]);
+      return;
+    }
 
-    // Step 1: Build the UI structure based on the current plan and machine availability.
     const planMachineIds = new Set(allProductionPlan.map(p => p.machineId));
     const machinesForPlan = allMachines.filter(m => m.isAvailable && planMachineIds.has(m.id));
+    const roundLogEntries = productionLog[selectedRound]?.entries || [];
+    const logMap = new Map(roundLogEntries.map(e => [e.machineId, e]));
 
-    let updatedEntries = machinesForPlan.map(machine => {
+    const newEntries = machinesForPlan.map(machine => {
       const planItem = allProductionPlan.find(p => p.machineId === machine.id);
       const machineSkus = planItem?.skus || [];
-      
+      const loggedEntry = logMap.get(machine.id);
+
+      const finalSku = (loggedEntry && machineSkus.includes(loggedEntry.sku))
+        ? loggedEntry.sku
+        : (machineSkus[0] || '');
+
       return {
         machineId: machine.id,
         name: machine.name,
         status: 'Online' as const,
-        sku: machineSkus[0] || '',
         quantity: 0,
         operatorId: '',
         remark: '',
         trolleyNo: '',
         noOfSpool: '',
+        ...(loggedEntry || {}),
+        sku: finalSku,
       };
     });
 
-    // Step 2: Populate the UI structure with data from the log for the current round.
-    const roundLogEntries = productionLog[selectedRound]?.entries || [];
-    if (roundLogEntries.length > 0) {
-        const logMap = new Map(roundLogEntries.map(e => [e.machineId, e]));
-
-        updatedEntries = updatedEntries.map(entry => {
-            const loggedEntry = logMap.get(entry.machineId);
-            if (loggedEntry) {
-                const planItem = allProductionPlan.find(p => p.machineId === entry.machineId);
-                const machineSkus = planItem?.skus || [];
-                const validatedSku = machineSkus.includes(loggedEntry.sku) ? loggedEntry.sku : entry.sku;
-                
-                return {
-                    ...entry,
-                    ...loggedEntry,
-                    sku: validatedSku,
-                };
-            }
-            return entry;
-        });
-    }
-
-    setEntries(updatedEntries);
+    setEntries(newEntries);
   }, [selectedRound, productionLog, allMachines, allProductionPlan]);
 
 
