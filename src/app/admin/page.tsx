@@ -342,8 +342,8 @@ export default function AdminPage() {
           
           jsonFromSheet.forEach(row => {
             const machineId = String(row['TBM No'] || '').trim();
-            const sku = String(row.SKU || '').trim();
             const sapCode = String(row['SAP Code'] || '').trim();
+            const sku = String(row.SKU || '').trim();
             const quantity = Number(row.Quantity || 0);
 
             if (machineId && sku && sapCode) {
@@ -355,7 +355,7 @@ export default function AdminPage() {
           });
 
           if (planMap.size === 0) {
-            throw new Error("Invalid file format or empty file. Please check headers: TBM No, SKU, SAP Code, Quantity");
+            throw new Error("Invalid file format or empty file. Please check headers: TBM No, SAP Code, SKU, Quantity");
           }
 
           const parsedPlan: ProductionPlanItem[] = Array.from(planMap.entries()).map(([machineId, skus]) => ({
@@ -512,29 +512,29 @@ export default function AdminPage() {
               <div className="space-y-2">
                 <h4 className="text-md font-semibold">File Format Template</h4>
                 <p className="text-sm text-muted-foreground">
-                  Your Excel file should contain four columns: <strong>TBM No</strong>, <strong>SKU</strong>, <strong>SAP Code</strong>, and <strong>Quantity</strong>.
+                  Your Excel file should contain four columns: <strong>TBM No</strong>, <strong>SAP Code</strong>, <strong>SKU</strong>, and <strong>Quantity</strong>.
                 </p>
                 <div className="border rounded-lg overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>TBM No</TableHead>
-                        <TableHead>SKU</TableHead>
                         <TableHead>SAP Code</TableHead>
+                        <TableHead>SKU</TableHead>
                         <TableHead>Quantity</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       <TableRow>
                         <TableCell className="font-mono">TBM-01</TableCell>
-                        <TableCell className="font-mono">P-215-65R17</TableCell>
                         <TableCell className="font-mono">S4P-87321</TableCell>
+                        <TableCell className="font-mono">P-215-65R17</TableCell>
                         <TableCell className="font-mono">100</TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell className="font-mono">TBM-02</TableCell>
-                        <TableCell className="font-mono">P-225-60R17</TableCell>
                         <TableCell className="font-mono">S4P-87322</TableCell>
+                        <TableCell className="font-mono">P-225-60R17</TableCell>
                         <TableCell className="font-mono">150</TableCell>
                       </TableRow>
                     </TableBody>
