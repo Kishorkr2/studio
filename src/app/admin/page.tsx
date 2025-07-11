@@ -220,7 +220,7 @@ export default function AdminPage() {
   };
   
   const handleAddSkuToPlan = () => {
-    if (newSku && newSkuSapCode && editingPlan && !editingPlan.skus.some(s => s.sku === newSku)) {
+    if (newSku && newSkuSapCode && editingPlan) {
         setEditingPlan({ ...editingPlan, skus: [...editingPlan.skus, { sku: newSku, sapCode: newSkuSapCode, quantity: newSkuQuantity }] });
         setNewSku('');
         setNewSkuSapCode('');
@@ -337,38 +337,36 @@ export default function AdminPage() {
           const workbook = XLSX.read(data, { type: 'array' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet, {
-            header: 1, // Get an array of arrays
-            raw: true,
-          });
-
-          if (jsonFromSheet.length < 2) {
-            throw new Error("File must contain a header row and at least one data row.");
+          const jsonFromSheet: any[] = XLSX.utils.sheet_to_json(worksheet);
+  
+          if (jsonFromSheet.length === 0) {
+              throw new Error("File is empty.");
           }
+          
+          const header = Object.keys(jsonFromSheet[0]).map(h => h.trim().toLowerCase());
+          const requiredHeaders = ['tbm no', 'sap code', 'sku', 'quantity'];
+          const hasAllHeaders = requiredHeaders.every(rh => header.includes(rh));
   
-          const header = (jsonFromSheet[0] as string[]).map(h => String(h).trim().toLowerCase());
-          const tbmNoIndex = header.indexOf('tbm no');
-          const sapCodeIndex = header.indexOf('sap code');
-          const skuIndex = header.indexOf('sku');
-          const quantityIndex = header.indexOf('quantity');
-  
-          if ([tbmNoIndex, sapCodeIndex, skuIndex, quantityIndex].includes(-1)) {
-              throw new Error("File headers must contain: TBM No, SAP Code, SKU, Quantity.");
+          if (!hasAllHeaders) {
+              throw new Error(`File headers must contain: ${requiredHeaders.join(', ')}.`);
           }
 
           const planMap = new Map<string, SkuPlan[]>();
           const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase().replace(/-/g, ' ').replace('tbm ',''), m.id]));
           
-          for (let i = 1; i < jsonFromSheet.length; i++) {
-              const row: any[] = jsonFromSheet[i] as any[];
-              const tbmNoRaw = String(row[tbmNoIndex] || '').trim();
+          for (const row of jsonFromSheet) {
+              const cleanedRow = Object.fromEntries(
+                  Object.entries(row).map(([key, value]) => [key.trim(), value])
+              );
+              
+              const tbmNoRaw = String(cleanedRow['TBM No'] || '').trim();
               const normalizedTbmNo = tbmNoRaw.toLowerCase().replace(/-/g, ' ').replace('tbm ','');
               const machineId = machineNameToIdMap.get(normalizedTbmNo);
 
               if (machineId) {
-                  const sapCode = String(row[sapCodeIndex] || '').trim();
-                  const sku = String(row[skuIndex] || '').trim();
-                  const quantity = Number(row[quantityIndex] || 0);
+                  const sapCode = String(cleanedRow['SAP Code'] || '').trim();
+                  const sku = String(cleanedRow['SKU'] || '').trim();
+                  const quantity = Number(cleanedRow['Quantity'] || 0);
 
                   if (sku && sapCode) {
                       if (!planMap.has(machineId)) {
