@@ -1,3 +1,4 @@
+
 import { db } from './firebase';
 import { collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, writeBatch, onSnapshot, query, where, collectionGroup } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
@@ -29,6 +30,9 @@ export const subscribeToCollection = <T>(collectionName: string, setData: (data:
             const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
             setData(data);
         }
+    }, (error) => {
+        console.error(`Error subscribing to ${collectionName}: `, error);
+        // Optionally handle the error, e.g., by setting an error state
     });
 };
 
@@ -95,8 +99,9 @@ export const setMarketRequirements = async (requirements: MarketRequirement[]) =
     const currentDocs = await getDocs(reqCollection);
     currentDocs.forEach(doc => batch.delete(doc.ref));
     requirements.forEach(req => {
-        const { id, ...data } = req;
+        // Firestore will auto-generate an ID
         const docRef = doc(reqCollection);
+        const { id, ...data } = req;
         batch.set(docRef, data);
     });
     await batch.commit();
@@ -115,15 +120,16 @@ export const saveProductionRound = async (date: Date, shift: ShiftInfo, round: s
     const logId = `production-log-${format(date, "yyyy-MM-dd")}-${shift.name.replace(/\s+/g, '-')}`;
     const docRef = doc(db, 'productionLogs', logId);
 
-    // Sanitize entries to prevent writing `undefined` to Firestore, which can corrupt IndexedDB.
     const sanitizedEntries = entries.map(entry => ({
-      ...entry,
-      operatorId: entry.operatorId || '',
-      remark: entry.remark || '',
-      trolleyNo: entry.trolleyNo || '',
+      machineId: entry.machineId || null,
+      name: entry.name || null,
+      status: entry.status || 'Offline',
+      sku: entry.sku || null,
+      sapCode: entry.sapCode || null,
       quantity: entry.quantity || 0,
-      sku: entry.sku || '',
-      sapCode: entry.sapCode || '',
+      operatorId: entry.operatorId || null,
+      remark: entry.remark || null,
+      trolleyNo: entry.trolleyNo || null,
     }));
 
     await setDoc(docRef, {
@@ -183,3 +189,5 @@ export const clearAllProductionData = async () => {
     
     await batch.commit();
 };
+
+    

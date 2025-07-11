@@ -379,7 +379,7 @@ export default function AdminPage() {
           }
 
           if (planMap.size === 0) {
-            throw new Error("Invalid file format or empty file. Please check headers: TBM No, SAP Code, SKU, Quantity");
+            throw new Error("Invalid file format or TBM No did not match. Please check headers: TBM No, SAP Code, SKU, Quantity");
           }
 
           const parsedPlan: ProductionPlanItem[] = Array.from(planMap.entries()).map(([machineId, skus]) => ({
@@ -570,13 +570,13 @@ export default function AdminPage() {
                     </TableHeader>
                     <TableBody>
                       <TableRow>
-                        <TableCell className="font-mono">TBM-01</TableCell>
+                        <TableCell className="font-mono">TBM 1</TableCell>
                         <TableCell className="font-mono">S4P-87321</TableCell>
                         <TableCell className="font-mono">P-215-65R17</TableCell>
                         <TableCell className="font-mono">100</TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-mono">TBM-02</TableCell>
+                        <TableCell className="font-mono">TBM 2</TableCell>
                         <TableCell className="font-mono">S4P-87322</TableCell>
                         <TableCell className="font-mono">P-225-60R17</TableCell>
                         <TableCell className="font-mono">150</TableCell>
@@ -663,7 +663,7 @@ export default function AdminPage() {
                         <TableCell>{machines.find(m => m.id === item.machineId)?.name}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {item.skus.map((skuPlan, index) => <Badge key={`${skuPlan.sku}-${index}`} variant="secondary">{skuPlan.sku} ({skuPlan.quantity})</Badge>)}
+                            {item.skus.map((skuPlan, index) => <Badge key={`${skuPlan.sku}-${skuPlan.sapCode}-${index}`} variant="secondary">{skuPlan.sku} ({skuPlan.quantity})</Badge>)}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
@@ -815,7 +815,7 @@ export default function AdminPage() {
                                 {marketRequirements.length > 0 ? (
                                     marketRequirements.map((req, index) => (
                                         editingReqIndex === index && editingReq ? (
-                                          <TableRow key={index}>
+                                          <TableRow key={`${req.sku}-${req.sapCode}-${index}`}>
                                             <TableCell><Input value={editingReq.tbmNo} onChange={(e) => handleEditingReqChange('tbmNo', e.target.value)} /></TableCell>
                                             <TableCell><Input value={editingReq.sapCode} onChange={(e) => handleEditingReqChange('sapCode', e.target.value)} /></TableCell>
                                             <TableCell><Input value={editingReq.sku} onChange={(e) => handleEditingReqChange('sku', e.target.value)} /></TableCell>
@@ -828,7 +828,7 @@ export default function AdminPage() {
                                             </TableCell>
                                           </TableRow>
                                         ) : (
-                                          <TableRow key={index}>
+                                          <TableRow key={`${req.sku}-${req.sapCode}-${index}`}>
                                               <TableCell>{req.tbmNo}</TableCell>
                                               <TableCell>{req.sapCode}</TableCell>
                                               <TableCell>{req.sku}</TableCell>
@@ -925,3 +925,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    

@@ -39,14 +39,16 @@ export const clearFirestoreCache = async () => {
         try {
             await terminate(db);
             await deleteApp(app);
-            await clearIndexedDbPersistence(db);
+            await clearIndexedDbPersistence(db); // This is an experimental API
             console.log("Firestore local persistence cleared successfully.");
         } catch (error) {
             console.error("Error clearing Firestore cache:", error);
             throw error;
         } finally {
+            // Re-initialize the app and Firestore
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
+            // Re-enable persistence
             (async () => {
                 try {
                     await enableIndexedDbPersistence(db);
@@ -61,3 +63,5 @@ export const clearFirestoreCache = async () => {
 };
 
 export { db };
+
+    

@@ -138,6 +138,8 @@ export default function ReportsPage() {
         rawProductionLogs.forEach(logDoc => {
             const { id, ...logData } = logDoc;
             const keyParts = id.replace('production-log-', '').split('-');
+            if (keyParts.length < 4) return; // a basic check for a valid ID format
+            
             const dateStr = keyParts.slice(0, 3).join('-');
             const shiftName = keyParts.slice(3).join(' ');
 
@@ -309,7 +311,7 @@ export default function ReportsPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredReportData.length > 0 ? filteredReportData.map((row, index) => (
-                      <TableRow key={index}>
+                      <TableRow key={`${row.date}-${row.shift}-${row.machineId}-${row.round}-${index}`}>
                         <TableCell>{format(parseISO(row.date), "yyyy-MM-dd")}</TableCell>
                         <TableCell>{row.shift}</TableCell>
                         <TableCell className="font-medium">{row.operatorName}</TableCell>
@@ -424,7 +426,7 @@ export default function ReportsPage() {
                   </TableHeader>
                   <TableBody>
                     {breakdownData.length > 0 ? breakdownData.map((row, index) => (
-                      <TableRow key={index}>
+                      <TableRow key={`${row.date}-${row.machineName}-${index}`}>
                         <TableCell>{format(parseISO(row.date), "yyyy-MM-dd")}</TableCell>
                         <TableCell className="font-medium">{row.machineName}</TableCell>
                         <TableCell>{row.shift}</TableCell>
@@ -465,7 +467,7 @@ export default function ReportsPage() {
                       </TableHeader>
                       <TableBody>
                         {marketRequirements.length > 0 ? marketRequirements.map((req, index) => (
-                          <TableRow key={index}>
+                          <TableRow key={`${req.tbmNo}-${req.sapCode}-${index}`}>
                             <TableCell>{req.tbmNo}</TableCell>
                             <TableCell>{req.sapCode}</TableCell>
                             <TableCell>{req.sku}</TableCell>
@@ -581,3 +583,5 @@ function DateRangePicker({
     </div>
   )
 }
+
+    

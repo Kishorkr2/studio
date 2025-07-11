@@ -150,7 +150,7 @@ export default function TreadExtrusionPage() {
       const totalProduction = totalProductionBySku[req.sku] || 0;
       const tyreProduction = tyreProductionData[req.sku] || 0;
       const currentTreadStock = openingStockInfo.openingStock + totalProduction - tyreProduction;
-      const treadBalanceToProduce = Math.max(0, req.quantity - currentTreadStock);
+      const treadBalanceToProduce = Math.max(0, (req.quantity || 0) - currentTreadStock);
       
       return {
         ...req,
