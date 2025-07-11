@@ -329,7 +329,7 @@ export default function TreadExtrusionPage() {
                     </TableHeader>
                     <TableBody>
                         {combinedData.length > 0 ? combinedData.map((item, index) => (
-                            <TableRow key={`${item.sku}-${index}`}>
+                            <TableRow key={`${item.sku}-${item.sapCode}-${index}`}>
                                 {columnVisibility.sapCode && <TableCell>{item.sapCode}</TableCell>}
                                 <TableCell className="font-medium">{item.sku}</TableCell>
                                 {columnVisibility.quantity && <TableCell className="text-right">{item.quantity.toLocaleString()}</TableCell>}
@@ -368,3 +368,5 @@ export default function TreadExtrusionPage() {
     </div>
   )
 }
+
+    
