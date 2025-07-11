@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Operator, ProductionPlanItem, Machine, ShiftInfo, MarketRequirement, SkuPlan } from '@/lib/types';
-import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, X, ShieldAlert, Save } from 'lucide-react';
+import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, X, ShieldAlert, Save, DatabaseZap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -29,6 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import * as XLSX from 'xlsx';
 import { initialOperators, shifts as initialShifts, initialProductionPlan, initialMachines } from '@/lib/data';
 import * as DataService from '@/lib/data-service';
+import { clearFirestoreCache } from '@/lib/firebase';
 
 export default function AdminPage() {
   const [loading, setLoading] = useState(true);
@@ -228,9 +229,9 @@ export default function AdminPage() {
     }
   };
 
-  const handleRemoveSkuFromPlan = (skuToRemove: string) => {
+  const handleRemoveSkuFromPlan = (skuToRemove: string, indexToRemove: number) => {
       if (editingPlan) {
-          setEditingPlan({ ...editingPlan, skus: editingPlan.skus.filter(s => s.sku !== skuToRemove) });
+          setEditingPlan({ ...editingPlan, skus: editingPlan.skus.filter((s, index) => !(s.sku === skuToRemove && index === indexToRemove)) });
       }
   };
 
@@ -378,7 +379,7 @@ export default function AdminPage() {
           }
 
           if (planMap.size === 0) {
-            throw new Error("No valid data found in file. Please check TBM No values and ensure they match system TBMs.");
+            throw new Error("Invalid file format or empty file. Please check headers: TBM No, SAP Code, SKU, Quantity");
           }
 
           const parsedPlan: ProductionPlanItem[] = Array.from(planMap.entries()).map(([machineId, skus]) => ({
@@ -412,6 +413,26 @@ export default function AdminPage() {
     }
     if(event.target) {
       event.target.value = '';
+    }
+  };
+
+  const handleClearCache = async () => {
+    try {
+        await clearFirestoreCache();
+        toast({
+            title: 'Local Cache Cleared',
+            description: 'The local data cache has been cleared. The page will now reload to fetch fresh data.',
+        });
+        setTimeout(() => {
+            window.location.reload();
+        }, 2000);
+    } catch (error) {
+        console.error("Failed to clear local cache:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Error Clearing Cache',
+            description: 'Could not clear the local cache. Please try closing all tabs of this app and reopening.',
+        });
     }
   };
   
@@ -607,9 +628,9 @@ export default function AdminPage() {
                         </div>
                         <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[40px]">
                             {editingPlan.skus.length > 0 ? editingPlan.skus.map((skuPlan, index) => (
-                                <Badge key={`${skuPlan.sku}-${index}`} variant="secondary" className="flex items-center gap-1">
+                                <Badge key={`${skuPlan.sku}-${skuPlan.sapCode}-${index}`} variant="secondary" className="flex items-center gap-1">
                                     {skuPlan.sku} ({skuPlan.quantity})
-                                    <button onClick={() => handleRemoveSkuFromPlan(skuPlan.sku)} className="rounded-full hover:bg-muted-foreground/20">
+                                    <button onClick={() => handleRemoveSkuFromPlan(skuPlan.sku, index)} className="rounded-full hover:bg-muted-foreground/20">
                                         <X className="h-3 w-3"/>
                                     </button>
                                 </Badge>
@@ -799,7 +820,7 @@ export default function AdminPage() {
                                             <TableCell><Input value={editingReq.sapCode} onChange={(e) => handleEditingReqChange('sapCode', e.target.value)} /></TableCell>
                                             <TableCell><Input value={editingReq.sku} onChange={(e) => handleEditingReqChange('sku', e.target.value)} /></TableCell>
                                             <TableCell className="text-right">
-                                              <Input type="number" value={editingReq.quantity} onChange={(e) => handleEditingReqChange('quantity', Number(e.target.value))} className="w-24 ml-auto text-right" />
+                                              <Input type="number" value={editingReq.quantity || ''} onChange={(e) => handleEditingReqChange('quantity', Number(e.target.value))} className="w-24 ml-auto text-right" />
                                             </TableCell>
                                             <TableCell className="text-right space-x-2">
                                               <Button size="sm" onClick={saveEditingRequirement}><Save className="h-4 w-4 mr-1" /> Save</Button>
@@ -843,9 +864,11 @@ export default function AdminPage() {
               <CardDescription>Manage advanced and dangerous application settings.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="p-4 border border-destructive/50 rounded-lg bg-destructive/10">
-                <h4 className="font-semibold text-destructive">Dangerous Actions</h4>
-                <p className="text-sm text-destructive/80 mt-1 mb-4">These actions are irreversible. Please proceed with caution.</p>
+              <div className="p-4 border border-destructive/50 rounded-lg bg-destructive/10 space-y-4">
+                <div>
+                  <h4 className="font-semibold text-destructive">Dangerous Actions</h4>
+                  <p className="text-sm text-destructive/80 mt-1">These actions are irreversible. Please proceed with caution.</p>
+                </div>
                 <AlertDialog onOpenChange={(open) => { if (!open) setPassword('') }}>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive"><ShieldAlert className="mr-2 h-4 w-4"/>Clear All Production Data</Button>
@@ -880,6 +903,19 @@ export default function AdminPage() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+              </div>
+
+              <div className="p-4 border border-yellow-500/50 rounded-lg bg-yellow-500/10 mt-6 space-y-4">
+                 <div>
+                  <h4 className="font-semibold text-yellow-700 dark:text-yellow-300">Troubleshooting</h4>
+                  <p className="text-sm text-yellow-700/80 dark:text-yellow-300/80 mt-1">
+                    If the application is behaving unexpectedly or not loading data, clearing the local cache can often resolve the issue.
+                    This action is safe and will not delete any data stored in the cloud.
+                  </p>
+                </div>
+                <Button variant="outline" onClick={handleClearCache}>
+                  <DatabaseZap className="mr-2 h-4 w-4" /> Clear Local Cache
+                </Button>
               </div>
             </CardContent>
           </Card>

@@ -1,5 +1,5 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import { initializeApp, getApps, getApp, deleteApp } from "firebase/app";
+import { getFirestore, enableIndexedDbPersistence, terminate } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,8 +10,8 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
+let app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+let db = getFirestore(app);
 
 // Enable offline persistence
 if (typeof window !== "undefined") {
@@ -32,5 +32,35 @@ if (typeof window !== "undefined") {
         console.error("Failed to enable Firestore persistence", e);
     }
 }
+
+export const clearFirestoreCache = async () => {
+    if (typeof window !== 'undefined') {
+        try {
+            await terminate(db);
+            const dbName = `firebase/firestore/${firebaseConfig.projectId}/(default)`;
+            await new Promise<void>((resolve, reject) => {
+                const deleteRequest = indexedDB.deleteDatabase(dbName);
+                deleteRequest.onsuccess = () => resolve();
+                deleteRequest.onerror = (event) => reject(new Error(`Failed to delete IndexedDB: ${(event.target as any)?.error}`));
+                deleteRequest.onblocked = () => {
+                    console.warn("IndexedDB delete is blocked. Please close other tabs with this app open.");
+                    // Don't reject, just warn and proceed with reinitialization. The user will need to reload.
+                    resolve(); 
+                };
+            });
+
+            // Re-initialize app and db
+            app = initializeApp(firebaseConfig, "reinit");
+            db = getFirestore(app);
+            await enableIndexedDbPersistence(db);
+            
+            console.log("Firestore cache cleared and re-initialized successfully.");
+        } catch (error) {
+            console.error("Error clearing Firestore cache:", error);
+            throw error;
+        }
+    }
+};
+
 
 export { db };
