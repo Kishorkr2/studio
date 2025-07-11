@@ -257,8 +257,8 @@ export default function AdminPage() {
   const handleSaveMachines = async () => {
       await DataService.updateMachines(machines);
       toast({
-          title: 'Machines Updated',
-          description: 'All machine names and statuses have been saved successfully.',
+          title: 'TBMs Updated',
+          description: 'All TBM numbers and statuses have been saved successfully.',
       });
   };
 
@@ -274,15 +274,15 @@ export default function AdminPage() {
       if (productionPlan.some(p => p.machineId === id)) {
           toast({
               variant: 'destructive',
-              title: 'Cannot Delete Machine',
-              description: 'This machine is part of an active production plan. Please remove it from the plan first.'
+              title: 'Cannot Delete TBM',
+              description: 'This TBM is part of an active production plan. Please remove it from the plan first.'
           });
           return;
       }
       const newMachines = machines.filter(m => m.id !== id);
       await DataService.updateMachines(newMachines);
       toast({
-          title: 'Machine Removed',
+          title: 'TBM Removed',
           description: `TBM No ${id} has been removed.`,
       });
   };
@@ -366,7 +366,7 @@ export default function AdminPage() {
           await DataService.updateProductionPlan(parsedPlan);
           toast({
             title: 'Production Plan Uploaded',
-            description: `Successfully uploaded and replaced the production plan with ${parsedPlan.length} machine assignments.`,
+            description: `Successfully uploaded and replaced the production plan with ${parsedPlan.length} TBM assignments.`,
           });
 
         } catch (error) {
@@ -619,7 +619,7 @@ export default function AdminPage() {
                         <TableCell>{machines.find(m => m.id === item.machineId)?.name}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {item.skus.map((skuPlan, index) => <Badge key={`${skuPlan.sku}-${index}`} variant="secondary">{skuPlan.sku} ({skuPlan.quantity})</Badge>)}
+                            {item.skus.map((skuPlan, index) => <Badge key={`${skuPlan.sku}-${skuPlan.sapCode}-${skuPlan.quantity}-${index}`} variant="secondary">{skuPlan.sku} ({skuPlan.quantity})</Badge>)}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
@@ -788,7 +788,7 @@ export default function AdminPage() {
                                               <TableCell>{req.tbmNo}</TableCell>
                                               <TableCell>{req.sapCode}</TableCell>
                                               <TableCell>{req.sku}</TableCell>
-                                              <TableCell className="text-right">{req.quantity.toLocaleString()}</TableCell>
+                                              <TableCell className="text-right">{typeof req.quantity === 'number' ? req.quantity.toLocaleString() : ''}</TableCell>
                                               <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => startEditingRequirement(req, index)}><Edit className="h-4 w-4" /></Button>
                                                 <Button variant="ghost" size="icon" onClick={() => handleDeleteRequirement(index)}><Trash className="h-4 w-4" /></Button>
@@ -866,5 +866,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    
