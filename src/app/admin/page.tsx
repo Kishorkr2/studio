@@ -120,11 +120,12 @@ export default function AdminPage() {
           if (parsedData.length > 0 && parsedData[0].tbmNo && parsedData[0].sku) {
              await DataService.setMarketRequirements(parsedData);
              
-             const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase(), m.id]));
+             const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase().replace(/-/g, ' '), m.id]));
              const newProductionPlanItems = new Map<string, SkuPlan[]>();
 
              for (const req of parsedData) {
-                 const machineId = machineNameToIdMap.get(req.tbmNo.toLowerCase());
+                 const normalizedTbmNo = req.tbmNo.toLowerCase().replace(/-/g, ' ');
+                 const machineId = machineNameToIdMap.get(normalizedTbmNo);
                  if (machineId) {
                      if (!newProductionPlanItems.has(machineId)) {
                          newProductionPlanItems.set(machineId, []);
@@ -583,8 +584,8 @@ export default function AdminPage() {
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[40px]">
-                            {editingPlan.skus.length > 0 ? editingPlan.skus.map(skuPlan => (
-                                <Badge key={`${skuPlan.sku}-${skuPlan.sapCode}-${skuPlan.quantity}`} variant="secondary" className="flex items-center gap-1">
+                            {editingPlan.skus.length > 0 ? editingPlan.skus.map((skuPlan, index) => (
+                                <Badge key={`${skuPlan.sku}-${skuPlan.sapCode}-${skuPlan.quantity}-${index}`} variant="secondary" className="flex items-center gap-1">
                                     {skuPlan.sku} ({skuPlan.quantity})
                                     <button onClick={() => handleRemoveSkuFromPlan(skuPlan.sku)} className="rounded-full hover:bg-muted-foreground/20">
                                         <X className="h-3 w-3"/>
