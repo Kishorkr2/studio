@@ -584,7 +584,7 @@ export default function AdminPage() {
                         </div>
                         <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[40px]">
                             {editingPlan.skus.length > 0 ? editingPlan.skus.map(skuPlan => (
-                                <Badge key={skuPlan.sku} variant="secondary" className="flex items-center gap-1">
+                                <Badge key={`${skuPlan.sku}-${skuPlan.sapCode}-${skuPlan.quantity}`} variant="secondary" className="flex items-center gap-1">
                                     {skuPlan.sku} ({skuPlan.quantity})
                                     <button onClick={() => handleRemoveSkuFromPlan(skuPlan.sku)} className="rounded-full hover:bg-muted-foreground/20">
                                         <X className="h-3 w-3"/>
@@ -619,7 +619,7 @@ export default function AdminPage() {
                         <TableCell>{machines.find(m => m.id === item.machineId)?.name}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {item.skus.map(skuPlan => <Badge key={skuPlan.sku} variant="secondary">{skuPlan.sku} ({skuPlan.quantity})</Badge>)}
+                            {item.skus.map((skuPlan, index) => <Badge key={`${skuPlan.sku}-${index}`} variant="secondary">{skuPlan.sku} ({skuPlan.quantity})</Badge>)}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
