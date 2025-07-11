@@ -121,11 +121,11 @@ export default function AdminPage() {
           if (parsedData.length > 0 && parsedData[0].tbmNo && parsedData[0].sku) {
              await DataService.setMarketRequirements(parsedData);
              
-             const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase().replace(/-/g, ' ').replace('tbm ',''), m.id]));
+             const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase().replace(/[\s-]+/g, ''), m.id]));
              const newProductionPlanItems = new Map<string, SkuPlan[]>();
 
              for (const req of parsedData) {
-                 const normalizedTbmNo = req.tbmNo.toLowerCase().replace(/-/g, ' ').replace('tbm ','');
+                 const normalizedTbmNo = req.tbmNo.toLowerCase().replace(/[\s-]+/g, '');
                  const machineId = machineNameToIdMap.get(normalizedTbmNo);
                  if (machineId) {
                      if (!newProductionPlanItems.has(machineId)) {
@@ -353,21 +353,21 @@ export default function AdminPage() {
           }
 
           const planMap = new Map<string, SkuPlan[]>();
-          const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase().replace(/-/g, ' ').replace('tbm ',''), m.id]));
+          const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase().replace(/[\s-]+/g, ''), m.id]));
           
           for (const row of jsonFromSheet) {
               const cleanedRow = Object.fromEntries(
-                  Object.entries(row).map(([key, value]) => [key.trim(), value])
+                  Object.entries(row).map(([key, value]) => [key.trim().toLowerCase(), value])
               );
               
-              const tbmNoRaw = String(cleanedRow['TBM No'] || '').trim();
-              const normalizedTbmNo = tbmNoRaw.toLowerCase().replace(/-/g, ' ').replace('tbm ','');
+              const tbmNoRaw = String(cleanedRow['tbm no'] || '').trim();
+              const normalizedTbmNo = tbmNoRaw.toLowerCase().replace(/[\s-]+/g, '');
               const machineId = machineNameToIdMap.get(normalizedTbmNo);
 
               if (machineId) {
-                  const sapCode = String(cleanedRow['SAP Code'] || '').trim();
-                  const sku = String(cleanedRow['SKU'] || '').trim();
-                  const quantity = Number(cleanedRow['Quantity'] || 0);
+                  const sapCode = String(cleanedRow['sap code'] || '').trim();
+                  const sku = String(cleanedRow['sku'] || '').trim();
+                  const quantity = Number(cleanedRow['quantity'] || 0);
 
                   if (sku && sapCode) {
                       if (!planMap.has(machineId)) {
@@ -820,7 +820,7 @@ export default function AdminPage() {
                                             <TableCell><Input value={editingReq.sapCode} onChange={(e) => handleEditingReqChange('sapCode', e.target.value)} /></TableCell>
                                             <TableCell><Input value={editingReq.sku} onChange={(e) => handleEditingReqChange('sku', e.target.value)} /></TableCell>
                                             <TableCell className="text-right">
-                                              <Input type="number" value={editingReq.quantity || ''} onChange={(e) => handleEditingReqChange('quantity', Number(e.target.value))} className="w-24 ml-auto text-right" />
+                                              <Input type="number" value={editingReq.quantity ?? ''} onChange={(e) => handleEditingReqChange('quantity', Number(e.target.value))} className="w-24 ml-auto text-right" />
                                             </TableCell>
                                             <TableCell className="text-right space-x-2">
                                               <Button size="sm" onClick={saveEditingRequirement}><Save className="h-4 w-4 mr-1" /> Save</Button>

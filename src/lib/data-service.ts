@@ -162,8 +162,8 @@ export const saveTreadOpeningStock = async (stock: TreadStock[]) => {
             const docRef = doc(db, 'treadOpeningStock', existingSkuMap.get(item.sku)!);
             batch.set(docRef, item);
         } else {
-            // Create new document with SKU as ID for easier lookup
-             const docRef = doc(db, 'treadOpeningStock', item.sku);
+            // Create new document, letting firestore generate the ID
+             const docRef = doc(stockCollection);
              batch.set(docRef, item);
         }
     });
