@@ -161,7 +161,7 @@ export default function DashboardPage() {
         
         // SKU always comes from the current plan to ensure it's up-to-date.
         // We default to the first SKU in the plan for consistency.
-        const sku = planItem.skus[0] || '';
+        const sku = planItem.skus[0]?.sku || '';
 
         return {
           machineId: machine.id,
@@ -453,7 +453,7 @@ export default function DashboardPage() {
                         <SelectValue placeholder={machineSkus.length > 0 ? "Select SKU" : "No SKUs planned"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {machineSkus.map(sku => <SelectItem key={sku} value={sku}>{sku}</SelectItem>)}
+                        {machineSkus.map(skuPlan => <SelectItem key={skuPlan.sku} value={skuPlan.sku}>{skuPlan.sku}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>

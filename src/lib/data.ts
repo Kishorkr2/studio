@@ -21,8 +21,8 @@ export const initialMachines: Machine[] = Array.from({ length: 26 }, (_, i) => (
 }));
 
 export const initialProductionPlan: ProductionPlanItem[] = [
-  { machineId: 'TBM-01', skus: ['P-215-65R17'] },
-  { machineId: 'TBM-02', skus: ['P-215-65R17', 'P-225-60R17'] },
-  { machineId: 'TBM-03', skus: ['LT-245-75R16'] },
-  { machineId: 'TBM-04', skus: ['P-235-60R18'] },
+  { machineId: 'TBM-01', skus: [{ sku: 'P-215-65R17', quantity: 100 }] },
+  { machineId: 'TBM-02', skus: [{ sku: 'P-215-65R17', quantity: 120 }, { sku: 'P-225-60R17', quantity: 80 }] },
+  { machineId: 'TBM-03', skus: [{ sku: 'LT-245-75R16', quantity: 150 }] },
+  { machineId: 'TBM-04', skus: [{ sku: 'P-235-60R18', quantity: 90 }] },
 ];

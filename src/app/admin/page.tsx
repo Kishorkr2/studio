@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Operator, ProductionPlanItem, Machine, ShiftInfo, MarketRequirement } from '@/lib/types';
+import type { Operator, ProductionPlanItem, Machine, ShiftInfo, MarketRequirement, SkuPlan } from '@/lib/types';
 import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, X, ShieldAlert, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +40,8 @@ export default function AdminPage() {
   
   const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
   const [newSku, setNewSku] = useState('');
+  const [newSkuQuantity, setNewSkuQuantity] = useState(0);
+
   const [password, setPassword] = useState('');
   
   const [editingReq, setEditingReq] = useState<MarketRequirement | null>(null);
@@ -118,7 +120,7 @@ export default function AdminPage() {
              await DataService.setMarketRequirements(parsedData);
              
              const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase(), m.id]));
-             const newProductionPlanItems = new Map<string, string[]>();
+             const newProductionPlanItems = new Map<string, SkuPlan[]>();
 
              for (const req of parsedData) {
                  const machineId = machineNameToIdMap.get(req.machine.toLowerCase());
@@ -127,8 +129,8 @@ export default function AdminPage() {
                          newProductionPlanItems.set(machineId, []);
                      }
                      const skus = newProductionPlanItems.get(machineId)!;
-                     if (req.sku && !skus.includes(req.sku)) {
-                         skus.push(req.sku);
+                     if (req.sku && !skus.some(s => s.sku === req.sku)) {
+                         skus.push({ sku: req.sku, quantity: req.demand });
                      }
                  }
              }
@@ -216,15 +218,16 @@ export default function AdminPage() {
   };
   
   const handleAddSkuToPlan = () => {
-    if (newSku && editingPlan && !editingPlan.skus.includes(newSku)) {
-        setEditingPlan({ ...editingPlan, skus: [...editingPlan.skus, newSku] });
+    if (newSku && editingPlan && !editingPlan.skus.some(s => s.sku === newSku)) {
+        setEditingPlan({ ...editingPlan, skus: [...editingPlan.skus, { sku: newSku, quantity: newSkuQuantity }] });
         setNewSku('');
+        setNewSkuQuantity(0);
     }
   };
 
   const handleRemoveSkuFromPlan = (skuToRemove: string) => {
       if (editingPlan) {
-          setEditingPlan({ ...editingPlan, skus: editingPlan.skus.filter(s => s !== skuToRemove) });
+          setEditingPlan({ ...editingPlan, skus: editingPlan.skus.filter(s => s.sku !== skuToRemove) });
       }
   };
 
@@ -333,24 +336,36 @@ export default function AdminPage() {
           const worksheet = workbook.Sheets[sheetName];
           const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet) as any[];
 
-          const parsedPlan: ProductionPlanItem[] = jsonFromSheet.map(row => {
-            const skusString = String(row.SKUs || '');
-            const skus = skusString.split(',').map(s => s.trim()).filter(Boolean);
-            return {
-              machineId: String(row.MachineID || '').trim(),
-              skus,
-            };
+          const planMap = new Map<string, SkuPlan[]>();
+          
+          jsonFromSheet.forEach(row => {
+            const machineId = String(row.MachineID || '').trim();
+            const sku = String(row.SKU || '').trim();
+            const quantity = Number(row.Quantity || 0);
+
+            if (machineId && sku) {
+                if (!planMap.has(machineId)) {
+                    planMap.set(machineId, []);
+                }
+                planMap.get(machineId)!.push({ sku, quantity });
+            }
           });
 
-          if (parsedPlan.length > 0 && parsedPlan[0].machineId && parsedPlan[0].skus.length > 0) {
-            await DataService.updateProductionPlan(parsedPlan);
-            toast({
-              title: 'Production Plan Uploaded',
-              description: `Successfully uploaded and replaced the production plan with ${parsedPlan.length} machine assignments.`,
-            });
-          } else {
-            throw new Error("Invalid file format. Please check headers: MachineID, SKUs");
+          if (planMap.size === 0) {
+            throw new Error("Invalid file format or empty file. Please check headers: MachineID, SKU, Quantity");
           }
+
+          const parsedPlan: ProductionPlanItem[] = Array.from(planMap.entries()).map(([machineId, skus]) => ({
+            machineId,
+            skus
+          }));
+          
+          await DataService.updateProductionPlan(parsedPlan);
+          toast({
+            title: 'Production Plan Uploaded',
+            description: `Successfully uploaded and replaced the production plan with ${parsedPlan.length} machine assignments.`,
+          });
+
         } catch (error) {
           console.error("Error parsing plan file: ", error);
           toast({
@@ -494,24 +509,27 @@ export default function AdminPage() {
               <div className="space-y-2">
                 <h4 className="text-md font-semibold">File Format Template</h4>
                 <p className="text-sm text-muted-foreground">
-                  Your Excel file should contain two columns: <strong>MachineID</strong> and <strong>SKUs</strong> (comma-separated).
+                  Your Excel file should contain three columns: <strong>MachineID</strong>, <strong>SKU</strong>, and <strong>Quantity</strong>.
                 </p>
                 <div className="border rounded-lg overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>MachineID</TableHead>
-                        <TableHead>SKUs</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Quantity</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       <TableRow>
                         <TableCell className="font-mono">TBM-01</TableCell>
                         <TableCell className="font-mono">P-215-65R17</TableCell>
+                        <TableCell className="font-mono">100</TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell className="font-mono">TBM-02</TableCell>
-                        <TableCell className="font-mono">P-215-65R17,P-225-60R17</TableCell>
+                        <TableCell className="font-mono">P-225-60R17</TableCell>
+                        <TableCell className="font-mono">150</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -550,13 +568,14 @@ export default function AdminPage() {
                       <div className="space-y-2">
                         <div className="flex gap-2">
                           <Input value={newSku} onChange={e => setNewSku(e.target.value)} placeholder="Enter new SKU"/>
+                          <Input type="number" value={newSkuQuantity} onChange={e => setNewSkuQuantity(Number(e.target.value))} placeholder="Quantity" className="w-24"/>
                           <Button onClick={handleAddSkuToPlan}><PlusCircle className="h-4 w-4 mr-2"/> Add</Button>
                         </div>
                         <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[40px]">
-                            {editingPlan.skus.length > 0 ? editingPlan.skus.map(sku => (
-                                <Badge key={sku} variant="secondary" className="flex items-center gap-1">
-                                    {sku}
-                                    <button onClick={() => handleRemoveSkuFromPlan(sku)} className="rounded-full hover:bg-muted-foreground/20">
+                            {editingPlan.skus.length > 0 ? editingPlan.skus.map(skuPlan => (
+                                <Badge key={skuPlan.sku} variant="secondary" className="flex items-center gap-1">
+                                    {skuPlan.sku} ({skuPlan.quantity})
+                                    <button onClick={() => handleRemoveSkuFromPlan(skuPlan.sku)} className="rounded-full hover:bg-muted-foreground/20">
                                         <X className="h-3 w-3"/>
                                     </button>
                                 </Badge>
@@ -591,7 +610,7 @@ export default function AdminPage() {
                         <TableCell>{machines.find(m => m.id === item.machineId)?.name}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {item.skus.map(sku => <Badge key={sku} variant="secondary">{sku}</Badge>)}
+                            {item.skus.map(skuPlan => <Badge key={skuPlan.sku} variant="secondary">{skuPlan.sku} ({skuPlan.quantity})</Badge>)}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
