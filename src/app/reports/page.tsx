@@ -61,7 +61,6 @@ interface ReportDataRow {
   quantity: number;
   remark?: string;
   trolleyNo?: string;
-  noOfSpool?: string;
 }
 
 const mockOeeData = {
@@ -157,7 +156,6 @@ export default function ReportsPage() {
                             quantity: entry.quantity,
                             remark: entry.remark,
                             trolleyNo: entry.trolleyNo,
-                            noOfSpool: entry.noOfSpool,
                         });
                     });
                 }
@@ -306,7 +304,6 @@ export default function ReportsPage() {
                       <TableHead>TBM</TableHead>
                       <TableHead>SKU</TableHead>
                       <TableHead>Trolley No</TableHead>
-                      <TableHead>No of Spool</TableHead>
                       <TableHead className="text-right">Quantity</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -319,12 +316,11 @@ export default function ReportsPage() {
                         <TableCell>{row.machineName}</TableCell>
                         <TableCell>{row.sku}</TableCell>
                         <TableCell>{row.trolleyNo || '-'}</TableCell>
-                        <TableCell>{row.noOfSpool || '-'}</TableCell>
                         <TableCell className="text-right">{row.quantity}</TableCell>
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">No data available for the selected filters.</TableCell>
+                        <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">No data available for the selected filters.</TableCell>
                       </TableRow>
                     )}
                   </TableBody>

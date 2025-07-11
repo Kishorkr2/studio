@@ -24,7 +24,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface DailyProductionEntry {
   quantity: number;
   trolleyNo: string;
-  noOfSpool: string;
 }
 
 export default function TreadExtrusionPage() {

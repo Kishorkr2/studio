@@ -21,7 +21,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface DailyProductionEntry {
   quantity: number;
   trolleyNo: string;
-  noOfSpool: string;
 }
 
 export default function DailyTreadProductionPage() {
@@ -73,9 +72,9 @@ export default function DailyTreadProductionPage() {
     setDailyProductionEntries(dailyProductionLog[dateKey]?.[shiftName] || {});
   }, [selectedDate, selectedShift, dailyProductionLog]);
 
-  const handleDailyProductionChange = (sku: string, field: 'quantity' | 'trolleyNo' | 'noOfSpool', value: string) => {
+  const handleDailyProductionChange = (sku: string, field: 'quantity' | 'trolleyNo', value: string) => {
     setDailyProductionEntries(currentEntries => {
-        const entry = currentEntries[sku] || { quantity: 0, trolleyNo: '', noOfSpool: '' };
+        const entry = currentEntries[sku] || { quantity: 0, trolleyNo: '' };
         const newEntry = {
             ...entry,
             [field]: field === 'quantity' ? parseInt(value, 10) || 0 : value,
@@ -199,7 +198,6 @@ export default function DailyTreadProductionPage() {
                 <TableRow>
                   <TableHead>SKU</TableHead>
                   <TableHead>Trolley No</TableHead>
-                  <TableHead>No of Spool</TableHead>
                   <TableHead className="text-right">Production Quantity</TableHead>
                 </TableRow>
               </TableHeader>
@@ -215,14 +213,6 @@ export default function DailyTreadProductionPage() {
                         onChange={(e) => handleDailyProductionChange(req.sku, 'trolleyNo', e.target.value)}
                       />
                     </TableCell>
-                    <TableCell>
-                      <Input
-                        className="w-32"
-                        placeholder="e.g., S-456"
-                        value={dailyProductionEntries[req.sku]?.noOfSpool || ''}
-                        onChange={(e) => handleDailyProductionChange(req.sku, 'noOfSpool', e.target.value)}
-                      />
-                    </TableCell>
                     <TableCell className="text-right">
                       <Input
                         type="number"
@@ -235,7 +225,7 @@ export default function DailyTreadProductionPage() {
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
                       No SKUs available. Please upload market requirements in the Admin panel.
                     </TableCell>
                   </TableRow>
