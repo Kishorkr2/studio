@@ -788,7 +788,7 @@ export default function AdminPage() {
                                               <TableCell>{req.tbmNo}</TableCell>
                                               <TableCell>{req.sapCode}</TableCell>
                                               <TableCell>{req.sku}</TableCell>
-                                              <TableCell className="text-right">{req.quantity}</TableCell>
+                                              <TableCell className="text-right">{req.quantity.toLocaleString()}</TableCell>
                                               <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => startEditingRequirement(req, index)}><Edit className="h-4 w-4" /></Button>
                                                 <Button variant="ghost" size="icon" onClick={() => handleDeleteRequirement(index)}><Trash className="h-4 w-4" /></Button>
@@ -866,3 +866,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    
