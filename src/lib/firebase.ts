@@ -1,5 +1,5 @@
 
-import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeApp, getApps, getApp, deleteApp } from "firebase/app";
 import { getFirestore, enableIndexedDbPersistence, terminate, clearIndexedDbPersistence } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -11,60 +11,51 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-let app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+let app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 let db = getFirestore(app);
 
-// A variable to track if persistence has been enabled.
 let persistenceEnabled = false;
 
-// Enable offline persistence
-if (typeof window !== "undefined") {
-    (async () => {
-        try {
-            // Only try to enable persistence once.
-            if (!persistenceEnabled) {
-                await enableIndexedDbPersistence(db);
-                persistenceEnabled = true;
-            }
-        } catch (err: any) {
-            // This is the fallback mechanism. If persistence fails, the app will
-            // continue in online-only mode, preventing a crash.
-            if (err.code === 'failed-precondition') {
-                console.warn('Firestore persistence failed: multiple tabs open. Offline features may be degraded.');
-            } else if (err.code === 'unimplemented') {
-                console.warn('Firestore persistence not available in this browser. Offline features will be disabled.');
-            } else {
-                console.error("CRITICAL: Firestore persistence failed to initialize. The app will run in online-only mode. Please clear the cache via Admin > Settings to resolve.", err);
-            }
-        }
-    })();
+if (typeof window !== "undefined" && !persistenceEnabled) {
+  (async () => {
+    try {
+      await enableIndexedDbPersistence(db);
+      persistenceEnabled = true;
+      console.log("Firestore persistence enabled.");
+    } catch (err: any) {
+      if (err.code === 'failed-precondition') {
+        console.warn('Firestore persistence failed: multiple tabs open. App will run in online-only mode.');
+      } else if (err.code === 'unimplemented') {
+        console.warn('Firestore persistence not available in this browser. App will run in online-only mode.');
+      } else {
+        console.error("CRITICAL: Firestore persistence failed to initialize, likely due to corrupted data. The app will run in online-only mode. Please clear the cache via Admin > Settings to resolve.", err);
+      }
+    }
+  })();
 }
 
 export const clearFirestoreCache = async () => {
     if (typeof window !== 'undefined') {
         try {
-            // Terminate the existing Firestore instance to release all resources.
             await terminate(db);
-            // Clear the local IndexedDB cache.
+            await deleteApp(app);
             await clearIndexedDbPersistence(db);
             console.log("Firestore local persistence cleared successfully.");
         } catch (error) {
             console.error("Error clearing Firestore cache:", error);
-            throw error; // Re-throw to be caught by the UI
+            throw error;
         } finally {
-            // Re-initialize the app and Firestore after clearing.
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
-            // Attempt to re-enable persistence for the next session.
-             (async () => {
+            (async () => {
                 try {
                     await enableIndexedDbPersistence(db);
                     persistenceEnabled = true;
+                    console.log("Firestore re-initialized with persistence.");
                 } catch (e) {
                     console.error("Failed to re-enable persistence after clearing cache.", e);
                 }
             })();
-            console.log("Firestore re-initialized.");
         }
     }
 };
