@@ -114,8 +114,20 @@ export const clearMarketRequirements = async () => {
 export const saveProductionRound = async (date: Date, shift: ShiftInfo, round: string, entries: MachineProductionData[]) => {
     const logId = `production-log-${format(date, "yyyy-MM-dd")}-${shift.name.replace(/\s+/g, '-')}`;
     const docRef = doc(db, 'productionLogs', logId);
+
+    // Sanitize entries to prevent writing `undefined` to Firestore, which can corrupt IndexedDB.
+    const sanitizedEntries = entries.map(entry => ({
+      ...entry,
+      operatorId: entry.operatorId || '',
+      remark: entry.remark || '',
+      trolleyNo: entry.trolleyNo || '',
+      quantity: entry.quantity || 0,
+      sku: entry.sku || '',
+      sapCode: entry.sapCode || '',
+    }));
+
     await setDoc(docRef, {
-        [round]: { entries, status: 'synced' }
+        [round]: { entries: sanitizedEntries, status: 'synced' }
     }, { merge: true });
 };
 
