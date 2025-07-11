@@ -22,7 +22,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -263,7 +262,7 @@ export default function AdminPage() {
   const handleAddMachine = async () => {
       const newIdNumber = machines.length > 0 ? Math.max(...machines.map(m => parseInt(m.id.replace('TBM-', '')) || 0)) + 1 : 1;
       const newId = `TBM-${String(newIdNumber).padStart(2, '0')}`;
-      const newMachine = { id: newId, name: `New Machine ${newIdNumber}`, isAvailable: true };
+      const newMachine = { id: newId, name: `TBM ${newIdNumber}`, isAvailable: true };
       const newMachines = [...machines, newMachine];
       await DataService.updateMachines(newMachines);
   };
@@ -281,7 +280,7 @@ export default function AdminPage() {
       await DataService.updateMachines(newMachines);
       toast({
           title: 'Machine Removed',
-          description: `Machine ${id} has been removed.`,
+          description: `TBM No ${id} has been removed.`,
       });
   };
 
@@ -339,7 +338,7 @@ export default function AdminPage() {
           const planMap = new Map<string, SkuPlan[]>();
           
           jsonFromSheet.forEach(row => {
-            const machineId = String(row.MachineID || '').trim();
+            const machineId = String(row['TBM No'] || '').trim();
             const sku = String(row.SKU || '').trim();
             const quantity = Number(row.Quantity || 0);
 
@@ -352,7 +351,7 @@ export default function AdminPage() {
           });
 
           if (planMap.size === 0) {
-            throw new Error("Invalid file format or empty file. Please check headers: MachineID, SKU, Quantity");
+            throw new Error("Invalid file format or empty file. Please check headers: TBM No, SKU, Quantity");
           }
 
           const parsedPlan: ProductionPlanItem[] = Array.from(planMap.entries()).map(([machineId, skus]) => ({
@@ -509,13 +508,13 @@ export default function AdminPage() {
               <div className="space-y-2">
                 <h4 className="text-md font-semibold">File Format Template</h4>
                 <p className="text-sm text-muted-foreground">
-                  Your Excel file should contain three columns: <strong>MachineID</strong>, <strong>SKU</strong>, and <strong>Quantity</strong>.
+                  Your Excel file should contain three columns: <strong>TBM No</strong>, <strong>SKU</strong>, and <strong>Quantity</strong>.
                 </p>
                 <div className="border rounded-lg overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>MachineID</TableHead>
+                        <TableHead>TBM No</TableHead>
                         <TableHead>SKU</TableHead>
                         <TableHead>Quantity</TableHead>
                       </TableRow>
@@ -549,14 +548,14 @@ export default function AdminPage() {
                   <h3 className="font-semibold text-lg">{productionPlan.some(p => p.machineId === editingPlan.machineId) ? 'Edit Plan' : 'Add Plan'}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="machine-select">Machine</Label>
+                      <Label htmlFor="machine-select">TBM No</Label>
                       <Select
                         value={editingPlan.machineId}
                         onValueChange={(value) => setEditingPlan({...editingPlan, machineId: value})}
                         disabled={!!editingPlan.machineId && productionPlan.some(p => p.machineId === editingPlan.machineId)}
                       >
                         <SelectTrigger id="machine-select">
-                          <SelectValue placeholder="Select a machine" />
+                          <SelectValue placeholder="Select a TBM" />
                         </SelectTrigger>
                         <SelectContent>
                            {machines.filter(m => !productionPlan.some(p => p.machineId === m.id) || m.id === editingPlan.machineId).map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
@@ -597,8 +596,7 @@ export default function AdminPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Machine ID</TableHead>
-                      <TableHead>Machine Name</TableHead>
+                      <TableHead>TBM No</TableHead>
                       <TableHead>Assigned SKUs</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -606,7 +604,6 @@ export default function AdminPage() {
                   <TableBody>
                     {productionPlan.map((item) => (
                       <TableRow key={item.machineId}>
-                        <TableCell>{item.machineId}</TableCell>
                         <TableCell>{machines.find(m => m.id === item.machineId)?.name}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
@@ -636,8 +633,7 @@ export default function AdminPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Name</TableHead>
+                    <TableHead>TBM No</TableHead>
                     <TableHead>Available</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -645,7 +641,6 @@ export default function AdminPage() {
                 <TableBody>
                   {machines.map((machine) => (
                     <TableRow key={machine.id}>
-                      <TableCell>{machine.id}</TableCell>
                       <TableCell>
                         <Input
                           value={machine.name}

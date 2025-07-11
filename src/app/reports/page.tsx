@@ -273,7 +273,7 @@ export default function ReportsPage() {
                         </Select>
                     </div>
                     <div className="grid gap-2">
-                        <Label>TBM</Label>
+                        <Label>TBM No</Label>
                         <Select value={selectedMachine} onValueChange={setSelectedMachine}>
                         <SelectTrigger><SelectValue placeholder="All TBMs" /></SelectTrigger>
                         <SelectContent>
@@ -301,7 +301,7 @@ export default function ReportsPage() {
                       <TableHead>Date</TableHead>
                       <TableHead>Shift</TableHead>
                       <TableHead>Operator</TableHead>
-                      <TableHead>TBM</TableHead>
+                      <TableHead>TBM No</TableHead>
                       <TableHead>SKU</TableHead>
                       <TableHead>Trolley No</TableHead>
                       <TableHead className="text-right">Quantity</TableHead>
@@ -416,7 +416,7 @@ export default function ReportsPage() {
                   <TableHeader className="sticky top-0 bg-background">
                     <TableRow>
                       <TableHead>Date</TableHead>
-                      <TableHead>Machine</TableHead>
+                      <TableHead>TBM No</TableHead>
                       <TableHead>Shift</TableHead>
                       <TableHead>Round</TableHead>
                       <TableHead>Remark</TableHead>
