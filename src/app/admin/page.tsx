@@ -117,11 +117,11 @@ export default function AdminPage() {
           if (parsedData.length > 0 && parsedData[0].machine && parsedData[0].sku) {
              await DataService.setMarketRequirements(parsedData);
              
-             const machineNameToIdMap = new Map(machines.map(m => [m.name.trim(), m.id]));
+             const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase(), m.id]));
              const newProductionPlanItems = new Map<string, string[]>();
 
              for (const req of parsedData) {
-                 const machineId = machineNameToIdMap.get(req.machine);
+                 const machineId = machineNameToIdMap.get(req.machine.toLowerCase());
                  if (machineId) {
                      if (!newProductionPlanItems.has(machineId)) {
                          newProductionPlanItems.set(machineId, []);
@@ -320,6 +320,59 @@ export default function AdminPage() {
         description: "The market requirement has been removed."
     });
   };
+
+  const handlePlanUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+          const parsedPlan: ProductionPlanItem[] = jsonFromSheet.map(row => {
+            const skusString = String(row.SKUs || '');
+            const skus = skusString.split(',').map(s => s.trim()).filter(Boolean);
+            return {
+              machineId: String(row.MachineID || '').trim(),
+              skus,
+            };
+          });
+
+          if (parsedPlan.length > 0 && parsedPlan[0].machineId && parsedPlan[0].skus.length > 0) {
+            await DataService.updateProductionPlan(parsedPlan);
+            toast({
+              title: 'Production Plan Uploaded',
+              description: `Successfully uploaded and replaced the production plan with ${parsedPlan.length} machine assignments.`,
+            });
+          } else {
+            throw new Error("Invalid file format. Please check headers: MachineID, SKUs");
+          }
+        } catch (error) {
+          console.error("Error parsing plan file: ", error);
+          toast({
+            variant: 'destructive',
+            title: 'File Upload Error',
+            description: error instanceof Error ? error.message : 'Could not parse the uploaded file. Please ensure it follows the template.',
+          });
+        }
+      };
+      reader.onerror = () => {
+        toast({
+            variant: 'destructive',
+            title: 'File Read Error',
+            description: 'There was an error reading the file.',
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+    if(event.target) {
+      event.target.value = '';
+    }
+  };
   
   if (loading) {
     return (
@@ -422,11 +475,55 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="plan">
+        <TabsContent value="plan" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Production Plan</CardTitle>
-              <CardDescription>Assign SKUs to machines for production.</CardDescription>
+              <CardTitle>Upload Production Plan</CardTitle>
+              <CardDescription>Upload an Excel file to set the production plan.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted rounded-lg">
+                <UploadCloud className="h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-semibold">Drop your plan file here or click to upload</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Supports: .xls, .xlsx</p>
+                <Input id="plan-upload" type="file" className="sr-only" onChange={handlePlanUpload} accept=".xls,.xlsx" />
+                <Button asChild className="mt-4">
+                  <Label htmlFor="plan-upload"><FileSpreadsheet className="mr-2 h-4 w-4" />Select File</Label>
+                </Button>
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-md font-semibold">File Format Template</h4>
+                <p className="text-sm text-muted-foreground">
+                  Your Excel file should contain two columns: <strong>MachineID</strong> and <strong>SKUs</strong> (comma-separated).
+                </p>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>MachineID</TableHead>
+                        <TableHead>SKUs</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell className="font-mono">TBM-01</TableCell>
+                        <TableCell className="font-mono">P-215-65R17</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-mono">TBM-02</TableCell>
+                        <TableCell className="font-mono">P-215-65R17,P-225-60R17</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Manual Production Plan</CardTitle>
+              <CardDescription>Assign SKUs to machines for production manually.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {editingPlan ? (
@@ -564,7 +661,7 @@ export default function AdminPage() {
           <Card>
             <CardHeader>
               <CardTitle>Upload Market Requirements</CardTitle>
-              <CardDescription>Upload Excel files containing market requirement data.</CardDescription>
+              <CardDescription>Upload Excel files containing market requirement data. This will also auto-generate a production plan.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted rounded-lg">
