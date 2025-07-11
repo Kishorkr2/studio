@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, deleteApp } from "firebase/app";
-import { getFirestore, enableIndexedDbPersistence, terminate } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence, terminate, clearIndexedDbPersistence } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -20,11 +20,11 @@ if (typeof window !== "undefined") {
             await enableIndexedDbPersistence(db);
         } catch (err: any) {
             if (err.code === 'failed-precondition') {
-                console.warn('Firestore persistence failed: multiple tabs open. Offline features will be disabled.');
+                console.warn('Firestore persistence failed: multiple tabs open. Offline features may be degraded.');
             } else if (err.code === 'unimplemented') {
                 console.warn('Firestore persistence not available in this browser. Offline features will be disabled.');
             } else {
-                console.error("An error occurred with Firestore persistence. Offline features will be disabled.", err);
+                console.error("An error occurred with Firestore persistence, app will run in online-only mode.", err);
             }
         }
     })();
@@ -33,47 +33,12 @@ if (typeof window !== "undefined") {
 export const clearFirestoreCache = async () => {
     if (typeof window !== 'undefined') {
         try {
-            // Terminate the existing Firestore instance to release locks.
             await terminate(db);
-
-            // Delete the entire Firebase app instance.
-            // This is a more aggressive way to clear state.
-            await deleteApp(app);
-            console.log("Firebase app instance deleted.");
-
-            // Physically delete the IndexedDB database.
-            // This name is specific to how Firebase Firestore JS SDK names its DB.
-             const dbName = `firestore/${firebaseConfig.projectId}/(default)/main`;
-
-            await new Promise<void>((resolve, reject) => {
-                console.log(`Attempting to delete IndexedDB: ${dbName}`);
-                try {
-                    const deleteRequest = indexedDB.deleteDatabase(dbName);
-                    deleteRequest.onsuccess = () => {
-                        console.log("IndexedDB deleted successfully.");
-                        resolve();
-                    };
-                    deleteRequest.onerror = (event) => {
-                        console.error("Failed to delete IndexedDB:", (event.target as any)?.error);
-                        reject(new Error(`Failed to delete IndexedDB: ${(event.target as any)?.error}`));
-                    };
-                    deleteRequest.onblocked = () => {
-                        console.warn("IndexedDB delete is blocked. Please close other tabs with this app open.");
-                        // This can happen if other tabs have the DB open.
-                        // We will still try to reload and hope for the best.
-                        resolve();
-                    };
-                } catch (e) {
-                     console.error("Error initiating IndexedDB deletion:", e);
-                     reject(e);
-                }
-            });
-
+            await clearIndexedDbPersistence(db);
+            console.log("Firestore local persistence cleared successfully.");
         } catch (error) {
             console.error("Error clearing Firestore cache:", error);
-            // We will proceed to reload regardless of error, as it's the best chance of recovery.
         } finally {
-            // A full page reload is necessary to apply the changes.
             console.log("Reloading the page to apply cache clearing.");
         }
     }
