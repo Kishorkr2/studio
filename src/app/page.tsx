@@ -140,47 +140,34 @@ export default function DashboardPage() {
   }, [selectedDate, selectedShift, generateRoundTimes, selectedRound]);
 
   useEffect(() => {
-    // If we don't have a plan, we can't show any machines.
     if (!allProductionPlan.length || !allMachines.length) {
       setEntries([]);
       return;
     }
-
-    // Create lookup maps for efficiency
+    
     const machineMap = new Map(allMachines.map(m => [m.id, m]));
-    const logMap = new Map(
-      (productionLog[selectedRound]?.entries || []).map(e => [e.machineId, e])
-    );
+    const logForRound = productionLog[selectedRound]?.entries || [];
+    const logMap = new Map(logForRound.map(e => [e.machineId, e]));
 
-    // Build the entries list directly from the production plan.
-    // The plan is the single source of truth for which machines and SKUs to display.
     const newEntries = allProductionPlan
       .map(planItem => {
         const machine = machineMap.get(planItem.machineId);
-
-        // Only include machines that are in the plan AND are available.
+        
         if (!machine || !machine.isAvailable) {
           return null;
         }
 
-        // Get the log data for this specific machine, if it exists.
         const loggedEntry = logMap.get(planItem.machineId);
-
-        // The SKU is ALWAYS the first one from the current plan.
-        // This ensures the view is always synced with the uploaded requirement.
-        let sku = planItem.skus[0] || '';
-
-        // If there's a logged entry AND its SKU is STILL VALID in the new plan, we keep it.
-        // This prevents the user from losing their selection if they just saved and the plan hasn't changed.
-        if (loggedEntry && loggedEntry.sku && planItem.skus.includes(loggedEntry.sku)) {
-          sku = loggedEntry.sku;
-        }
+        
+        // SKU always comes from the current plan to ensure it's up-to-date.
+        // We default to the first SKU in the plan for consistency.
+        const sku = planItem.skus[0] || '';
 
         return {
           machineId: machine.id,
           name: machine.name,
           status: 'Online' as const,
-          sku: sku,
+          sku: sku, // Always use the SKU from the current plan.
           // Populate other fields from the log, or default to empty/zero.
           quantity: loggedEntry?.quantity || 0,
           operatorId: loggedEntry?.operatorId || '',
@@ -189,7 +176,7 @@ export default function DashboardPage() {
           noOfSpool: loggedEntry?.noOfSpool || '',
         };
       })
-      .filter((entry): entry is MachineProductionData => entry !== null); // Remove any nulls from skipped machines.
+      .filter((entry): entry is MachineProductionData => entry !== null);
 
     setEntries(newEntries);
   }, [selectedRound, productionLog, allMachines, allProductionPlan]);
