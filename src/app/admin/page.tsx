@@ -120,11 +120,11 @@ export default function AdminPage() {
           if (parsedData.length > 0 && parsedData[0].tbmNo && parsedData[0].sku) {
              await DataService.setMarketRequirements(parsedData);
              
-             const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase().replace(/-/g, ' '), m.id]));
+             const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase().replace(/-/g, ' ').replace('tbm ',''), m.id]));
              const newProductionPlanItems = new Map<string, SkuPlan[]>();
 
              for (const req of parsedData) {
-                 const normalizedTbmNo = req.tbmNo.toLowerCase().replace(/-/g, ' ');
+                 const normalizedTbmNo = req.tbmNo.toLowerCase().replace(/-/g, ' ').replace('tbm ','');
                  const machineId = machineNameToIdMap.get(normalizedTbmNo);
                  if (machineId) {
                      if (!newProductionPlanItems.has(machineId)) {
@@ -337,26 +337,50 @@ export default function AdminPage() {
           const workbook = XLSX.read(data, { type: 'array' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet) as any[];
-
-          const planMap = new Map<string, SkuPlan[]>();
-          
-          jsonFromSheet.forEach(row => {
-            const tbmNo = String(row['TBM No'] || '').trim();
-            const sapCode = String(row['SAP Code'] || '').trim();
-            const sku = String(row.SKU || '').trim();
-            const quantity = Number(row.Quantity || 0);
-
-            if (tbmNo && sku && sapCode) {
-                if (!planMap.has(tbmNo)) {
-                    planMap.set(tbmNo, []);
-                }
-                planMap.get(tbmNo)!.push({ sku, sapCode, quantity });
-            }
+          const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet, {
+            header: 1, // Get an array of arrays
+            raw: true,
           });
 
+          if (jsonFromSheet.length < 2) {
+            throw new Error("File must contain a header row and at least one data row.");
+          }
+  
+          const header = (jsonFromSheet[0] as string[]).map(h => String(h).trim().toLowerCase());
+          const tbmNoIndex = header.indexOf('tbm no');
+          const sapCodeIndex = header.indexOf('sap code');
+          const skuIndex = header.indexOf('sku');
+          const quantityIndex = header.indexOf('quantity');
+  
+          if ([tbmNoIndex, sapCodeIndex, skuIndex, quantityIndex].includes(-1)) {
+              throw new Error("File headers must contain: TBM No, SAP Code, SKU, Quantity.");
+          }
+
+          const planMap = new Map<string, SkuPlan[]>();
+          const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase().replace(/-/g, ' ').replace('tbm ',''), m.id]));
+          
+          for (let i = 1; i < jsonFromSheet.length; i++) {
+              const row: any[] = jsonFromSheet[i] as any[];
+              const tbmNoRaw = String(row[tbmNoIndex] || '').trim();
+              const normalizedTbmNo = tbmNoRaw.toLowerCase().replace(/-/g, ' ').replace('tbm ','');
+              const machineId = machineNameToIdMap.get(normalizedTbmNo);
+
+              if (machineId) {
+                  const sapCode = String(row[sapCodeIndex] || '').trim();
+                  const sku = String(row[skuIndex] || '').trim();
+                  const quantity = Number(row[quantityIndex] || 0);
+
+                  if (sku && sapCode) {
+                      if (!planMap.has(machineId)) {
+                          planMap.set(machineId, []);
+                      }
+                      planMap.get(machineId)!.push({ sku, sapCode, quantity });
+                  }
+              }
+          }
+
           if (planMap.size === 0) {
-            throw new Error("Invalid file format or empty file. Please check headers: TBM No, SAP Code, SKU, Quantity");
+            throw new Error("No valid data found in file. Please check TBM No values and ensure they match system TBMs.");
           }
 
           const parsedPlan: ProductionPlanItem[] = Array.from(planMap.entries()).map(([machineId, skus]) => ({
