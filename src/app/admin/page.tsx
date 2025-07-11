@@ -418,11 +418,11 @@ export default function AdminPage() {
 
   const handleClearCache = async () => {
     try {
-        await clearFirestoreCache();
         toast({
-            title: 'Local Cache Cleared',
-            description: 'The local data cache has been cleared. The page will now reload to fetch fresh data.',
+            title: 'Clearing Local Cache...',
+            description: 'The application will reload shortly. Please wait.',
         });
+        await clearFirestoreCache();
         setTimeout(() => {
             window.location.reload();
         }, 2000);
@@ -832,7 +832,7 @@ export default function AdminPage() {
                                               <TableCell>{req.tbmNo}</TableCell>
                                               <TableCell>{req.sapCode}</TableCell>
                                               <TableCell>{req.sku}</TableCell>
-                                              <TableCell className="text-right">{typeof req.quantity === 'number' ? req.quantity.toLocaleString() : ''}</TableCell>
+                                              <TableCell className="text-right">{req.quantity ? req.quantity.toLocaleString() : ''}</TableCell>
                                               <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => startEditingRequirement(req, index)}><Edit className="h-4 w-4" /></Button>
                                                 <Button variant="ghost" size="icon" onClick={() => handleDeleteRequirement(index)}><Trash className="h-4 w-4" /></Button>
