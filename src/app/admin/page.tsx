@@ -111,27 +111,27 @@ export default function AdminPage() {
           const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet) as any[];
 
           const parsedData: MarketRequirement[] = jsonFromSheet.map(row => ({
-            machine: String(row.Machine || '').trim(),
+            tbmNo: String(row['TBM No'] || '').trim(),
             sapCode: String(row['SAP Code'] || '').trim(),
             sku: String(row.SKU || '').trim(),
-            demand: Number(row.Demand || 0),
+            quantity: Number(row.Quantity || 0),
           }));
 
-          if (parsedData.length > 0 && parsedData[0].machine && parsedData[0].sku) {
+          if (parsedData.length > 0 && parsedData[0].tbmNo && parsedData[0].sku) {
              await DataService.setMarketRequirements(parsedData);
              
              const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase(), m.id]));
              const newProductionPlanItems = new Map<string, SkuPlan[]>();
 
              for (const req of parsedData) {
-                 const machineId = machineNameToIdMap.get(req.machine.toLowerCase());
+                 const machineId = machineNameToIdMap.get(req.tbmNo.toLowerCase());
                  if (machineId) {
                      if (!newProductionPlanItems.has(machineId)) {
                          newProductionPlanItems.set(machineId, []);
                      }
                      const skus = newProductionPlanItems.get(machineId)!;
                      if (req.sku && !skus.some(s => s.sku === req.sku)) {
-                         skus.push({ sku: req.sku, sapCode: req.sapCode, quantity: req.demand });
+                         skus.push({ sku: req.sku, sapCode: req.sapCode, quantity: req.quantity });
                      }
                  }
              }
@@ -142,17 +142,17 @@ export default function AdminPage() {
              }));
 
              if (newProductionPlan.length === 0 && parsedData.length > 0) {
-                 throw new Error("No machine names in the file matched the machines in the system. Please check for typos or extra spaces.");
+                 throw new Error("No TBM No in the file matched the machines in the system. Please check for typos or extra spaces.");
              }
 
              await DataService.updateProductionPlan(newProductionPlan);
 
              toast({
                 title: 'File Processed & Plan Synced',
-                description: `Loaded ${parsedData.length} requirements. The previous market demand and production plan have been replaced.`,
+                description: `Loaded ${parsedData.length} requirements. The previous market requirement and production plan have been replaced.`,
              });
           } else {
-             throw new Error("Invalid file format. Please check headers: Machine, SAP Code, SKU, Demand");
+             throw new Error("Invalid file format. Please check headers: TBM No, SAP Code, SKU, Quantity");
           }
         } catch (error) {
            console.error("Error parsing file: ", error);
@@ -187,7 +187,7 @@ export default function AdminPage() {
 
   const handleSavePlanItem = async (item: ProductionPlanItem) => {
     if (!item.machineId || item.skus.length === 0) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Machine must be selected and at least one SKU must be added.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'TBM must be selected and at least one SKU must be added.' });
       return;
     }
     
@@ -703,16 +703,16 @@ export default function AdminPage() {
               <div className="space-y-4">
                 <h4 className="text-lg font-semibold">File Format Template</h4>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Your Excel file should contain four columns in this order: <strong>Machine</strong>, <strong>SAP Code</strong>, <strong>SKU</strong>, and <strong>Demand</strong>. The first row must be the header.
+                  Your Excel file should contain four columns in this order: <strong>TBM No</strong>, <strong>SAP Code</strong>, <strong>SKU</strong>, and <strong>Quantity</strong>. The first row must be the header.
                 </p>
                 <div className="border rounded-lg overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Machine</TableHead>
+                        <TableHead>TBM No</TableHead>
                         <TableHead>SAP Code</TableHead>
                         <TableHead>SKU</TableHead>
-                        <TableHead>Demand</TableHead>
+                        <TableHead>Quantity</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -760,10 +760,10 @@ export default function AdminPage() {
                         <Table>
                             <TableHeader className="sticky top-0 bg-muted/50">
                                 <TableRow>
-                                    <TableHead>Machine</TableHead>
+                                    <TableHead>TBM No</TableHead>
                                     <TableHead>SAP Code</TableHead>
                                     <TableHead>SKU</TableHead>
-                                    <TableHead className="text-right">Demand</TableHead>
+                                    <TableHead className="text-right">Quantity</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -772,11 +772,11 @@ export default function AdminPage() {
                                     marketRequirements.map((req, index) => (
                                         editingReqIndex === index && editingReq ? (
                                           <TableRow key={index}>
-                                            <TableCell><Input value={editingReq.machine} onChange={(e) => handleEditingReqChange('machine', e.target.value)} /></TableCell>
+                                            <TableCell><Input value={editingReq.tbmNo} onChange={(e) => handleEditingReqChange('tbmNo', e.target.value)} /></TableCell>
                                             <TableCell><Input value={editingReq.sapCode} onChange={(e) => handleEditingReqChange('sapCode', e.target.value)} /></TableCell>
                                             <TableCell><Input value={editingReq.sku} onChange={(e) => handleEditingReqChange('sku', e.target.value)} /></TableCell>
                                             <TableCell className="text-right">
-                                              <Input type="number" value={editingReq.demand} onChange={(e) => handleEditingReqChange('demand', Number(e.target.value))} className="w-24 ml-auto text-right" />
+                                              <Input type="number" value={editingReq.quantity} onChange={(e) => handleEditingReqChange('quantity', Number(e.target.value))} className="w-24 ml-auto text-right" />
                                             </TableCell>
                                             <TableCell className="text-right space-x-2">
                                               <Button size="sm" onClick={saveEditingRequirement}><Save className="h-4 w-4 mr-1" /> Save</Button>
@@ -785,10 +785,10 @@ export default function AdminPage() {
                                           </TableRow>
                                         ) : (
                                           <TableRow key={index}>
-                                              <TableCell>{req.machine}</TableCell>
+                                              <TableCell>{req.tbmNo}</TableCell>
                                               <TableCell>{req.sapCode}</TableCell>
                                               <TableCell>{req.sku}</TableCell>
-                                              <TableCell className="text-right">{req.demand}</TableCell>
+                                              <TableCell className="text-right">{req.quantity}</TableCell>
                                               <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => startEditingRequirement(req, index)}><Edit className="h-4 w-4" /></Button>
                                                 <Button variant="ghost" size="icon" onClick={() => handleDeleteRequirement(index)}><Trash className="h-4 w-4" /></Button>

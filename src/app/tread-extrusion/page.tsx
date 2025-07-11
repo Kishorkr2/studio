@@ -37,7 +37,7 @@ export default function TreadExtrusionPage() {
 
   const [columnVisibility, setColumnVisibility] = useState({
     sapCode: true,
-    demand: true,
+    quantity: true,
     openingStock: true,
     production: true,
     tyreProduction: true,
@@ -150,7 +150,7 @@ export default function TreadExtrusionPage() {
       const totalProduction = totalProductionBySku[req.sku] || 0;
       const tyreProduction = tyreProductionData[req.sku] || 0;
       const currentTreadStock = openingStockInfo.openingStock + totalProduction - tyreProduction;
-      const treadBalanceToProduce = Math.max(0, req.demand - currentTreadStock);
+      const treadBalanceToProduce = Math.max(0, req.quantity - currentTreadStock);
       
       return {
         ...req,
@@ -167,12 +167,12 @@ export default function TreadExtrusionPage() {
 
   const summary = useMemo(() => {
     if (!combinedData?.length) {
-        return { totalDemand: 0, totalProduction: 0, totalCurrentStock: 0 };
+        return { totalRequirement: 0, totalProduction: 0, totalCurrentStock: 0 };
     }
-    const totalDemand = combinedData.reduce((acc, item) => acc + (item.demand || 0), 0);
+    const totalRequirement = combinedData.reduce((acc, item) => acc + (item.quantity || 0), 0);
     const totalProduction = combinedData.reduce((acc, item) => acc + (item.production || 0), 0);
     const totalCurrentStock = combinedData.reduce((acc, item) => acc + (item.currentTreadStock || 0), 0);
-    return { totalDemand, totalProduction, totalCurrentStock };
+    return { totalRequirement, totalProduction, totalCurrentStock };
   }, [combinedData]);
 
   if (loading) {
@@ -204,11 +204,11 @@ export default function TreadExtrusionPage() {
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Market Demand</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Market Requirement</CardTitle>
             <ClipboardList className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary.totalDemand.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{summary.totalRequirement.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">Total units required by market.</p>
           </CardContent>
         </Card>
@@ -238,7 +238,7 @@ export default function TreadExtrusionPage() {
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
             <div>
               <CardTitle>Tread Stock &amp; Planning</CardTitle>
-              <CardDescription>Manage tread inventory and plan production to meet market demand.</CardDescription>
+              <CardDescription>Manage tread inventory and plan production to meet market requirement.</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <DropdownMenu>
@@ -258,10 +258,10 @@ export default function TreadExtrusionPage() {
                     SAP Code
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
-                    checked={columnVisibility.demand}
-                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, demand: !!value}))}
+                    checked={columnVisibility.quantity}
+                    onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, quantity: !!value}))}
                   >
-                    Demand
+                    Quantity
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={columnVisibility.openingStock}
@@ -319,7 +319,7 @@ export default function TreadExtrusionPage() {
                         <TableRow>
                             {columnVisibility.sapCode && <TableHead>SAP Code</TableHead>}
                             <TableHead>SKU</TableHead>
-                            {columnVisibility.demand && <TableHead className="text-right">Demand</TableHead>}
+                            {columnVisibility.quantity && <TableHead className="text-right">Quantity</TableHead>}
                             {columnVisibility.openingStock && <TableHead className="text-right">Opening Stock</TableHead>}
                             {columnVisibility.production && <TableHead className="text-right">Total Production</TableHead>}
                             {columnVisibility.tyreProduction && <TableHead className="text-right">Tyre Production</TableHead>}
@@ -332,7 +332,7 @@ export default function TreadExtrusionPage() {
                             <TableRow key={`${item.sku}-${index}`}>
                                 {columnVisibility.sapCode && <TableCell>{item.sapCode}</TableCell>}
                                 <TableCell className="font-medium">{item.sku}</TableCell>
-                                {columnVisibility.demand && <TableCell className="text-right">{item.demand.toLocaleString()}</TableCell>}
+                                {columnVisibility.quantity && <TableCell className="text-right">{item.quantity.toLocaleString()}</TableCell>}
                                 {columnVisibility.openingStock && (
                                     <TableCell className="text-right">
                                         <Input

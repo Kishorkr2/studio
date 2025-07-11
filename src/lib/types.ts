@@ -34,8 +34,8 @@ export interface MarketRequirement {
   id?: string;
   sku: string;
   sapCode: string;
-  demand: number;
-  machine: string;
+  quantity: number;
+  tbmNo: string;
 }
 
 export interface SkuPlan {
@@ -63,5 +63,3 @@ export interface TreadStock {
   openingStock: number;
   production: number;
 }
-
-    

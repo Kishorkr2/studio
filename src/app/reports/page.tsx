@@ -104,7 +104,7 @@ export default function ReportsPage() {
     const [filteredReportData, setFilteredReportData] = React.useState<ReportDataRow[]>([]);
     const [breakdownData, setBreakdownData] = React.useState<ReportDataRow[]>([]);
     const [marketRequirements, setMarketRequirements] = React.useState<MarketRequirement[]>([]);
-    const [totalDemand, setTotalDemand] = React.useState(0);
+    const [totalRequirement, setTotalRequirement] = React.useState(0);
 
     React.useEffect(() => {
         const unsubOperators = DataService.subscribeToCollection<Operator>('operators', setAllOperators);
@@ -112,8 +112,8 @@ export default function ReportsPage() {
         const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', setAllShifts);
         const unsubMarketReq = DataService.subscribeToCollection<MarketRequirement>('marketRequirements', (data) => {
             setMarketRequirements(data);
-            const total = data.reduce((sum, req) => sum + (req.demand || 0), 0);
-            setTotalDemand(total);
+            const total = data.reduce((sum, req) => sum + (req.quantity || 0), 0);
+            setTotalRequirement(total);
         });
         const unsubHistory = DataService.subscribeToCollection<any>('productionLogs', setRawProductionLogs);
 
@@ -219,7 +219,7 @@ export default function ReportsPage() {
       return allReportData.reduce((acc, item) => acc + (item.quantity || 0), 0);
     }, [allReportData]);
 
-    const balance = totalDemand - totalProduction;
+    const balance = totalRequirement - totalProduction;
 
 
   return (
@@ -235,7 +235,7 @@ export default function ReportsPage() {
             <TabsTrigger value="production">Production Report</TabsTrigger>
             <TabsTrigger value="oee">OEE Analysis</TabsTrigger>
             <TabsTrigger value="breakdown">Breakdown Log</TabsTrigger>
-            <TabsTrigger value="demand">Demand Report</TabsTrigger>
+            <TabsTrigger value="requirement">Requirement Report</TabsTrigger>
           </TabsList>
           <Button onClick={handleExport}><Download className="mr-2 h-4 w-4" />Export to Excel</Button>
         </div>
@@ -443,13 +443,13 @@ export default function ReportsPage() {
           </Card>
         </TabsContent>
         
-        <TabsContent value="demand">
+        <TabsContent value="requirement">
           <div className="grid gap-6 lg:grid-cols-3">
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle>Market Demand Report</CardTitle>
+                <CardTitle>Market Requirement Report</CardTitle>
                 <CardDescription>
-                  This report shows the latest market demand data uploaded to the system.
+                  This report shows the latest market requirement data uploaded to the system.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -457,19 +457,19 @@ export default function ReportsPage() {
                     <Table>
                       <TableHeader className="sticky top-0 bg-muted/50">
                         <TableRow>
-                          <TableHead>Machine</TableHead>
+                          <TableHead>TBM No</TableHead>
                           <TableHead>SAP Code</TableHead>
                           <TableHead>SKU</TableHead>
-                          <TableHead className="text-right">Demand</TableHead>
+                          <TableHead className="text-right">Quantity</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {marketRequirements.length > 0 ? marketRequirements.map((req, index) => (
                           <TableRow key={index}>
-                            <TableCell>{req.machine}</TableCell>
+                            <TableCell>{req.tbmNo}</TableCell>
                             <TableCell>{req.sapCode}</TableCell>
                             <TableCell>{req.sku}</TableCell>
-                            <TableCell className="text-right">{req.demand.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">{req.quantity.toLocaleString()}</TableCell>
                           </TableRow>
                         )) : (
                           <TableRow>
@@ -486,12 +486,12 @@ export default function ReportsPage() {
             <div className="space-y-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Demand</CardTitle>
+                  <CardTitle className="text-sm font-medium">Total Requirement</CardTitle>
                   <ClipboardList className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {totalDemand.toLocaleString()}
+                    {totalRequirement.toLocaleString()}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Total units based on the last upload.
