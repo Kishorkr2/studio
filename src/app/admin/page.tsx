@@ -341,16 +341,16 @@ export default function AdminPage() {
           const planMap = new Map<string, SkuPlan[]>();
           
           jsonFromSheet.forEach(row => {
-            const machineId = String(row['TBM No'] || '').trim();
+            const tbmNo = String(row['TBM No'] || '').trim();
             const sapCode = String(row['SAP Code'] || '').trim();
             const sku = String(row.SKU || '').trim();
             const quantity = Number(row.Quantity || 0);
 
-            if (machineId && sku && sapCode) {
-                if (!planMap.has(machineId)) {
-                    planMap.set(machineId, []);
+            if (tbmNo && sku && sapCode) {
+                if (!planMap.has(tbmNo)) {
+                    planMap.set(tbmNo, []);
                 }
-                planMap.get(machineId)!.push({ sku, sapCode, quantity });
+                planMap.get(tbmNo)!.push({ sku, sapCode, quantity });
             }
           });
 
@@ -412,7 +412,7 @@ export default function AdminPage() {
           <TabsTrigger value="operators">Operator Management</TabsTrigger>
           <TabsTrigger value="shifts">Shift Management</TabsTrigger>
           <TabsTrigger value="plan">Production Plan</TabsTrigger>
-          <TabsTrigger value="machines">Machine Management</TabsTrigger>
+          <TabsTrigger value="machines">TBM Management</TabsTrigger>
           <TabsTrigger value="upload">Data Upload</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -547,7 +547,7 @@ export default function AdminPage() {
           <Card>
             <CardHeader>
               <CardTitle>Manual Production Plan</CardTitle>
-              <CardDescription>Assign SKUs to machines for production manually.</CardDescription>
+              <CardDescription>Assign SKUs to TBMs for production manually.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {editingPlan ? (
@@ -638,8 +638,8 @@ export default function AdminPage() {
         <TabsContent value="machines">
           <Card>
             <CardHeader>
-              <CardTitle>Machine Management</CardTitle>
-              <CardDescription>View and edit your machine inventory.</CardDescription>
+              <CardTitle>TBM Management</CardTitle>
+              <CardDescription>View and edit your TBM inventory.</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -677,7 +677,7 @@ export default function AdminPage() {
               </Table>
             </CardContent>
             <CardFooter className="flex justify-between">
-              <Button onClick={handleAddMachine}><PlusCircle className="mr-2 h-4 w-4"/>Add Machine</Button>
+              <Button onClick={handleAddMachine}><PlusCircle className="mr-2 h-4 w-4"/>Add TBM</Button>
               <Button onClick={handleSaveMachines}>Save Changes</Button>
             </CardFooter>
           </Card>
