@@ -17,6 +17,7 @@ export interface MachineProductionData {
   name: string;
   status: 'Online' | 'Offline';
   sku: string;
+  sapCode: string;
   quantity: number;
   operatorId?: string;
   remark?: string;
@@ -39,6 +40,7 @@ export interface MarketRequirement {
 
 export interface SkuPlan {
     sku: string;
+    sapCode: string;
     quantity: number;
 }
 
@@ -61,3 +63,5 @@ export interface TreadStock {
   openingStock: number;
   production: number;
 }
+
+    

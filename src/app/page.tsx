@@ -158,16 +158,16 @@ export default function DashboardPage() {
 
         const loggedEntry = logMap.get(planItem.machineId);
         
-        // SKU always comes from the current plan to ensure it's up-to-date.
-        // We default to the first SKU in the plan for consistency.
-        const sku = planItem.skus[0]?.sku || '';
+        const skuPlan = planItem.skus[0];
+        const sku = skuPlan?.sku || '';
+        const sapCode = skuPlan?.sapCode || '';
 
         return {
           machineId: machine.id,
           name: machine.name,
           status: 'Online' as const,
-          sku: sku, // Always use the SKU from the current plan.
-          // Populate other fields from the log, or default to empty/zero.
+          sku: sku,
+          sapCode: sapCode,
           quantity: loggedEntry?.quantity || 0,
           operatorId: loggedEntry?.operatorId || '',
           remark: loggedEntry?.remark || '',
@@ -488,3 +488,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

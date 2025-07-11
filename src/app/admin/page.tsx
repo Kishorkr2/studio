@@ -40,6 +40,7 @@ export default function AdminPage() {
   
   const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
   const [newSku, setNewSku] = useState('');
+  const [newSkuSapCode, setNewSkuSapCode] = useState('');
   const [newSkuQuantity, setNewSkuQuantity] = useState(0);
 
   const [password, setPassword] = useState('');
@@ -130,7 +131,7 @@ export default function AdminPage() {
                      }
                      const skus = newProductionPlanItems.get(machineId)!;
                      if (req.sku && !skus.some(s => s.sku === req.sku)) {
-                         skus.push({ sku: req.sku, quantity: req.demand });
+                         skus.push({ sku: req.sku, sapCode: req.sapCode, quantity: req.demand });
                      }
                  }
              }
@@ -218,9 +219,10 @@ export default function AdminPage() {
   };
   
   const handleAddSkuToPlan = () => {
-    if (newSku && editingPlan && !editingPlan.skus.some(s => s.sku === newSku)) {
-        setEditingPlan({ ...editingPlan, skus: [...editingPlan.skus, { sku: newSku, quantity: newSkuQuantity }] });
+    if (newSku && newSkuSapCode && editingPlan && !editingPlan.skus.some(s => s.sku === newSku)) {
+        setEditingPlan({ ...editingPlan, skus: [...editingPlan.skus, { sku: newSku, sapCode: newSkuSapCode, quantity: newSkuQuantity }] });
         setNewSku('');
+        setNewSkuSapCode('');
         setNewSkuQuantity(0);
     }
   };
@@ -341,18 +343,19 @@ export default function AdminPage() {
           jsonFromSheet.forEach(row => {
             const machineId = String(row['TBM No'] || '').trim();
             const sku = String(row.SKU || '').trim();
+            const sapCode = String(row['SAP Code'] || '').trim();
             const quantity = Number(row.Quantity || 0);
 
-            if (machineId && sku) {
+            if (machineId && sku && sapCode) {
                 if (!planMap.has(machineId)) {
                     planMap.set(machineId, []);
                 }
-                planMap.get(machineId)!.push({ sku, quantity });
+                planMap.get(machineId)!.push({ sku, sapCode, quantity });
             }
           });
 
           if (planMap.size === 0) {
-            throw new Error("Invalid file format or empty file. Please check headers: TBM No, SKU, Quantity");
+            throw new Error("Invalid file format or empty file. Please check headers: TBM No, SKU, SAP Code, Quantity");
           }
 
           const parsedPlan: ProductionPlanItem[] = Array.from(planMap.entries()).map(([machineId, skus]) => ({
@@ -509,7 +512,7 @@ export default function AdminPage() {
               <div className="space-y-2">
                 <h4 className="text-md font-semibold">File Format Template</h4>
                 <p className="text-sm text-muted-foreground">
-                  Your Excel file should contain three columns: <strong>TBM No</strong>, <strong>SKU</strong>, and <strong>Quantity</strong>.
+                  Your Excel file should contain four columns: <strong>TBM No</strong>, <strong>SKU</strong>, <strong>SAP Code</strong>, and <strong>Quantity</strong>.
                 </p>
                 <div className="border rounded-lg overflow-hidden">
                   <Table>
@@ -517,6 +520,7 @@ export default function AdminPage() {
                       <TableRow>
                         <TableHead>TBM No</TableHead>
                         <TableHead>SKU</TableHead>
+                        <TableHead>SAP Code</TableHead>
                         <TableHead>Quantity</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -524,11 +528,13 @@ export default function AdminPage() {
                       <TableRow>
                         <TableCell className="font-mono">TBM-01</TableCell>
                         <TableCell className="font-mono">P-215-65R17</TableCell>
+                        <TableCell className="font-mono">S4P-87321</TableCell>
                         <TableCell className="font-mono">100</TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell className="font-mono">TBM-02</TableCell>
                         <TableCell className="font-mono">P-225-60R17</TableCell>
+                        <TableCell className="font-mono">S4P-87322</TableCell>
                         <TableCell className="font-mono">150</TableCell>
                       </TableRow>
                     </TableBody>
@@ -566,10 +572,15 @@ export default function AdminPage() {
                     <div className="space-y-2">
                       <Label>Assigned SKUs</Label>
                       <div className="space-y-2">
-                        <div className="flex gap-2">
-                          <Input value={newSku} onChange={e => setNewSku(e.target.value)} placeholder="Enter new SKU"/>
-                          <Input type="number" value={newSkuQuantity} onChange={e => setNewSkuQuantity(Number(e.target.value))} placeholder="Quantity" className="w-24"/>
-                          <Button onClick={handleAddSkuToPlan}><PlusCircle className="h-4 w-4 mr-2"/> Add</Button>
+                        <div className="flex flex-col gap-2">
+                          <div className='flex gap-2'>
+                            <Input value={newSku} onChange={e => setNewSku(e.target.value)} placeholder="Enter new SKU"/>
+                            <Input value={newSkuSapCode} onChange={e => setNewSkuSapCode(e.target.value)} placeholder="SAP Code"/>
+                          </div>
+                          <div className='flex gap-2'>
+                            <Input type="number" value={newSkuQuantity} onChange={e => setNewSkuQuantity(Number(e.target.value))} placeholder="Quantity" className="w-24"/>
+                            <Button onClick={handleAddSkuToPlan}><PlusCircle className="h-4 w-4 mr-2"/> Add</Button>
+                          </div>
                         </div>
                         <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[40px]">
                             {editingPlan.skus.length > 0 ? editingPlan.skus.map(skuPlan => (
@@ -855,3 +866,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    

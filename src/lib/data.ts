@@ -1,3 +1,4 @@
+
 import type { Operator, Machine, ProductionPlanItem, ShiftInfo } from './types';
 
 export const shifts: ShiftInfo[] = [
@@ -21,8 +22,10 @@ export const initialMachines: Machine[] = Array.from({ length: 26 }, (_, i) => (
 }));
 
 export const initialProductionPlan: ProductionPlanItem[] = [
-  { machineId: 'TBM-01', skus: [{ sku: 'P-215-65R17', quantity: 100 }] },
-  { machineId: 'TBM-02', skus: [{ sku: 'P-215-65R17', quantity: 120 }, { sku: 'P-225-60R17', quantity: 80 }] },
-  { machineId: 'TBM-03', skus: [{ sku: 'LT-245-75R16', quantity: 150 }] },
-  { machineId: 'TBM-04', skus: [{ sku: 'P-235-60R18', quantity: 90 }] },
+  { machineId: 'TBM-01', skus: [{ sku: 'P-215-65R17', sapCode: 'S4P-87321', quantity: 100 }] },
+  { machineId: 'TBM-02', skus: [{ sku: 'P-225-60R17', sapCode: 'S4P-87322', quantity: 120 }] },
+  { machineId: 'TBM-03', skus: [{ sku: 'LT-245-75R16', sapCode: 'S4P-87323', quantity: 150 }] },
+  { machineId: 'TBM-04', skus: [{ sku: 'P-235-60R18', sapCode: 'S4P-87324', quantity: 90 }] },
 ];
+
+    
