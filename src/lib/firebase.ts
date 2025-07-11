@@ -36,27 +36,48 @@ if (typeof window !== "undefined") {
 export const clearFirestoreCache = async () => {
     if (typeof window !== 'undefined') {
         try {
+            // Terminate the existing Firestore instance to release locks.
             await terminate(db);
+
+            // Delete the entire Firebase app instance.
+            // This is a more aggressive way to clear state.
+            await deleteApp(app);
+            console.log("Firebase app instance deleted.");
+
+            // Physically delete the IndexedDB database.
             const dbName = `firebase/firestore/${firebaseConfig.projectId}/(default)`;
             await new Promise<void>((resolve, reject) => {
+                console.log(`Attempting to delete IndexedDB: ${dbName}`);
                 const deleteRequest = indexedDB.deleteDatabase(dbName);
-                deleteRequest.onsuccess = () => resolve();
-                deleteRequest.onerror = (event) => reject(new Error(`Failed to delete IndexedDB: ${(event.target as any)?.error}`));
+                deleteRequest.onsuccess = () => {
+                    console.log("IndexedDB deleted successfully.");
+                    resolve();
+                };
+                deleteRequest.onerror = (event) => {
+                    console.error("Failed to delete IndexedDB:", (event.target as any)?.error);
+                    reject(new Error(`Failed to delete IndexedDB: ${(event.target as any)?.error}`));
+                };
                 deleteRequest.onblocked = () => {
                     console.warn("IndexedDB delete is blocked. Please close other tabs with this app open.");
-                    // Don't reject, just warn and proceed with reinitialization. The user will need to reload.
-                    resolve(); 
+                    // Still resolve, as the user will be forced to reload anyway.
+                    resolve();
                 };
             });
 
-            // Re-initialize app and db
-            app = initializeApp(firebaseConfig, "reinit");
+            // Re-initialize app and db. A full page reload will use these new instances.
+            console.log("Re-initializing Firebase app and Firestore...");
+            app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             await enableIndexedDbPersistence(db);
-            
             console.log("Firestore cache cleared and re-initialized successfully.");
+
         } catch (error) {
             console.error("Error clearing Firestore cache:", error);
+            // Even if it fails, try to re-init as a fallback.
+            if (getApps().length === 0) {
+                 app = initializeApp(firebaseConfig);
+                 db = getFirestore(app);
+            }
             throw error;
         }
     }
