@@ -40,9 +40,11 @@ export default function AdminPage() {
   const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
   
   const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
-  const [newSku, setNewSku] = useState('');
-  const [newSkuSapCode, setNewSkuSapCode] = useState('');
-  const [newSkuQuantity, setNewSkuQuantity] = useState(0);
+
+  const [newPlanMachineId, setNewPlanMachineId] = useState('');
+  const [newPlanSku, setNewPlanSku] = useState('');
+  const [newPlanSapCode, setNewPlanSapCode] = useState('');
+  const [newPlanQuantity, setNewPlanQuantity] = useState(0);
 
   const [password, setPassword] = useState('');
   
@@ -187,54 +189,65 @@ export default function AdminPage() {
     });
   };
 
-  const handleSavePlanItem = async (item: ProductionPlanItem) => {
-    if (!item.machineId || item.skus.length === 0) {
-      toast({ variant: 'destructive', title: 'Error', description: 'TBM must be selected and at least one SKU must be added.' });
+  const handleAddPlanItem = async () => {
+    if (!newPlanMachineId || !newPlanSku || !newPlanSapCode) {
+      toast({ variant: 'destructive', title: 'Error', description: 'TBM, SKU, and SAP Code are required.' });
       return;
     }
     
+    const newSkuPlan: SkuPlan = {
+      sku: newPlanSku,
+      sapCode: newPlanSapCode,
+      quantity: newPlanQuantity,
+    };
+    
+    const existingPlanItem = productionPlan.find(p => p.machineId === newPlanMachineId);
     let newPlan;
-    const existing = productionPlan.find(p => p.machineId === item.machineId);
-    if (existing) {
-      newPlan = productionPlan.map(p => p.machineId === item.machineId ? item : p);
+
+    if (existingPlanItem) {
+      newPlan = productionPlan.map(p => 
+        p.machineId === newPlanMachineId 
+        ? { ...p, skus: [...p.skus, newSkuPlan] } 
+        : p
+      );
     } else {
-      newPlan = [...productionPlan, item];
+      newPlan = [...productionPlan, { machineId: newPlanMachineId, skus: [newSkuPlan] }];
     }
+    
     await DataService.updateProductionPlan(newPlan);
 
-    toast({ title: 'Plan Saved', description: `Production plan for ${machines.find(m => m.id === item.machineId)?.name} has been updated.`});
-    setEditingPlan(null);
+    toast({ title: 'Plan Item Added', description: `SKU ${newPlanSku} added to ${machines.find(m => m.id === newPlanMachineId)?.name}.`});
+    
+    // Reset form
+    setNewPlanMachineId('');
+    setNewPlanSku('');
+    setNewPlanSapCode('');
+    setNewPlanQuantity(0);
   };
 
-  const handleDeletePlanItem = async (machineId: string) => {
-    const newPlan = productionPlan.filter(p => p.machineId !== machineId);
+
+  const handleDeletePlanSku = async (machineId: string, skuIndex: number) => {
+    const planItem = productionPlan.find(p => p.machineId === machineId);
+    if (!planItem) return;
+
+    const newSkus = planItem.skus.filter((_, index) => index !== skuIndex);
+
+    let newPlan;
+    if (newSkus.length > 0) {
+      newPlan = productionPlan.map(p => p.machineId === machineId ? { ...p, skus: newSkus } : p);
+    } else {
+      // If no SKUs left, remove the entire plan item for that machine
+      newPlan = productionPlan.filter(p => p.machineId !== machineId);
+    }
+
     await DataService.updateProductionPlan(newPlan);
-    toast({ title: 'Plan Item Removed', description: `Plan for ${machines.find(m => m.id === machineId)?.name} has been removed.`});
+    toast({ title: 'SKU Removed', description: `SKU has been removed from the plan.`});
   };
 
   const startEditing = (item: ProductionPlanItem) => {
     setEditingPlan({...item, skus: [...item.skus]});
   };
   
-  const startAdding = () => {
-    setEditingPlan({ machineId: '', skus: [] });
-  };
-  
-  const handleAddSkuToPlan = () => {
-    if (newSku && newSkuSapCode && editingPlan) {
-        setEditingPlan({ ...editingPlan, skus: [...editingPlan.skus, { sku: newSku, sapCode: newSkuSapCode, quantity: newSkuQuantity }] });
-        setNewSku('');
-        setNewSkuSapCode('');
-        setNewSkuQuantity(0);
-    }
-  };
-
-  const handleRemoveSkuFromPlan = (skuToRemove: string, indexToRemove: number) => {
-      if (editingPlan) {
-          setEditingPlan({ ...editingPlan, skus: editingPlan.skus.filter((s, index) => !(s.sku === skuToRemove && index === indexToRemove)) });
-      }
-  };
-
   const handleClearDataConfirm = async () => {
     await DataService.clearAllProductionData();
     toast({
@@ -594,60 +607,38 @@ export default function AdminPage() {
               <CardDescription>Assign SKUs to TBMs for production manually.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {editingPlan ? (
                 <div className="p-4 border rounded-lg space-y-4">
-                  <h3 className="font-semibold text-lg">{productionPlan.some(p => p.machineId === editingPlan.machineId) ? 'Edit Plan' : 'Add Plan'}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <h3 className="font-semibold text-lg">Add New Plan Item</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                     <div className="space-y-2">
-                      <Label htmlFor="machine-select">TBM No</Label>
-                      <Select
-                        value={editingPlan.machineId}
-                        onValueChange={(value) => setEditingPlan({...editingPlan, machineId: value})}
-                        disabled={!!editingPlan.machineId && productionPlan.some(p => p.machineId === editingPlan.machineId)}
-                      >
-                        <SelectTrigger id="machine-select">
+                      <Label htmlFor="manual-machine-select">TBM No</Label>
+                      <Select value={newPlanMachineId} onValueChange={setNewPlanMachineId}>
+                        <SelectTrigger id="manual-machine-select">
                           <SelectValue placeholder="Select a TBM" />
                         </SelectTrigger>
                         <SelectContent>
-                           {machines.filter(m => !productionPlan.some(p => p.machineId === m.id) || m.id === editingPlan.machineId).map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                           {machines.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="manual-sap-code">SAP Code</Label>
+                        <Input id="manual-sap-code" value={newPlanSapCode} onChange={e => setNewPlanSapCode(e.target.value)} placeholder="SAP Code"/>
+                    </div>
                     <div className="space-y-2">
-                      <Label>Assigned SKUs</Label>
-                      <div className="space-y-2">
-                        <div className="flex flex-col gap-2">
-                          <div className='flex gap-2'>
-                            <Input value={newSku} onChange={e => setNewSku(e.target.value)} placeholder="Enter new SKU"/>
-                            <Input value={newSkuSapCode} onChange={e => setNewSkuSapCode(e.target.value)} placeholder="SAP Code"/>
-                          </div>
-                          <div className='flex gap-2'>
-                            <Input type="number" value={newSkuQuantity} onChange={e => setNewSkuQuantity(Number(e.target.value))} placeholder="Quantity" className="w-24"/>
-                            <Button onClick={handleAddSkuToPlan}><PlusCircle className="h-4 w-4 mr-2"/> Add</Button>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[40px]">
-                            {editingPlan.skus.length > 0 ? editingPlan.skus.map((skuPlan, index) => (
-                                <Badge key={`${skuPlan.sku}-${skuPlan.sapCode}-${index}`} variant="secondary" className="flex items-center gap-1">
-                                    {skuPlan.sku} ({skuPlan.quantity})
-                                    <button onClick={() => handleRemoveSkuFromPlan(skuPlan.sku, index)} className="rounded-full hover:bg-muted-foreground/20">
-                                        <X className="h-3 w-3"/>
-                                    </button>
-                                </Badge>
-                            )) : <p className="text-sm text-muted-foreground">No SKUs added yet.</p>}
-                        </div>
-                      </div>
+                        <Label htmlFor="manual-sku">SKU</Label>
+                        <Input id="manual-sku" value={newPlanSku} onChange={e => setNewPlanSku(e.target.value)} placeholder="Enter SKU"/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="manual-quantity">Quantity</Label>
+                        <Input id="manual-quantity" type="number" value={newPlanQuantity} onChange={e => setNewPlanQuantity(Number(e.target.value))} placeholder="Quantity" />
                     </div>
                   </div>
-                  <div className="flex justify-end gap-2">
-                      <Button onClick={() => handleSavePlanItem(editingPlan)}>Save Plan</Button>
-                      <Button variant="outline" onClick={() => setEditingPlan(null)}>Cancel</Button>
+                  <div className="flex justify-end">
+                    <Button onClick={handleAddPlanItem}><PlusCircle className="mr-2 h-4 w-4"/>Add to Plan</Button>
                   </div>
                 </div>
-              ) : (
-                <Button onClick={startAdding}><PlusCircle className="mr-2 h-4 w-4"/>Add Plan Item</Button>
-              )}
-              
+
               <div className="border rounded-lg">
                 <Table>
                   <TableHeader>
@@ -662,13 +653,21 @@ export default function AdminPage() {
                       <TableRow key={item.machineId}>
                         <TableCell>{machines.find(m => m.id === item.machineId)?.name}</TableCell>
                         <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {item.skus.map((skuPlan, index) => <Badge key={`${skuPlan.sku}-${skuPlan.sapCode}-${index}`} variant="secondary">{skuPlan.sku} ({skuPlan.quantity})</Badge>)}
+                          <div className="flex flex-col gap-2 items-start">
+                            {item.skus.map((skuPlan, index) => (
+                              <div key={`${item.machineId}-${skuPlan.sku}-${index}`} className="flex items-center gap-2 w-full">
+                                <Badge variant="secondary" className="flex-grow justify-start text-left">
+                                  {skuPlan.sku} (SAP: {skuPlan.sapCode}, Qty: {skuPlan.quantity})
+                                </Badge>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeletePlanSku(item.machineId, index)}>
+                                    <Trash className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => startEditing(item)}><Edit className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeletePlanItem(item.machineId)}><Trash className="h-4 w-4" /></Button>
+                         <TableCell className="text-right">
+                           {/* The edit/delete can be done per SKU now */}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -925,5 +924,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    
