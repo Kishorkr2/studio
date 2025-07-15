@@ -137,11 +137,11 @@ export default function ReportsPage() {
         const logs: ReportDataRow[] = [];
         rawProductionLogs.forEach(logDoc => {
             const { id, ...logData } = logDoc;
-            const keyParts = id.replace('production-log-', '').split('-');
-            if (keyParts.length < 4) return; // a basic check for a valid ID format
+            const idParts = id.replace('production-log-', '').split('-');
+            if (idParts.length < 4) return;
             
-            const dateStr = keyParts.slice(0, 3).join('-');
-            const shiftName = keyParts.slice(3).join(' ');
+            const dateStr = idParts.slice(0, 3).join('-');
+            const shiftName = idParts.slice(3).join(' ');
 
             Object.entries(logData as ProductionLog).forEach(([round, logEntry] : [string, any]) => {
                 if (logEntry.entries) {

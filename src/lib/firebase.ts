@@ -1,5 +1,5 @@
 
-import { initializeApp, getApps, getApp, deleteApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, enableIndexedDbPersistence, terminate, clearIndexedDbPersistence } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -18,10 +18,9 @@ let persistenceEnabled = false;
 if (typeof window !== "undefined" && !persistenceEnabled) {
   (async () => {
     try {
-      // First, check if projectId is valid. If not, Firestore will hang.
       if (!firebaseConfig.projectId) {
-          console.error("Firebase projectId is missing. App will run in a degraded mode. Please check your .env file.");
-          return; // Prevent further execution
+          console.warn("Firebase projectId is missing. App will run without persistence.");
+          return; 
       }
       await enableIndexedDbPersistence(db);
       persistenceEnabled = true;
@@ -32,7 +31,7 @@ if (typeof window !== "undefined" && !persistenceEnabled) {
       } else if (err.code === 'unimplemented') {
         console.warn('Firestore persistence not available in this browser. App will run in online-only mode.');
       } else {
-        console.error("CRITICAL: Firestore persistence failed to initialize, likely due to corrupted data. The app will run in online-only mode. Please clear the cache via Admin > Settings to resolve.", err);
+        console.error("CRITICAL: Firestore persistence failed to initialize. The app will run in online-only mode. Please clear the cache via Admin > Settings to resolve.", err);
       }
     }
   })();
@@ -49,12 +48,8 @@ export const clearFirestoreCache = async () => {
             console.error("Error clearing Firestore cache:", error);
             throw error;
         } finally {
-            // Re-initialize the app and Firestore. This is safer than deleting the app instance.
-            if(getApps().length === 0) {
-                app = initializeApp(firebaseConfig);
-            } else {
-                app = getApp();
-            }
+            // Re-initialize the app and Firestore.
+            app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
             db = getFirestore(app);
             // Re-enable persistence
             (async () => {
@@ -71,3 +66,5 @@ export const clearFirestoreCache = async () => {
 };
 
 export { db };
+
+    

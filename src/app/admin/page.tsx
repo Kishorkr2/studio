@@ -609,7 +609,7 @@ export default function AdminPage() {
             <CardContent className="space-y-6">
                 <div className="p-4 border rounded-lg space-y-4">
                   <h3 className="font-semibold text-lg">Add New Plan Item</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                     <div className="space-y-2">
                       <Label htmlFor="manual-machine-select">TBM No</Label>
                       <Select value={newPlanMachineId} onValueChange={setNewPlanMachineId}>
@@ -631,10 +631,8 @@ export default function AdminPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="manual-quantity">Quantity</Label>
-                        <Input id="manual-quantity" type="number" value={newPlanQuantity} onChange={e => setNewPlanQuantity(Number(e.target.value))} placeholder="Quantity" />
+                        <Input id="manual-quantity" type="number" value={newPlanQuantity === 0 ? '' : newPlanQuantity} onChange={e => setNewPlanQuantity(Number(e.target.value))} placeholder="Quantity" />
                     </div>
-                  </div>
-                  <div className="flex justify-end">
                     <Button onClick={handleAddPlanItem}><PlusCircle className="mr-2 h-4 w-4"/>Add to Plan</Button>
                   </div>
                 </div>
@@ -924,3 +922,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    
