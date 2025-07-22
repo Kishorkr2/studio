@@ -65,7 +65,7 @@ export default function AdminPage() {
   }, []);
 
   const handleAddOperator = async () => {
-    const newOperator = { cardNo: `OP-${Math.floor(Math.random() * 1000)}`, name: 'New Operator', skillRating: 3, isAbsent: false };
+    const newOperator = { cardNo: `OP-${Math.floor(Math.random() * 1000)}`, name: 'New Operator', builderNo: `B-${Math.floor(Math.random() * 100)}`, skillRating: 3, isAbsent: false };
     await DataService.addOperator(newOperator);
     toast({ title: "Operator Added" });
   };
@@ -352,6 +352,7 @@ export default function AdminPage() {
                   <TableRow>
                     <TableHead>Card No</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>Builder No</TableHead>
                     <TableHead>Skill Rating</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -370,6 +371,13 @@ export default function AdminPage() {
                          <Input
                           value={op.name}
                           onChange={(e) => handleOperatorChange(op.cardNo, 'name', e.target.value)}
+                          className="max-w-xs"
+                        />
+                      </TableCell>
+                      <TableCell>
+                         <Input
+                          value={op.builderNo}
+                          onChange={(e) => handleOperatorChange(op.cardNo, 'builderNo', e.target.value)}
                           className="max-w-xs"
                         />
                       </TableCell>

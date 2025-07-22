@@ -100,7 +100,7 @@ export default function OptimizePage() {
   };
 
   const addOperator = async () => {
-    await DataService.addOperator({cardNo: `OP-${Math.floor(Math.random() * 1000)}`, name: 'New Hire', skillRating: 1, isAbsent: false});
+    await DataService.addOperator({cardNo: `OP-${Math.floor(Math.random() * 1000)}`, name: 'New Hire', builderNo: `B-${Math.floor(Math.random() * 100)}`, skillRating: 1, isAbsent: false});
   }
   
   const removeOperator = async (cardNo: string) => {
@@ -170,6 +170,10 @@ export default function OptimizePage() {
                         <div className="flex items-center justify-between">
                             <Input value={op.name} onChange={e => handleOperatorChange(op.cardNo, 'name', e.target.value)} className="text-sm font-semibold border-none p-0 h-auto focus-visible:ring-0"/>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeOperator(op.cardNo)}><Trash className="h-4 w-4"/></Button>
+                        </div>
+                        <div>
+                            <Label>Builder No:</Label>
+                            <Input value={op.builderNo} onChange={e => handleOperatorChange(op.cardNo, 'builderNo', e.target.value)} className="text-sm border-none p-0 h-auto focus-visible:ring-0"/>
                         </div>
                         <div>
                             <Label>Skill: {op.skillRating}</Label>

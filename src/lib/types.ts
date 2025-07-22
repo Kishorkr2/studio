@@ -2,6 +2,7 @@
 export interface Operator {
   cardNo: string;
   name: string;
+  builderNo: string;
   skillRating: number;
   isAbsent: boolean;
 }

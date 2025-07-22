@@ -7,11 +7,11 @@ export const shifts: ShiftInfo[] = [
 ];
 
 export const initialOperators: Operator[] = [
-  { cardNo: 'OP-001', name: 'John Doe', skillRating: 5, isAbsent: false },
-  { cardNo: 'OP-002', name: 'Jane Smith', skillRating: 4, isAbsent: false },
-  { cardNo: 'OP-003', name: 'Peter Jones', skillRating: 3, isAbsent: true },
-  { cardNo: 'OP-004', name: 'Mary Williams', skillRating: 5, isAbsent: false },
-  { cardNo: 'OP-005', name: 'David Brown', skillRating: 2, isAbsent: false },
+  { cardNo: 'OP-001', name: 'John Doe', builderNo: 'B-01', skillRating: 5, isAbsent: false },
+  { cardNo: 'OP-002', name: 'Jane Smith', builderNo: 'B-02', skillRating: 4, isAbsent: false },
+  { cardNo: 'OP-003', name: 'Peter Jones', builderNo: 'B-03', skillRating: 3, isAbsent: true },
+  { cardNo: 'OP-004', name: 'Mary Williams', builderNo: 'B-04', skillRating: 5, isAbsent: false },
+  { cardNo: 'OP-005', name: 'David Brown', builderNo: 'B-05', skillRating: 2, isAbsent: false },
 ];
 
 // Make machine availability static to ensure predictability.

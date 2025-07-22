@@ -63,7 +63,10 @@ export const subscribeToProductionLog = (date: Date, shift: ShiftInfo, setLog: (
 // --- Write Functions ---
 
 export const updateOperator = async (cardNo: string, data: Partial<Operator>) => await setDoc(doc(db, 'operators', cardNo), data, { merge: true });
-export const addOperator = async (data: Omit<Operator, 'id' | 'cardNo'> & {cardNo: string}) => await setDoc(doc(db, 'operators', data.cardNo), data);
+export const addOperator = async (data: Omit<Operator, 'id' | 'cardNo'> & {cardNo: string}) => {
+    const { cardNo, ...operatorData } = data;
+    await setDoc(doc(db, 'operators', cardNo), operatorData);
+};
 export const deleteOperator = async (cardNo: string) => await deleteDoc(doc(db, 'operators', cardNo));
 
 export const updateMachines = async (machines: Machine[]) => {
