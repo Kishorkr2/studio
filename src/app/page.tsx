@@ -41,7 +41,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
-import type { Machine, MachineProductionData, ShiftInfo, Operator, ProductionLog, ProductionPlanItem } from '@/lib/types';
+import type { Machine, MachineProductionData, ShiftInfo, Operator, ProductionLog, ProductionPlanItem, SkuPlan } from '@/lib/types';
 import { initialOperators, initialMachines, initialProductionPlan, shifts } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import * as DataService from '@/lib/data-service';
@@ -139,13 +139,7 @@ export default function DashboardPage() {
     if (!shift) return [];
     
     const times: string[] = [];
-    let currentHour = parseInt(shift.startTime.split(':')[0], 10);
-    
-    if (shift.name.toLowerCase().includes('day')) {
-        currentHour = 8; // Day shift starts at 8 AM
-    } else {
-        currentHour = 20; // Night shift starts at 8 PM (20:00)
-    }
+    const currentHour = parseInt(shift.startTime.split(':')[0], 10);
     
     for (let i = 0; i < 12; i++) {
         const hour = (currentHour + i) % 24;
@@ -192,7 +186,10 @@ export default function DashboardPage() {
 
         const loggedEntry = logMap.get(planItem.machineId);
         
-        const skuPlan = planItem.skus[0];
+        // Use the logged SKU if available, otherwise default to the first planned SKU.
+        const currentSkuString = loggedEntry?.sku || planItem.skus[0]?.sku;
+        const skuPlan = planItem.skus.find(s => s.sku === currentSkuString) || planItem.skus[0];
+        
         const sku = skuPlan?.sku || '';
         const sapCode = skuPlan?.sapCode || '';
 
@@ -216,14 +213,24 @@ export default function DashboardPage() {
 
   const handleEntryChange = useCallback((machineId: string, field: 'operatorId' | 'quantity' | 'remark' | 'sku' | 'trolleyNo', value: string) => {
     setEntries(prevEntries =>
-      prevEntries.map(entry =>
-        entry.machineId === machineId
-          ? {
-              ...entry,
-              [field]: field === 'quantity' ? parseInt(value, 10) || 0 : value,
-            }
-          : entry
-      )
+      prevEntries.map(entry => {
+        if (entry.machineId === machineId) {
+          const newEntry = {
+            ...entry,
+            [field]: field === 'quantity' ? parseInt(value, 10) || 0 : value,
+          };
+
+          // If the SKU was changed, update the SAP code as well
+          if (field === 'sku') {
+            const planItem = allProductionPlan.find(p => p.machineId === machineId);
+            const newSkuPlan = planItem?.skus.find(s => s.sku === value);
+            newEntry.sapCode = newSkuPlan?.sapCode || '';
+          }
+          
+          return newEntry;
+        }
+        return entry;
+      })
     );
      // Indicate that there are pending changes for the current round
     if(selectedRound) {
@@ -235,7 +242,7 @@ export default function DashboardPage() {
             }
         }));
     }
-  }, [selectedRound]);
+  }, [selectedRound, allProductionPlan]);
   
   const handleSaveRound = useCallback(async () => {
     if (!selectedRound || !selectedShift) {
@@ -538,3 +545,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
