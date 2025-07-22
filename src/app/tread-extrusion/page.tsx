@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import type { MarketRequirement, ProductionLog, TreadStock, ShiftInfo, MachineProductionData } from '@/lib/types';
+import type { ProductionPlanItem, ProductionLog, TreadStock, ShiftInfo, MachineProductionData, SkuPlan } from '@/lib/types';
 import { Save, SlidersHorizontal, ClipboardList, Factory, Scale } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -30,7 +30,7 @@ export default function TreadExtrusionPage() {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(true);
-  const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
+  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>([]);
   const [openingStockData, setOpeningStockData] = useState<TreadStock[]>([]);
   const [tyreProductionData, setTyreProductionData] = useState<Record<string, number>>({});
   const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, Record<string, DailyProductionEntry>>>>({});
@@ -47,11 +47,26 @@ export default function TreadExtrusionPage() {
 
   const [sapCodeFilter, setSapCodeFilter] = useState('');
   const [skuFilter, setSkuFilter] = useState('');
+  
+  const allSkusFromPlan = useMemo((): SkuPlan[] => {
+      const skuMap = new Map<string, SkuPlan>();
+      productionPlan.forEach(item => {
+          item.skus.forEach(skuPlan => {
+              const existing = skuMap.get(skuPlan.sku);
+              if (existing) {
+                  skuMap.set(skuPlan.sku, { ...existing, quantity: existing.quantity + skuPlan.quantity });
+              } else {
+                  skuMap.set(skuPlan.sku, { ...skuPlan });
+              }
+          });
+      });
+      return Array.from(skuMap.values());
+  }, [productionPlan]);
 
   useEffect(() => {
     setLoading(true);
 
-    const unsubMarketReq = DataService.subscribeToCollection<MarketRequirement>('marketRequirements', setMarketRequirements);
+    const unsubPlan = DataService.subscribeToCollection<ProductionPlanItem>('productionPlan', setProductionPlan);
     const unsubOpeningStock = DataService.subscribeToCollection<TreadStock>('treadOpeningStock', setOpeningStockData);
 
     const unsubDailyProd = DataService.subscribeToCollection<any>('dailyTreadProduction', (docs) => {
@@ -83,7 +98,7 @@ export default function TreadExtrusionPage() {
     setLoading(false);
 
     return () => {
-        unsubMarketReq();
+        unsubPlan();
         unsubOpeningStock();
         unsubDailyProd();
         unsubHistory();
@@ -137,15 +152,15 @@ export default function TreadExtrusionPage() {
     return totals;
   }, [dailyProductionLog]);
   
-  const filteredMarketRequirements = useMemo(() => {
-    return marketRequirements.filter(req =>
+  const filteredSkus = useMemo(() => {
+    return allSkusFromPlan.filter(req =>
       (req.sapCode?.toLowerCase() || '').includes(sapCodeFilter.toLowerCase()) &&
       (req.sku?.toLowerCase() || '').includes(skuFilter.toLowerCase())
     );
-  }, [marketRequirements, sapCodeFilter, skuFilter]);
+  }, [allSkusFromPlan, sapCodeFilter, skuFilter]);
 
   const combinedData = useMemo(() => {
-    return filteredMarketRequirements.map(req => {
+    return filteredSkus.map(req => {
       const openingStockInfo = openingStockData.find(t => t.sku === req.sku) || { openingStock: 0 };
       const totalProduction = totalProductionBySku[req.sku] || 0;
       const tyreProduction = tyreProductionData[req.sku] || 0;
@@ -161,7 +176,7 @@ export default function TreadExtrusionPage() {
         treadBalanceToProduce,
       };
     });
-  }, [filteredMarketRequirements, openingStockData, tyreProductionData, totalProductionBySku]);
+  }, [filteredSkus, openingStockData, tyreProductionData, totalProductionBySku]);
   
   const visibleColumnsCount = 1 + Object.values(columnVisibility).filter(Boolean).length;
 
@@ -204,12 +219,12 @@ export default function TreadExtrusionPage() {
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Market Requirement</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Production Plan</CardTitle>
             <ClipboardList className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summary.totalRequirement.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Total units required by market.</p>
+            <p className="text-xs text-muted-foreground">Total units in the production plan.</p>
           </CardContent>
         </Card>
         <Card>
@@ -238,7 +253,7 @@ export default function TreadExtrusionPage() {
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
             <div>
               <CardTitle>Tread Stock &amp; Planning</CardTitle>
-              <CardDescription>Manage tread inventory and plan production to meet market requirement.</CardDescription>
+              <CardDescription>Manage tread inventory and plan production to meet the production plan.</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <DropdownMenu>
@@ -261,7 +276,7 @@ export default function TreadExtrusionPage() {
                     checked={columnVisibility.quantity}
                     onCheckedChange={(value) => setColumnVisibility(prev => ({...prev, quantity: !!value}))}
                   >
-                    Quantity
+                    Plan Quantity
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={columnVisibility.openingStock}
@@ -319,7 +334,7 @@ export default function TreadExtrusionPage() {
                         <TableRow>
                             {columnVisibility.sapCode && <TableHead>SAP Code</TableHead>}
                             <TableHead>SKU</TableHead>
-                            {columnVisibility.quantity && <TableHead className="text-right">Quantity</TableHead>}
+                            {columnVisibility.quantity && <TableHead className="text-right">Plan Quantity</TableHead>}
                             {columnVisibility.openingStock && <TableHead className="text-right">Opening Stock</TableHead>}
                             {columnVisibility.production && <TableHead className="text-right">Total Production</TableHead>}
                             {columnVisibility.tyreProduction && <TableHead className="text-right">Tyre Production</TableHead>}
@@ -368,5 +383,3 @@ export default function TreadExtrusionPage() {
     </div>
   )
 }
-
-    

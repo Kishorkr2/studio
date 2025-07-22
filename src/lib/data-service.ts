@@ -3,7 +3,7 @@ import { db } from './firebase';
 import { collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, writeBatch, onSnapshot, query, where, collectionGroup } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
 import { initialOperators, initialMachines, shifts as initialShifts, initialProductionPlan } from './data';
-import type { Operator, Machine, ShiftInfo, ProductionPlanItem, MarketRequirement, ProductionLog, TreadStock, MachineProductionData } from './types';
+import type { Operator, Machine, ShiftInfo, ProductionPlanItem, ProductionLog, TreadStock, MachineProductionData } from './types';
 import { format } from 'date-fns';
 
 // --- Seeding Functions ---
@@ -93,29 +93,6 @@ export const updateProductionPlan = async (plan: ProductionPlanItem[]) => {
     await batch.commit();
 };
 
-export const setMarketRequirements = async (requirements: MarketRequirement[]) => {
-    const batch = writeBatch(db);
-    const reqCollection = collection(db, 'marketRequirements');
-    const currentDocs = await getDocs(reqCollection);
-    currentDocs.forEach(doc => batch.delete(doc.ref));
-    requirements.forEach(req => {
-        // Firestore will auto-generate an ID
-        const docRef = doc(reqCollection);
-        const { id, ...data } = req;
-        batch.set(docRef, data);
-    });
-    await batch.commit();
-};
-
-export const clearMarketRequirements = async () => {
-    const reqCollection = collection(db, 'marketRequirements');
-    const currentDocs = await getDocs(reqCollection);
-    const batch = writeBatch(db);
-    currentDocs.forEach(doc => batch.delete(doc.ref));
-    await batch.commit();
-}
-
-
 export const saveProductionRound = async (date: Date, shift: ShiftInfo, round: string, entries: MachineProductionData[]) => {
     const logId = `production-log-${format(date, "yyyy-MM-dd")}-${shift.name.replace(/\s+/g, '-')}`;
     const docRef = doc(db, 'productionLogs', logId);
@@ -189,5 +166,3 @@ export const clearAllProductionData = async () => {
     
     await batch.commit();
 };
-
-    

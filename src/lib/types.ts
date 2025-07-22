@@ -30,14 +30,6 @@ export interface ShiftInfo {
   endTime: string;
 }
 
-export interface MarketRequirement {
-  id?: string;
-  sku: string;
-  sapCode: string;
-  quantity: number;
-  tbmNo: string;
-}
-
 export interface SkuPlan {
     sku: string;
     sapCode: string;
@@ -63,5 +55,3 @@ export interface TreadStock {
   openingStock: number;
   production: number;
 }
-
-    

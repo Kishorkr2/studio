@@ -9,8 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Operator, ProductionPlanItem, Machine, ShiftInfo, MarketRequirement, SkuPlan } from '@/lib/types';
-import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, X, ShieldAlert, Save, DatabaseZap } from 'lucide-react';
+import type { Operator, ProductionPlanItem, Machine, ShiftInfo, SkuPlan } from '@/lib/types';
+import { Edit, PlusCircle, Trash, UploadCloud, FileSpreadsheet, ShieldAlert, Save, DatabaseZap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -37,10 +37,7 @@ export default function AdminPage() {
   const [managedShifts, setManagedShifts] = useState<ShiftInfo[]>([]);
   const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
-  const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
   
-  const [editingPlan, setEditingPlan] = useState<ProductionPlanItem | null>(null);
-
   const [newPlanMachineId, setNewPlanMachineId] = useState('');
   const [newPlanSku, setNewPlanSku] = useState('');
   const [newPlanSapCode, setNewPlanSapCode] = useState('');
@@ -48,9 +45,6 @@ export default function AdminPage() {
 
   const [password, setPassword] = useState('');
   
-  const [editingReq, setEditingReq] = useState<MarketRequirement | null>(null);
-  const [editingReqIndex, setEditingReqIndex] = useState<number | null>(null);
-
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,7 +52,6 @@ export default function AdminPage() {
     const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', setManagedShifts, initialShifts);
     const unsubMachines = DataService.subscribeToCollection<Machine>('machines', setMachines, initialMachines);
     const unsubPlan = DataService.subscribeToCollection<ProductionPlanItem>('productionPlan', setProductionPlan, initialProductionPlan);
-    const unsubMarketReq = DataService.subscribeToCollection<MarketRequirement>('marketRequirements', setMarketRequirements);
     
     setLoading(false);
 
@@ -67,7 +60,6 @@ export default function AdminPage() {
       unsubShifts();
       unsubMachines();
       unsubPlan();
-      unsubMarketReq();
     };
   }, []);
 
@@ -101,94 +93,6 @@ export default function AdminPage() {
     });
   };
   
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const data = e.target?.result;
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet) as any[];
-
-          const parsedData: MarketRequirement[] = jsonFromSheet.map(row => ({
-            tbmNo: String(row['TBM No'] || '').trim(),
-            sapCode: String(row['SAP Code'] || '').trim(),
-            sku: String(row.SKU || '').trim(),
-            quantity: Number(row.Quantity || 0),
-          }));
-
-          if (parsedData.length > 0 && parsedData[0].tbmNo && parsedData[0].sku) {
-             await DataService.setMarketRequirements(parsedData);
-             
-             const machineNameToIdMap = new Map(machines.map(m => [m.name.trim().toLowerCase().replace(/[\s-]+/g, ''), m.id]));
-             const newProductionPlanItems = new Map<string, SkuPlan[]>();
-
-             for (const req of parsedData) {
-                 const normalizedTbmNo = req.tbmNo.toLowerCase().replace(/[\s-]+/g, '');
-                 const machineId = machineNameToIdMap.get(normalizedTbmNo);
-                 if (machineId) {
-                     if (!newProductionPlanItems.has(machineId)) {
-                         newProductionPlanItems.set(machineId, []);
-                     }
-                     const skus = newProductionPlanItems.get(machineId)!;
-                     if (req.sku && !skus.some(s => s.sku === req.sku)) {
-                         skus.push({ sku: req.sku, sapCode: req.sapCode, quantity: req.quantity });
-                     }
-                 }
-             }
-
-             const newProductionPlan: ProductionPlanItem[] = Array.from(newProductionPlanItems.entries()).map(([machineId, skus]) => ({
-                 machineId,
-                 skus,
-             }));
-
-             if (newProductionPlan.length === 0 && parsedData.length > 0) {
-                 throw new Error("No TBM No in the file matched the machines in the system. Please check for typos or extra spaces.");
-             }
-
-             await DataService.updateProductionPlan(newProductionPlan);
-
-             toast({
-                title: 'File Processed & Plan Synced',
-                description: `Loaded ${parsedData.length} requirements. The previous market requirement and production plan have been replaced.`,
-             });
-          } else {
-             throw new Error("Invalid file format. Please check headers: TBM No, SAP Code, SKU, Quantity");
-          }
-        } catch (error) {
-           console.error("Error parsing file: ", error);
-           toast({
-             variant: 'destructive',
-             title: 'File Upload Error',
-             description: error instanceof Error ? error.message : 'Could not parse the uploaded file. Please ensure it follows the template.',
-           });
-        }
-      };
-      reader.onerror = () => {
-        toast({
-            variant: 'destructive',
-            title: 'File Read Error',
-            description: 'There was an error reading the file.',
-        });
-      };
-      reader.readAsArrayBuffer(file);
-    }
-    if(event.target) {
-      event.target.value = '';
-    }
-  };
-
-  const handleClearRequirements = async () => {
-    await DataService.clearMarketRequirements();
-    toast({
-        title: "Market Requirements Cleared",
-        description: "All uploaded market requirement data has been removed.",
-    });
-  };
-
   const handleAddPlanItem = async () => {
     if (!newPlanMachineId || !newPlanSku || !newPlanSapCode) {
       toast({ variant: 'destructive', title: 'Error', description: 'TBM, SKU, and SAP Code are required.' });
@@ -225,7 +129,6 @@ export default function AdminPage() {
     setNewPlanQuantity(0);
   };
 
-
   const handleDeletePlanSku = async (machineId: string, skuIndex: number) => {
     const planItem = productionPlan.find(p => p.machineId === machineId);
     if (!planItem) return;
@@ -242,10 +145,6 @@ export default function AdminPage() {
 
     await DataService.updateProductionPlan(newPlan);
     toast({ title: 'SKU Removed', description: `SKU has been removed from the plan.`});
-  };
-
-  const startEditing = (item: ProductionPlanItem) => {
-    setEditingPlan({...item, skus: [...item.skus]});
   };
   
   const handleClearDataConfirm = async () => {
@@ -300,45 +199,6 @@ export default function AdminPage() {
           title: 'TBM Removed',
           description: `TBM No ${id} has been removed.`,
       });
-  };
-
-  const startEditingRequirement = (req: MarketRequirement, index: number) => {
-    setEditingReqIndex(index);
-    setEditingReq({ ...req });
-  };
-
-  const cancelEditingRequirement = () => {
-    setEditingReqIndex(null);
-    setEditingReq(null);
-  };
-
-  const saveEditingRequirement = async () => {
-    if (editingReq && editingReqIndex !== null) {
-        const newReqs = marketRequirements.map((item, index) => 
-            index === editingReqIndex ? editingReq : item
-        );
-        await DataService.setMarketRequirements(newReqs);
-        toast({
-            title: "Requirement Saved",
-            description: "Your changes have been saved."
-        });
-    }
-    cancelEditingRequirement();
-  };
-
-  const handleEditingReqChange = (field: keyof MarketRequirement, value: string | number) => {
-    if (editingReq) {
-        setEditingReq({ ...editingReq, [field]: value });
-    }
-  };
-
-  const handleDeleteRequirement = async (indexToDelete: number) => {
-    const newReqs = marketRequirements.filter((_, index) => index !== indexToDelete);
-    await DataService.setMarketRequirements(newReqs);
-    toast({
-        title: "Requirement Deleted",
-        description: "The market requirement has been removed."
-    });
   };
 
   const handlePlanUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -465,12 +325,11 @@ export default function AdminPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
       <Tabs defaultValue="operators">
-        <TabsList className="grid w-full grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-2 gap-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           <TabsTrigger value="operators">Operator Management</TabsTrigger>
           <TabsTrigger value="shifts">Shift Management</TabsTrigger>
           <TabsTrigger value="plan">Production Plan</TabsTrigger>
           <TabsTrigger value="machines">TBM Management</TabsTrigger>
-          <TabsTrigger value="upload">Data Upload</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -724,136 +583,6 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="upload">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload Market Requirements</CardTitle>
-              <CardDescription>Upload Excel files containing market requirement data. This will also auto-generate a production plan.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted rounded-lg">
-                <UploadCloud className="h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-semibold">Drop your file here or click to upload</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Supports: .xls, .xlsx</p>
-                <Input id="file-upload" type="file" className="sr-only" onChange={handleFileUpload} accept=".xls,.xlsx" />
-                <Button asChild className="mt-4">
-                  <Label htmlFor="file-upload"><FileSpreadsheet className="mr-2 h-4 w-4" />Select File</Label>
-                </Button>
-              </div>
-              
-              <div className="space-y-4">
-                <h4 className="text-lg font-semibold">File Format Template</h4>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Your Excel file should contain four columns in this order: <strong>TBM No</strong>, <strong>SAP Code</strong>, <strong>SKU</strong>, and <strong>Quantity</strong>. The first row must be the header.
-                </p>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>TBM No</TableHead>
-                        <TableHead>SAP Code</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Quantity</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell className="font-mono">TBM 1</TableCell>
-                        <TableCell className="font-mono">S4P-87321</TableCell>
-                        <TableCell className="font-mono">P-215-65R17</TableCell>
-                        <TableCell className="font-mono">5000</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-mono">TBM 3</TableCell>
-                        <TableCell className="font-mono">S4P-87322</TableCell>
-                        <TableCell className="font-mono">LT-245-75R16</TableCell>
-                        <TableCell className="font-mono">3500</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-mono">TBM 4</TableCell>
-                        <TableCell className="font-mono">S4P-87323</TableCell>
-                        <TableCell className="font-mono">P-235-60R18</TableCell>
-                        <TableCell className="font-mono">4200</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Current Market Requirements</CardTitle>
-                    <CardDescription>
-                      {marketRequirements.length > 0
-                        ? `Displaying ${marketRequirements.length} records.`
-                        : "No data uploaded yet."}
-                    </CardDescription>
-                  </div>
-                  {marketRequirements.length > 0 && (
-                     <Button variant="outline" onClick={handleClearRequirements}>
-                        <Trash className="mr-2 h-4 w-4"/> Clear All Data
-                     </Button>
-                  )}
-                </CardHeader>
-                <CardContent>
-                    <div className="border rounded-lg max-h-96 overflow-y-auto">
-                        <Table>
-                            <TableHeader className="sticky top-0 bg-muted/50">
-                                <TableRow>
-                                    <TableHead>TBM No</TableHead>
-                                    <TableHead>SAP Code</TableHead>
-                                    <TableHead>SKU</TableHead>
-                                    <TableHead className="text-right">Quantity</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {marketRequirements.length > 0 ? (
-                                    marketRequirements.map((req, index) => (
-                                        editingReqIndex === index && editingReq ? (
-                                          <TableRow key={`${req.sku}-${req.sapCode}-${index}`}>
-                                            <TableCell><Input value={editingReq.tbmNo} onChange={(e) => handleEditingReqChange('tbmNo', e.target.value)} /></TableCell>
-                                            <TableCell><Input value={editingReq.sapCode} onChange={(e) => handleEditingReqChange('sapCode', e.target.value)} /></TableCell>
-                                            <TableCell><Input value={editingReq.sku} onChange={(e) => handleEditingReqChange('sku', e.target.value)} /></TableCell>
-                                            <TableCell className="text-right">
-                                              <Input type="number" value={editingReq.quantity ?? ''} onChange={(e) => handleEditingReqChange('quantity', Number(e.target.value))} className="w-24 ml-auto text-right" />
-                                            </TableCell>
-                                            <TableCell className="text-right space-x-2">
-                                              <Button size="sm" onClick={saveEditingRequirement}><Save className="h-4 w-4 mr-1" /> Save</Button>
-                                              <Button size="sm" variant="ghost" onClick={cancelEditingRequirement}>Cancel</Button>
-                                            </TableCell>
-                                          </TableRow>
-                                        ) : (
-                                          <TableRow key={`${req.sku}-${req.sapCode}-${index}`}>
-                                              <TableCell>{req.tbmNo}</TableCell>
-                                              <TableCell>{req.sapCode}</TableCell>
-                                              <TableCell>{req.sku}</TableCell>
-                                              <TableCell className="text-right">{req.quantity ? req.quantity.toLocaleString() : ''}</TableCell>
-                                              <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" onClick={() => startEditingRequirement(req, index)}><Edit className="h-4 w-4" /></Button>
-                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteRequirement(index)}><Trash className="h-4 w-4" /></Button>
-                                              </TableCell>
-                                          </TableRow>
-                                        )
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                                            Upload a file to see market requirements.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-              </Card>
-
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="settings">
           <Card>
             <CardHeader>
@@ -922,5 +651,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    

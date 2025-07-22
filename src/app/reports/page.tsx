@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
-import { Calendar as CalendarIcon, Download, Filter, Percent, Clock, Wrench, Check, ClipboardList, Factory, Scale } from "lucide-react"
+import { Calendar as CalendarIcon, Download, Filter, Percent, Clock, Wrench, Check, Factory } from "lucide-react"
 import { addDays, format, parseISO } from "date-fns"
 import type { DateRange } from "react-day-picker"
 
@@ -47,7 +47,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Label } from "@/components/ui/label"
 import * as DataService from "@/lib/data-service"
-import type { Machine, Operator, ProductionLog, ShiftInfo, MarketRequirement, MachineProductionData } from "@/lib/types"
+import type { Machine, Operator, ProductionLog, ShiftInfo, MachineProductionData } from "@/lib/types"
 
 interface ReportDataRow {
   date: string;
@@ -103,25 +103,17 @@ export default function ReportsPage() {
     const [allReportData, setAllReportData] = React.useState<ReportDataRow[]>([]);
     const [filteredReportData, setFilteredReportData] = React.useState<ReportDataRow[]>([]);
     const [breakdownData, setBreakdownData] = React.useState<ReportDataRow[]>([]);
-    const [marketRequirements, setMarketRequirements] = React.useState<MarketRequirement[]>([]);
-    const [totalRequirement, setTotalRequirement] = React.useState(0);
 
     React.useEffect(() => {
         const unsubOperators = DataService.subscribeToCollection<Operator>('operators', setAllOperators);
         const unsubMachines = DataService.subscribeToCollection<Machine>('machines', setAllMachines);
         const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', setAllShifts);
-        const unsubMarketReq = DataService.subscribeToCollection<MarketRequirement>('marketRequirements', (data) => {
-            setMarketRequirements(data);
-            const total = data.reduce((sum, req) => sum + (req.quantity || 0), 0);
-            setTotalRequirement(total);
-        });
         const unsubHistory = DataService.subscribeToCollection<any>('productionLogs', setRawProductionLogs);
 
         return () => {
             unsubOperators();
             unsubMachines();
             unsubShifts();
-            unsubMarketReq();
             unsubHistory();
         };
     }, []);
@@ -221,9 +213,6 @@ export default function ReportsPage() {
       return allReportData.reduce((acc, item) => acc + (item.quantity || 0), 0);
     }, [allReportData]);
 
-    const balance = totalRequirement - totalProduction;
-
-
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -237,7 +226,6 @@ export default function ReportsPage() {
             <TabsTrigger value="production">Production Report</TabsTrigger>
             <TabsTrigger value="oee">OEE Analysis</TabsTrigger>
             <TabsTrigger value="breakdown">Breakdown Log</TabsTrigger>
-            <TabsTrigger value="requirement">Requirement Report</TabsTrigger>
           </TabsList>
           <Button onClick={handleExport}><Download className="mr-2 h-4 w-4" />Export to Excel</Button>
         </div>
@@ -445,93 +433,6 @@ export default function ReportsPage() {
           </Card>
         </TabsContent>
         
-        <TabsContent value="requirement">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Market Requirement Report</CardTitle>
-                <CardDescription>
-                  This report shows the latest market requirement data uploaded to the system.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="border rounded-lg max-h-96 overflow-y-auto">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-muted/50">
-                        <TableRow>
-                          <TableHead>TBM No</TableHead>
-                          <TableHead>SAP Code</TableHead>
-                          <TableHead>SKU</TableHead>
-                          <TableHead className="text-right">Quantity</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {marketRequirements.length > 0 ? marketRequirements.map((req, index) => (
-                          <TableRow key={`${req.tbmNo}-${req.sapCode}-${index}`}>
-                            <TableCell>{req.tbmNo}</TableCell>
-                            <TableCell>{req.sapCode}</TableCell>
-                            <TableCell>{req.sku}</TableCell>
-                            <TableCell className="text-right">{req.quantity.toLocaleString()}</TableCell>
-                          </TableRow>
-                        )) : (
-                          <TableRow>
-                            <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                              No market requirement data has been uploaded.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                </div>
-              </CardContent>
-            </Card>
-            <div className="space-y-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Requirement</CardTitle>
-                  <ClipboardList className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {totalRequirement.toLocaleString()}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Total units based on the last upload.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Production</CardTitle>
-                  <Factory className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {totalProduction.toLocaleString()}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Total units produced across all logs.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Balance</CardTitle>
-                  <Scale className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className={cn("text-2xl font-bold", balance >= 0 ? "text-green-600" : "text-destructive")}>
-                    {balance.toLocaleString()}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {balance >= 0 ? 'Production surplus' : 'Production shortfall'}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </TabsContent>
-
       </Tabs>
     </div>
   )
@@ -583,5 +484,3 @@ function DateRangePicker({
     </div>
   )
 }
-
-    

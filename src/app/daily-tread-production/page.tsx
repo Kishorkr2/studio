@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import type { MarketRequirement, ShiftInfo } from '@/lib/types';
+import type { ProductionPlanItem, ShiftInfo, SkuPlan } from '@/lib/types';
 import { CalendarIcon, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -27,7 +27,7 @@ export default function DailyTreadProductionPage() {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(true);
-  const [marketRequirements, setMarketRequirements] = useState<MarketRequirement[]>([]);
+  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>([]);
   const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, Record<string, DailyProductionEntry>>>>({});
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dailyProductionEntries, setDailyProductionEntries] = useState<Record<string, DailyProductionEntry>>({});
@@ -37,6 +37,19 @@ export default function DailyTreadProductionPage() {
 
   const [sapCodeFilter, setSapCodeFilter] = useState('');
   const [skuFilter, setSkuFilter] = useState('');
+  
+  const allSkusFromPlan = useMemo((): SkuPlan[] => {
+      const skuMap = new Map<string, SkuPlan>();
+      productionPlan.forEach(item => {
+          item.skus.forEach(skuPlan => {
+              if (!skuMap.has(skuPlan.sku)) {
+                  skuMap.set(skuPlan.sku, skuPlan);
+              }
+          });
+      });
+      return Array.from(skuMap.values());
+  }, [productionPlan]);
+
 
   useEffect(() => {
     setLoading(true);
@@ -47,7 +60,7 @@ export default function DailyTreadProductionPage() {
         }
     }, initialShifts);
 
-    const unsubMarketReq = DataService.subscribeToCollection<MarketRequirement>('marketRequirements', setMarketRequirements);
+    const unsubPlan = DataService.subscribeToCollection<ProductionPlanItem>('productionPlan', setProductionPlan);
     
     const unsubLog = DataService.subscribeToCollection<any>('dailyTreadProduction', (docs) => {
         const log: any = {};
@@ -60,7 +73,7 @@ export default function DailyTreadProductionPage() {
 
     return () => {
         unsubShifts();
-        unsubMarketReq();
+        unsubPlan();
         unsubLog();
     }
   }, []);
@@ -114,12 +127,12 @@ export default function DailyTreadProductionPage() {
     });
   };
 
-  const filteredMarketRequirements = useMemo(() => {
-    return marketRequirements.filter(req =>
+  const filteredSkus = useMemo(() => {
+    return allSkusFromPlan.filter(req =>
       (req.sapCode?.toLowerCase() || '').includes(sapCodeFilter.toLowerCase()) &&
       (req.sku?.toLowerCase() || '').includes(skuFilter.toLowerCase())
     );
-  }, [marketRequirements, sapCodeFilter, skuFilter]);
+  }, [allSkusFromPlan, sapCodeFilter, skuFilter]);
   
   if (loading) {
       return (
@@ -202,7 +215,7 @@ export default function DailyTreadProductionPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredMarketRequirements.length > 0 ? filteredMarketRequirements.map((req, index) => (
+                {filteredSkus.length > 0 ? filteredSkus.map((req, index) => (
                   <TableRow key={`${req.sku}-${index}`}>
                     <TableCell className="font-medium">{req.sku}</TableCell>
                     <TableCell>
@@ -226,7 +239,7 @@ export default function DailyTreadProductionPage() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                      No SKUs available. Please upload market requirements in the Admin panel.
+                      No SKUs available. Please create a production plan in the Admin panel.
                     </TableCell>
                   </TableRow>
                 )}
@@ -238,5 +251,3 @@ export default function DailyTreadProductionPage() {
     </div>
   )
 }
-
-    
