@@ -6,6 +6,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { Calendar as CalendarIcon, Download, Filter, Percent, Clock, Wrench, Check, Factory } from "lucide-react"
 import { addDays, format, parseISO } from "date-fns"
 import type { DateRange } from "react-day-picker"
+import * as XLSX from 'xlsx';
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -203,11 +204,49 @@ export default function ReportsPage() {
     }, [handleApplyFilters]);
 
     const handleExport = () => {
-        toast({
-            title: "Exporting Report",
-            description: "Your report is being generated and will be downloaded shortly.",
-        })
-    }
+      if (filteredReportData.length === 0) {
+          toast({
+              variant: 'destructive',
+              title: 'No Data to Export',
+              description: 'Please apply filters to generate a report first.',
+          });
+          return;
+      }
+
+      const exportData = filteredReportData.map(row => ({
+          'Date': format(parseISO(row.date), "yyyy-MM-dd"),
+          'Shift': row.shift,
+          'Operator': row.operatorName,
+          'TBM No': row.machineName,
+          'SKU': row.sku,
+          'Trolley No': row.trolleyNo || '-',
+          'Quantity': row.quantity,
+          'Remark': row.remark || '-',
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'ProductionReport');
+
+      // Set column widths
+      worksheet['!cols'] = [
+          { wch: 12 }, // Date
+          { wch: 15 }, // Shift
+          { wch: 20 }, // Operator
+          { wch: 12 }, // TBM No
+          { wch: 20 }, // SKU
+          { wch: 15 }, // Trolley No
+          { wch: 10 }, // Quantity
+          { wch: 30 }, // Remark
+      ];
+
+      XLSX.writeFile(workbook, 'TyreTrack_Production_Report.xlsx');
+
+      toast({
+          title: "Report Exported",
+          description: "Your report has been downloaded successfully.",
+      });
+  };
 
     const totalProduction = React.useMemo(() => {
       return allReportData.reduce((acc, item) => acc + (item.quantity || 0), 0);
