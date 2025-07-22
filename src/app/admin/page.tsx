@@ -30,6 +30,7 @@ import * as XLSX from 'xlsx';
 import { initialOperators, shifts as initialShifts, initialProductionPlan, initialMachines } from '@/lib/data';
 import * as DataService from '@/lib/data-service';
 import { clearFirestoreCache } from '@/lib/firebase';
+import { Slider } from '@/components/ui/slider';
 
 export default function AdminPage() {
   const [loading, setLoading] = useState(true);
@@ -67,6 +68,12 @@ export default function AdminPage() {
     const newOperator = { name: 'New Operator', skillRating: 3, isAbsent: false };
     await DataService.addOperator(newOperator);
     toast({ title: "Operator Added" });
+  };
+  
+  const handleOperatorChange = async (id: string, field: keyof Operator, value: any) => {
+    const updatedOperators = operators.map(op => (op.id === id ? { ...op, [field]: value } : op));
+    setOperators(updatedOperators);
+    await DataService.updateOperator(id, { [field]: value });
   };
 
   const handleDeleteOperator = async (id: string) => {
@@ -352,11 +359,28 @@ export default function AdminPage() {
                 <TableBody>
                   {operators.map((op) => (
                     <TableRow key={op.id}>
-                      <TableCell>{op.id}</TableCell>
-                      <TableCell className="font-medium">{op.name}</TableCell>
-                      <TableCell>{op.skillRating}/5</TableCell>
+                      <TableCell className="font-mono text-xs">{op.id}</TableCell>
+                      <TableCell>
+                         <Input
+                          value={op.name}
+                          onChange={(e) => handleOperatorChange(op.id, 'name', e.target.value)}
+                          className="max-w-xs"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                           <Slider
+                              value={[op.skillRating]}
+                              onValueChange={([val]) => handleOperatorChange(op.id, 'skillRating', val)}
+                              min={1}
+                              max={5}
+                              step={1}
+                              className="w-24"
+                            />
+                            <Badge variant="secondary" className="w-8 h-6 flex items-center justify-center">{op.skillRating}</Badge>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => handleDeleteOperator(op.id)}><Trash className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
