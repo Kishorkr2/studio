@@ -1,6 +1,6 @@
 
 export interface Operator {
-  id: string;
+  cardNo: string;
   name: string;
   skillRating: number;
   isAbsent: boolean;

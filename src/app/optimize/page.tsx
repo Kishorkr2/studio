@@ -62,10 +62,10 @@ export default function OptimizePage() {
     setResult(null);
     try {
       const input = {
-        operators: operators.map(op => ({ operatorId: op.id, skillRating: op.skillRating })),
+        operators: operators.map(op => ({ operatorId: op.cardNo, skillRating: op.skillRating })),
         machines: machines.map(m => ({ machineId: m.id, isAvailable: m.isAvailable })),
         shiftTimes: { startTime: shift.startTime, endTime: shift.endTime },
-        absenteeism: operators.map(op => ({ operatorId: op.id, isAbsent: op.isAbsent })),
+        absenteeism: operators.map(op => ({ operatorId: op.cardNo, isAbsent: op.isAbsent })),
       };
       const response = await optimizeOperatorAssignment(input);
       setResult(response);
@@ -80,10 +80,10 @@ export default function OptimizePage() {
     setIsLoading(false);
   };
 
-  const handleOperatorChange = async (id: string, field: keyof Operator, value: any) => {
-    const updatedOperators = operators.map(op => (op.id === id ? { ...op, [field]: value } : op));
+  const handleOperatorChange = async (cardNo: string, field: keyof Operator, value: any) => {
+    const updatedOperators = operators.map(op => (op.cardNo === cardNo ? { ...op, [field]: value } : op));
     setOperators(updatedOperators);
-    await DataService.updateOperator(id, { [field]: value });
+    await DataService.updateOperator(cardNo, { [field]: value });
   };
 
   const handleMachineChange = async (id: string, field: keyof Machine, value: any) => {
@@ -100,11 +100,11 @@ export default function OptimizePage() {
   };
 
   const addOperator = async () => {
-    await DataService.addOperator({name: 'New Hire', skillRating: 1, isAbsent: false});
+    await DataService.addOperator({cardNo: `OP-${Math.floor(Math.random() * 1000)}`, name: 'New Hire', skillRating: 1, isAbsent: false});
   }
   
-  const removeOperator = async (id: string) => {
-    await DataService.deleteOperator(id);
+  const removeOperator = async (cardNo: string) => {
+    await DataService.deleteOperator(cardNo);
   }
   
   if (loading) {
@@ -166,18 +166,18 @@ export default function OptimizePage() {
             </CardHeader>
             <CardContent className="space-y-2 max-h-96 overflow-y-auto pr-2">
                 {operators.map(op => (
-                    <div key={op.id} className="p-3 rounded-md border space-y-3">
+                    <div key={op.cardNo} className="p-3 rounded-md border space-y-3">
                         <div className="flex items-center justify-between">
-                            <Input value={op.name} onChange={e => handleOperatorChange(op.id, 'name', e.target.value)} className="text-sm font-semibold border-none p-0 h-auto focus-visible:ring-0"/>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeOperator(op.id)}><Trash className="h-4 w-4"/></Button>
+                            <Input value={op.name} onChange={e => handleOperatorChange(op.cardNo, 'name', e.target.value)} className="text-sm font-semibold border-none p-0 h-auto focus-visible:ring-0"/>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeOperator(op.cardNo)}><Trash className="h-4 w-4"/></Button>
                         </div>
                         <div>
                             <Label>Skill: {op.skillRating}</Label>
-                            <Slider value={[op.skillRating]} onValueChange={([val]) => handleOperatorChange(op.id, 'skillRating', val)} min={1} max={5} step={1} />
+                            <Slider value={[op.skillRating]} onValueChange={([val]) => handleOperatorChange(op.cardNo, 'skillRating', val)} min={1} max={5} step={1} />
                         </div>
                         <div className="flex items-center justify-between">
                             <Label>Absent</Label>
-                            <Switch checked={op.isAbsent} onCheckedChange={(checked) => handleOperatorChange(op.id, 'isAbsent', checked)} />
+                            <Switch checked={op.isAbsent} onCheckedChange={(checked) => handleOperatorChange(op.cardNo, 'isAbsent', checked)} />
                         </div>
                     </div>
                 ))}
@@ -225,7 +225,7 @@ export default function OptimizePage() {
                         <TableBody>
                         {result.assignments.map((a, i) => (
                             <TableRow key={i}>
-                            <TableCell><div className="flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground"/><span>{operators.find(op => op.id === a.operatorId)?.name || a.operatorId}</span></div></TableCell>
+                            <TableCell><div className="flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground"/><span>{operators.find(op => op.cardNo === a.operatorId)?.name || a.operatorId}</span></div></TableCell>
                             <TableCell><div className="flex items-center gap-2"><Wrench className="h-4 w-4 text-muted-foreground"/><span>{machines.find(m => m.id === a.machineId)?.name || a.machineId}</span></div></TableCell>
                             <TableCell className="text-sm text-muted-foreground">{a.reason}</TableCell>
                             </TableRow>

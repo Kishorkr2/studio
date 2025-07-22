@@ -124,7 +124,7 @@ export default function ReportsPage() {
             return;
         }
 
-        const operatorMap = new Map(allOperators.map(op => [op.id, op.name]));
+        const operatorMap = new Map(allOperators.map(op => [op.cardNo, op.name]));
         const machineMap = new Map(allMachines.map(m => [m.id, m.name]));
         
         const logs: ReportDataRow[] = [];
@@ -297,7 +297,7 @@ export default function ReportsPage() {
                         <SelectTrigger><SelectValue placeholder="All Operators" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Operators</SelectItem>
-                            {allOperators.map(op => <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>)}
+                            {allOperators.map(op => <SelectItem key={op.cardNo} value={op.cardNo}>{op.name}</SelectItem>)}
                         </SelectContent>
                         </Select>
                     </div>

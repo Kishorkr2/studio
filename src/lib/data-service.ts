@@ -7,12 +7,13 @@ import type { Operator, Machine, ShiftInfo, ProductionPlanItem, ProductionLog, T
 import { format } from 'date-fns';
 
 // --- Seeding Functions ---
-const seedCollection = async <T extends { id?: string }>(collectionName: string, initialData: T[]) => {
+const seedCollection = async <T extends { cardNo?: string }>(collectionName: string, initialData: T[]) => {
     const batch = writeBatch(db);
     const collectionRef = collection(db, collectionName);
     initialData.forEach(item => {
-        const { id, ...data } = item;
-        const docRef = id ? doc(collectionRef, id) : doc(collectionRef);
+        const docId = item.cardNo; // Assuming cardNo is unique and can be used as ID for operators
+        const { cardNo, ...data } = item;
+        const docRef = docId ? doc(collectionRef, docId) : doc(collectionRef);
         batch.set(docRef, data);
     });
     await batch.commit();
@@ -20,19 +21,22 @@ const seedCollection = async <T extends { id?: string }>(collectionName: string,
 
 // --- Real-time Subscriptions ---
 
-export const subscribeToCollection = <T>(collectionName: string, setData: (data: T[]) => void, initialData?: T[]): Unsubscribe => {
+export const subscribeToCollection = <T>(collectionName: string, setData: (data: T[]) => void, initialData?: any[]): Unsubscribe => {
     const q = collection(db, collectionName);
     return onSnapshot(q, async (querySnapshot) => {
         if (querySnapshot.empty && initialData?.length) {
             console.log(`Collection '${collectionName}' is empty. Seeding...`);
-            await seedCollection(collectionName, initialData);
+            if (collectionName === 'operators') {
+                await seedCollection<Operator>(collectionName, initialData as Operator[]);
+            } else {
+                await seedCollection(collectionName, initialData);
+            }
         } else {
-            const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+            const data = querySnapshot.docs.map(doc => ({ [collectionName === 'operators' ? 'cardNo' : 'id']: doc.id, ...doc.data() } as T));
             setData(data);
         }
     }, (error) => {
         console.error(`Error subscribing to ${collectionName}: `, error);
-        // Optionally handle the error, e.g., by setting an error state
     });
 };
 
@@ -58,9 +62,9 @@ export const subscribeToProductionLog = (date: Date, shift: ShiftInfo, setLog: (
 
 // --- Write Functions ---
 
-export const updateOperator = async (id: string, data: Partial<Operator>) => await setDoc(doc(db, 'operators', id), data, { merge: true });
-export const addOperator = async (data: Omit<Operator, 'id'>) => await addDoc(collection(db, 'operators'), data);
-export const deleteOperator = async (id: string) => await deleteDoc(doc(db, 'operators', id));
+export const updateOperator = async (cardNo: string, data: Partial<Operator>) => await setDoc(doc(db, 'operators', cardNo), data, { merge: true });
+export const addOperator = async (data: Omit<Operator, 'id' | 'cardNo'> & {cardNo: string}) => await setDoc(doc(db, 'operators', data.cardNo), data);
+export const deleteOperator = async (cardNo: string) => await deleteDoc(doc(db, 'operators', cardNo));
 
 export const updateMachines = async (machines: Machine[]) => {
     const batch = writeBatch(db);

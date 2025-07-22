@@ -7,11 +7,11 @@ export const shifts: ShiftInfo[] = [
 ];
 
 export const initialOperators: Operator[] = [
-  { id: 'OP-001', name: 'John Doe', skillRating: 5, isAbsent: false },
-  { id: 'OP-002', name: 'Jane Smith', skillRating: 4, isAbsent: false },
-  { id: 'OP-003', name: 'Peter Jones', skillRating: 3, isAbsent: true },
-  { id: 'OP-004', name: 'Mary Williams', skillRating: 5, isAbsent: false },
-  { id: 'OP-005', name: 'David Brown', skillRating: 2, isAbsent: false },
+  { cardNo: 'OP-001', name: 'John Doe', skillRating: 5, isAbsent: false },
+  { cardNo: 'OP-002', name: 'Jane Smith', skillRating: 4, isAbsent: false },
+  { cardNo: 'OP-003', name: 'Peter Jones', skillRating: 3, isAbsent: true },
+  { cardNo: 'OP-004', name: 'Mary Williams', skillRating: 5, isAbsent: false },
+  { cardNo: 'OP-005', name: 'David Brown', skillRating: 2, isAbsent: false },
 ];
 
 // Make machine availability static to ensure predictability.
@@ -27,5 +27,3 @@ export const initialProductionPlan: ProductionPlanItem[] = [
   { machineId: 'TBM-03', skus: [{ sku: 'LT-245-75R16', sapCode: 'S4P-87323', quantity: 150 }] },
   { machineId: 'TBM-04', skus: [{ sku: 'P-235-60R18', sapCode: 'S4P-87324', quantity: 90 }] },
 ];
-
-    

@@ -65,22 +65,22 @@ export default function AdminPage() {
   }, []);
 
   const handleAddOperator = async () => {
-    const newOperator = { name: 'New Operator', skillRating: 3, isAbsent: false };
+    const newOperator = { cardNo: `OP-${Math.floor(Math.random() * 1000)}`, name: 'New Operator', skillRating: 3, isAbsent: false };
     await DataService.addOperator(newOperator);
     toast({ title: "Operator Added" });
   };
   
-  const handleOperatorChange = async (id: string, field: keyof Operator, value: any) => {
-    const updatedOperators = operators.map(op => (op.id === id ? { ...op, [field]: value } : op));
+  const handleOperatorChange = async (cardNo: string, field: keyof Operator, value: any) => {
+    const updatedOperators = operators.map(op => (op.cardNo === cardNo ? { ...op, [field]: value } : op));
     setOperators(updatedOperators);
-    await DataService.updateOperator(id, { [field]: value });
+    await DataService.updateOperator(cardNo, { [field]: value });
   };
 
-  const handleDeleteOperator = async (id: string) => {
-    await DataService.deleteOperator(id);
+  const handleDeleteOperator = async (cardNo: string) => {
+    await DataService.deleteOperator(cardNo);
     toast({
         title: "Operator Removed",
-        description: `Operator with ID ${id} has been removed.`,
+        description: `Operator with Card No ${cardNo} has been removed.`,
     });
   };
   
@@ -350,7 +350,7 @@ export default function AdminPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
+                    <TableHead>Card No</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Skill Rating</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -358,12 +358,18 @@ export default function AdminPage() {
                 </TableHeader>
                 <TableBody>
                   {operators.map((op) => (
-                    <TableRow key={op.id}>
-                      <TableCell className="font-mono text-xs">{op.id}</TableCell>
+                    <TableRow key={op.cardNo}>
+                      <TableCell>
+                        <Input
+                          value={op.cardNo}
+                          onChange={(e) => handleOperatorChange(op.cardNo, 'cardNo', e.target.value)}
+                          className="font-mono text-xs max-w-xs"
+                        />
+                      </TableCell>
                       <TableCell>
                          <Input
                           value={op.name}
-                          onChange={(e) => handleOperatorChange(op.id, 'name', e.target.value)}
+                          onChange={(e) => handleOperatorChange(op.cardNo, 'name', e.target.value)}
                           className="max-w-xs"
                         />
                       </TableCell>
@@ -371,7 +377,7 @@ export default function AdminPage() {
                         <div className="flex items-center gap-2">
                            <Slider
                               value={[op.skillRating]}
-                              onValueChange={([val]) => handleOperatorChange(op.id, 'skillRating', val)}
+                              onValueChange={([val]) => handleOperatorChange(op.cardNo, 'skillRating', val)}
                               min={1}
                               max={5}
                               step={1}
@@ -381,7 +387,7 @@ export default function AdminPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteOperator(op.id)}><Trash className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteOperator(op.cardNo)}><Trash className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}

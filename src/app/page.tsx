@@ -427,7 +427,7 @@ export default function DashboardPage() {
                     <Select value={entry.operatorId} onValueChange={(val) => handleEntryChange(entry.machineId, 'operatorId', val)}>
                       <SelectTrigger id={`operator-${entry.machineId}`}><SelectValue placeholder="Select Operator" /></SelectTrigger>
                       <SelectContent>
-                        {availableOperators.map(op => <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>)}
+                        {availableOperators.map(op => <SelectItem key={op.cardNo} value={op.cardNo}>{op.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -488,5 +488,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
