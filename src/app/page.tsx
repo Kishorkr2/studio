@@ -211,13 +211,13 @@ export default function DashboardPage() {
   }, [selectedRound, productionLog, allMachines, allProductionPlan]);
 
 
-  const handleEntryChange = useCallback((machineId: string, field: 'operatorId' | 'quantity' | 'remark' | 'sku' | 'trolleyNo', value: string) => {
+  const handleEntryChange = useCallback((machineId: string, field: 'operatorId' | 'quantity' | 'remark' | 'sku' | 'trolleyNo', value: string | number) => {
     setEntries(prevEntries =>
       prevEntries.map(entry => {
         if (entry.machineId === machineId) {
           const newEntry = {
             ...entry,
-            [field]: field === 'quantity' ? parseInt(value, 10) || 0 : value,
+            [field]: value,
           };
 
           // If the SKU was changed, update the SAP code as well
@@ -512,8 +512,8 @@ export default function DashboardPage() {
                     id={`quantity-${entry.machineId}`}
                     type="number"
                     placeholder="e.g., 50"
-                    value={entry.quantity === 0 ? '' : entry.quantity}
-                    onChange={(e) => handleEntryChange(entry.machineId, 'quantity', e.target.value)}
+                    value={entry.quantity || 0}
+                    onChange={(e) => handleEntryChange(entry.machineId, 'quantity', parseInt(e.target.value, 10) || 0)}
                   />
                 </div>
                 {columnVisibility.trolleyNo && (
@@ -545,3 +545,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
