@@ -362,21 +362,21 @@ export default function AdminPage() {
                     <TableRow key={op.cardNo}>
                       <TableCell>
                         <Input
-                          value={op.cardNo}
+                          value={op.cardNo || ''}
                           onChange={(e) => handleOperatorChange(op.cardNo, 'cardNo', e.target.value)}
                           className="font-mono text-xs max-w-xs"
                         />
                       </TableCell>
                       <TableCell>
                          <Input
-                          value={op.name}
+                          value={op.name || ''}
                           onChange={(e) => handleOperatorChange(op.cardNo, 'name', e.target.value)}
                           className="max-w-xs"
                         />
                       </TableCell>
                       <TableCell>
                          <Input
-                          value={op.builderNo}
+                          value={op.builderNo || ''}
                           onChange={(e) => handleOperatorChange(op.cardNo, 'builderNo', e.target.value)}
                           className="max-w-xs"
                         />
