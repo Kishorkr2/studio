@@ -68,6 +68,14 @@ export const addOperator = async (data: Omit<Operator, 'id' | 'cardNo'> & {cardN
     await setDoc(doc(db, 'operators', cardNo), operatorData);
 };
 export const deleteOperator = async (cardNo: string) => await deleteDoc(doc(db, 'operators', cardNo));
+export const renameOperator = async (oldCardNo: string, newCardNo: string, operatorData: Operator) => {
+    const batch = writeBatch(db);
+    const { cardNo, ...dataToSave } = operatorData;
+    batch.set(doc(db, 'operators', newCardNo), dataToSave);
+    batch.delete(doc(db, 'operators', oldCardNo));
+    await batch.commit();
+}
+
 
 export const updateMachines = async (machines: Machine[]) => {
     const batch = writeBatch(db);

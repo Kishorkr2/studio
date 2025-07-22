@@ -70,10 +70,44 @@ export default function AdminPage() {
     toast({ title: "Operator Added" });
   };
   
-  const handleOperatorChange = async (cardNo: string, field: keyof Operator, value: any) => {
-    const updatedOperators = operators.map(op => (op.cardNo === cardNo ? { ...op, [field]: value } : op));
+  const handleOperatorChange = async (originalCardNo: string, field: keyof Operator, value: any) => {
+    const operatorToUpdate = operators.find(op => op.cardNo === originalCardNo);
+    if (!operatorToUpdate) return;
+  
+    // Optimistically update local state
+    const updatedOperators = operators.map(op => 
+        op.cardNo === originalCardNo ? { ...op, [field]: value } : op
+    );
     setOperators(updatedOperators);
-    await DataService.updateOperator(cardNo, { [field]: value });
+  
+    try {
+      if (field === 'cardNo') {
+        // If the Card No (which is the document ID) is being changed,
+        // we need to create a new document and delete the old one.
+        const newCardNo = value;
+        const newOperatorData = { ...operatorToUpdate, cardNo: newCardNo };
+        
+        if (newCardNo && newCardNo !== originalCardNo) {
+           await DataService.renameOperator(originalCardNo, newCardNo, newOperatorData);
+           toast({
+             title: "Operator Card No Updated",
+             description: `Card No changed from ${originalCardNo} to ${newCardNo}.`,
+           });
+        }
+      } else {
+        // Otherwise, just update the field in the existing document.
+        await DataService.updateOperator(originalCardNo, { [field]: value });
+      }
+    } catch (error) {
+      console.error("Failed to update operator:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Update Failed',
+        description: 'Could not save operator changes. Please check for duplicate Card Nos.'
+      });
+      // Revert optimistic update on failure
+      setOperators(operators);
+    }
   };
 
   const handleDeleteOperator = async (cardNo: string) => {
@@ -364,6 +398,7 @@ export default function AdminPage() {
                         <Input
                           value={op.cardNo || ''}
                           onChange={(e) => handleOperatorChange(op.cardNo, 'cardNo', e.target.value)}
+                          onBlur={(e) => handleOperatorChange(op.cardNo, 'cardNo', e.target.value)}
                           className="font-mono text-xs max-w-xs"
                         />
                       </TableCell>
