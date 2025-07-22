@@ -257,6 +257,16 @@ export default function DashboardPage() {
     );
   }
 
+  const RoundStatusIndicator = ({ status }: { status?: 'synced' | 'pending' }) => {
+    if (status === 'synced') {
+      return <CheckCircle className="h-4 w-4 text-green-500" title="Synced" />;
+    }
+    if (status === 'pending') {
+      return <Loader2 className="h-4 w-4 animate-spin text-yellow-500" title="Syncing..." />;
+    }
+    return <Clock className="h-4 w-4 text-muted-foreground" />;
+  };
+
   return (
     <div className="flex flex-col h-full gap-6">
       <header>
@@ -291,10 +301,12 @@ export default function DashboardPage() {
                 </SelectContent>
               </Select>
 
-                <Select value={selectedRound} onValueChange={setSelectedRound}>
-                <SelectTrigger>
-                  <Clock className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Select time" />
+              <Select value={selectedRound} onValueChange={setSelectedRound}>
+                <SelectTrigger className="font-semibold">
+                   <div className="flex items-center gap-2">
+                     <RoundStatusIndicator status={productionLog[selectedRound]?.status} />
+                     <SelectValue placeholder="Select time" />
+                   </div>
                 </SelectTrigger>
                 <SelectContent>
                   {roundTimes.map(time => {
@@ -303,12 +315,7 @@ export default function DashboardPage() {
                       <SelectItem key={time} value={time}>
                         <div className="flex items-center justify-between w-full">
                             <span>{time}</span>
-                            {logEntry?.status === 'pending' && (
-                                <Loader2 className="w-4 h-4 ml-2 animate-spin text-yellow-500" title="Syncing..." />
-                            )}
-                            {logEntry?.status === 'synced' && (
-                                <CheckCircle className="w-4 h-4 ml-2 text-green-500" title="Synced"/>
-                            )}
+                            <RoundStatusIndicator status={logEntry?.status} />
                         </div>
                       </SelectItem>
                     )
@@ -488,3 +495,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
