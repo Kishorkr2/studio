@@ -225,7 +225,17 @@ export default function DashboardPage() {
           : entry
       )
     );
-  }, []);
+     // Indicate that there are pending changes for the current round
+    if(selectedRound) {
+        setProductionLog(prevLog => ({
+            ...prevLog,
+            [selectedRound]: {
+                ...(prevLog[selectedRound] || { entries: [] }),
+                status: 'pending'
+            }
+        }));
+    }
+  }, [selectedRound]);
   
   const handleSaveRound = useCallback(async () => {
     if (!selectedRound || !selectedShift) {
@@ -241,7 +251,7 @@ export default function DashboardPage() {
 
     toast({
       title: 'Round Data Saved',
-      description: `Data for round ${selectedRound} has been saved to the cloud.`,
+      description: `Data for round ${selectedRound} has been saved. It will sync to the cloud when online.`,
       action: <Save className="text-green-500" />,
     });
   }, [selectedDate, selectedShift, selectedRound, entries, toast]);
@@ -448,7 +458,7 @@ export default function DashboardPage() {
           <Card>
             <CardContent className="p-10 text-center text-muted-foreground">
               <p>No machines scheduled for production in the current plan.</p>
-              <p className="text-sm">Please upload a market requirement file in the Admin panel.</p>
+              <p className="text-sm">Please upload a production plan in the Admin panel.</p>
             </CardContent>
           </Card>
         )}
@@ -528,5 +538,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
