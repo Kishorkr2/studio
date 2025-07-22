@@ -47,6 +47,39 @@ import { cn } from '@/lib/utils';
 import * as DataService from '@/lib/data-service';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
+  if (!shifts.length) return undefined;
+
+  const now = new Date();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
+
+  for (const shift of shifts) {
+    const [startHour, startMinute] = shift.startTime.split(':').map(Number);
+    const [endHour, endMinute] = shift.endTime.split(':').map(Number);
+    
+    const startTimeInMinutes = startHour * 60 + startMinute;
+    let endTimeInMinutes = endHour * 60 + endMinute;
+
+    // Handle overnight shifts (e.g., Night Shift)
+    if (endTimeInMinutes < startTimeInMinutes) {
+      // If current time is after start time OR before end time (on the next day)
+      if (currentTime >= startTimeInMinutes || currentTime < endTimeInMinutes) {
+        return shift;
+      }
+    } else {
+      // Standard day shift
+      if (currentTime >= startTimeInMinutes && currentTime < endTimeInMinutes) {
+        return shift;
+      }
+    }
+  }
+
+  // Fallback for times outside defined shifts (e.g., during shift change)
+  // This logic could be refined, e.g., default to the upcoming shift.
+  // For now, defaulting to the first shift if no active one is found.
+  return shifts[0];
+};
+
 export default function DashboardPage() {
   const { toast } = useToast();
 
@@ -80,7 +113,9 @@ export default function DashboardPage() {
     const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', (data) => {
         setAllShifts(data);
         if (data.length > 0 && !selectedShift) {
-            setSelectedShift(data[0]);
+            // Automatically set the shift based on the current time
+            const currentShift = getCurrentShift(data);
+            setSelectedShift(currentShift);
         }
     }, shifts);
     const unsubMachines = DataService.subscribeToCollection<Machine>('machines', setAllMachines, initialMachines);
@@ -493,3 +528,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
