@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -77,10 +77,9 @@ export default function TreadExtrusionPage() {
         setDailyProductionLog(log);
     });
 
-    const unsubHistory = DataService.subscribeToCollection<any>('productionLogs', (history) => {
+    const unsubHistory = DataService.subscribeToProductionLogs((history) => {
         const tyreProduction: Record<string, number> = {};
         history.forEach(logDoc => {
-            // The document ID is not needed here, only the content.
             const logContent = logDoc as Omit<typeof logDoc, 'id'>;
             Object.values(logContent as ProductionLog).forEach((logEntry: any) => {
                 if (logEntry.entries) {
@@ -105,33 +104,29 @@ export default function TreadExtrusionPage() {
     }
   }, []);
   
-  const handleOpeningStockChange = (sku: string, value: string) => {
+  const handleOpeningStockChange = useCallback((sku: string, value: string) => {
     const numericValue = parseInt(value, 10) || 0;
     
-    // Find if an entry exists
-    const existingIndex = openingStockData.findIndex(item => item.sku === sku);
-    
-    if (existingIndex > -1) {
-      // Update existing entry
-      setOpeningStockData(currentData =>
-        currentData.map(item =>
-          item.sku === sku ? { ...item, openingStock: numericValue } : item
-        )
-      );
-    } else {
-      // Add new entry if it doesn't exist
-      setOpeningStockData(currentData => [...currentData, { sku, openingStock: numericValue, production: 0 }]);
-    }
-  };
+    setOpeningStockData(currentData => {
+        const existingIndex = currentData.findIndex(item => item.sku === sku);
+        if (existingIndex > -1) {
+            return currentData.map(item =>
+                item.sku === sku ? { ...item, openingStock: numericValue } : item
+            );
+        } else {
+            return [...currentData, { sku, openingStock: numericValue, production: 0 }];
+        }
+    });
+  }, []);
   
-  const handleSaveOpeningStock = async () => {
+  const handleSaveOpeningStock = useCallback(async () => {
     await DataService.saveTreadOpeningStock(openingStockData);
     toast({
       title: 'Success!',
       description: 'Opening stock data has been saved.',
       action: <Save className="text-green-500" />,
     });
-  };
+  }, [openingStockData, toast]);
 
   const totalProductionBySku = useMemo(() => {
     const totals: Record<string, number> = {};

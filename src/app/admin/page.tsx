@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
-import * as XLSX from 'xlsx';
 import { initialOperators, shifts as initialShifts, initialProductionPlan, initialMachines } from '@/lib/data';
 import * as DataService from '@/lib/data-service';
 import { clearFirestoreCache } from '@/lib/firebase';
@@ -248,11 +247,12 @@ export default function AdminPage() {
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
+          const { read, utils } = await import('xlsx');
           const data = e.target?.result;
-          const workbook = XLSX.read(data, { type: 'array' });
+          const workbook = read(data, { type: 'array' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          const jsonFromSheet: any[] = XLSX.utils.sheet_to_json(worksheet);
+          const jsonFromSheet: any[] = utils.sheet_to_json(worksheet);
   
           if (jsonFromSheet.length === 0) {
               throw new Error("File is empty.");

@@ -109,7 +109,7 @@ export default function ReportsPage() {
         const unsubOperators = DataService.subscribeToCollection<Operator>('operators', setAllOperators);
         const unsubMachines = DataService.subscribeToCollection<Machine>('machines', setAllMachines);
         const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', setAllShifts);
-        const unsubHistory = DataService.subscribeToCollection<any>('productionLogs', setRawProductionLogs);
+        const unsubHistory = DataService.subscribeToProductionLogs(setRawProductionLogs);
 
         return () => {
             unsubOperators();
@@ -249,8 +249,8 @@ export default function ReportsPage() {
   };
 
     const totalProduction = React.useMemo(() => {
-      return allReportData.reduce((acc, item) => acc + (item.quantity || 0), 0);
-    }, [allReportData]);
+      return filteredReportData.reduce((acc, item) => acc + (item.quantity || 0), 0);
+    }, [filteredReportData]);
 
   return (
     <div className="space-y-6">
@@ -320,7 +320,7 @@ export default function ReportsPage() {
           <Card className="mt-6">
             <CardHeader>
               <CardTitle>Production Summary</CardTitle>
-              <CardDescription>Detailed report based on your filter selection.</CardDescription>
+              <CardDescription>Detailed report based on your filter selection. Total: {totalProduction.toLocaleString()}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="border rounded-lg max-h-[60vh] overflow-y-auto">

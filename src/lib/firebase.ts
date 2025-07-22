@@ -24,14 +24,13 @@ if (typeof window !== "undefined" && !persistenceEnabled) {
       }
       await enableIndexedDbPersistence(db);
       persistenceEnabled = true;
-      console.log("Firestore offline persistence enabled.");
     } catch (err: any) {
       if (err.code === 'failed-precondition') {
         console.warn('Firestore persistence failed: multiple tabs open. App will run in online-only mode.');
       } else if (err.code === 'unimplemented') {
         console.warn('Firestore persistence not available in this browser. App will run in online-only mode.');
       } else {
-        console.error("CRITICAL: Firestore persistence failed to initialize. The app will run in online-only mode. Please clear the cache via Admin > Settings to resolve.", err);
+        console.error("Firestore persistence failed to initialize. The app will run in online-only mode.", err);
       }
     }
   })();
@@ -66,5 +65,3 @@ export const clearFirestoreCache = async () => {
 };
 
 export { db };
-
-    

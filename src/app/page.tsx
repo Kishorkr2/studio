@@ -98,19 +98,18 @@ export default function DashboardPage() {
         unsubOperators();
         unsubProductionPlan();
     };
-  }, []);
+  }, [selectedShift]);
 
   const generateRoundTimes = useCallback((shift: ShiftInfo | undefined): string[] => {
     if (!shift) return [];
     
     const times: string[] = [];
-    const [startHourStr] = shift.startTime.split(':');
-    let currentHour = parseInt(startHourStr, 10);
+    let currentHour = parseInt(shift.startTime.split(':')[0], 10);
     
     if (shift.name.toLowerCase().includes('day')) {
-        currentHour = 8;
+        currentHour = 8; // Day shift starts at 8 AM
     } else {
-        currentHour = 20;
+        currentHour = 20; // Night shift starts at 8 PM (20:00)
     }
     
     for (let i = 0; i < 12; i++) {
@@ -180,7 +179,7 @@ export default function DashboardPage() {
   }, [selectedRound, productionLog, allMachines, allProductionPlan]);
 
 
-  const handleEntryChange = (machineId: string, field: 'operatorId' | 'quantity' | 'remark' | 'sku' | 'trolleyNo', value: string) => {
+  const handleEntryChange = useCallback((machineId: string, field: 'operatorId' | 'quantity' | 'remark' | 'sku' | 'trolleyNo', value: string) => {
     setEntries(prevEntries =>
       prevEntries.map(entry =>
         entry.machineId === machineId
@@ -191,9 +190,9 @@ export default function DashboardPage() {
           : entry
       )
     );
-  };
+  }, []);
   
-  const handleSaveRound = async () => {
+  const handleSaveRound = useCallback(async () => {
     if (!selectedRound || !selectedShift) {
         toast({
             variant: "destructive",
@@ -210,22 +209,21 @@ export default function DashboardPage() {
       description: `Data for round ${selectedRound} has been saved to the cloud.`,
       action: <Save className="text-green-500" />,
     });
-  };
+  }, [selectedDate, selectedShift, selectedRound, entries, toast]);
 
-  const handleClearShiftData = async () => {
+  const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
     await DataService.clearShiftData(selectedDate, selectedShift);
-    // The onSnapshot listener will automatically clear the log and trigger a re-render.
     toast({
       title: 'Shift Data Cleared',
       description: `All production entries for ${selectedShift.name} on ${format(selectedDate, "PPP")} have been removed.`,
     });
-  };
+  }, [selectedDate, selectedShift, toast]);
 
-  const handleShiftChange = (name: string) => {
+  const handleShiftChange = useCallback((name: string) => {
     const newShift = allShifts.find(s => s.name === name);
     if(newShift) setSelectedShift(newShift);
-  }
+  }, [allShifts]);
 
   const roundTotal = useMemo(() => {
     return entries.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
@@ -495,5 +493,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

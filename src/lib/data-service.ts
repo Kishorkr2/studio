@@ -40,12 +40,16 @@ export const subscribeToCollection = <T>(collectionName: string, setData: (data:
     });
 };
 
-export const subscribeToDoc = <T>(collectionName: string, docId: string, setData: (data: T | null) => void): Unsubscribe => {
-    const docRef = doc(db, collectionName, docId);
-    return onSnapshot(docRef, (doc) => {
-        setData(doc.exists() ? { id: doc.id, ...doc.data() } as T : null);
+export const subscribeToProductionLogs = (setData: (data: any[]) => void): Unsubscribe => {
+    const q = collection(db, 'productionLogs');
+    return onSnapshot(q, (querySnapshot) => {
+        const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setData(data);
+    }, (error) => {
+        console.error(`Error subscribing to productionLogs: `, error);
     });
 };
+
 
 export const subscribeToProductionLog = (date: Date, shift: ShiftInfo, setLog: (log: ProductionLog) => void): Unsubscribe => {
     const logId = `production-log-${format(date, "yyyy-MM-dd")}-${shift.name.replace(/\s+/g, '-')}`;
