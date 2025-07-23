@@ -222,28 +222,26 @@ export default function AdminPage() {
       quantity: newPlanQuantity,
     };
 
-    setProductionPlan(currentPlan => {
-      const existingPlanItem = currentPlan.find(
-        p => p.machineId === newPlanMachineId
+    const currentPlan = productionPlan;
+    const existingPlanItem = currentPlan.find(
+      p => p.machineId === newPlanMachineId
+    );
+    let newPlan: ProductionPlanItem[];
+
+    if (existingPlanItem) {
+      newPlan = currentPlan.map(p =>
+        p.machineId === newPlanMachineId
+          ? {...p, skus: [...p.skus, newSkuPlan]}
+          : p
       );
-      let newPlan: ProductionPlanItem[];
-
-      if (existingPlanItem) {
-        newPlan = currentPlan.map(p =>
-          p.machineId === newPlanMachineId
-            ? {...p, skus: [...p.skus, newSkuPlan]}
-            : p
-        );
-      } else {
-        newPlan = [
-          ...currentPlan,
-          {machineId: newPlanMachineId, skus: [newSkuPlan]},
-        ];
-      }
-
-      DataService.updateProductionPlan(newPlan);
-      return newPlan;
-    });
+    } else {
+      newPlan = [
+        ...currentPlan,
+        {machineId: newPlanMachineId, skus: [newSkuPlan]},
+      ];
+    }
+    setProductionPlan(newPlan);
+    await DataService.updateProductionPlan(newPlan);
 
     toast({
       title: 'Plan Item Added',
@@ -263,37 +261,36 @@ export default function AdminPage() {
     newPlanQuantity,
     newPlanSapCode,
     newPlanSku,
+    productionPlan,
     toast,
   ]);
 
   const handleDeletePlanSku = useCallback(
     async (machineId: string, skuIndex: number) => {
-      setProductionPlan(currentPlan => {
-        const planItem = currentPlan.find(p => p.machineId === machineId);
-        if (!planItem) return currentPlan;
+      const currentPlan = productionPlan;
+      const planItem = currentPlan.find(p => p.machineId === machineId);
+      if (!planItem) return;
 
-        const newSkus = planItem.skus.filter((_, index) => index !== skuIndex);
-        let newPlan: ProductionPlanItem[];
+      const newSkus = planItem.skus.filter((_, index) => index !== skuIndex);
+      let newPlan: ProductionPlanItem[];
 
-        if (newSkus.length > 0) {
-          newPlan = currentPlan.map(p =>
-            p.machineId === machineId ? {...p, skus: newSkus} : p
-          );
-        } else {
-          // If no SKUs left, remove the entire plan item for that machine
-          newPlan = currentPlan.filter(p => p.machineId !== machineId);
-        }
+      if (newSkus.length > 0) {
+        newPlan = currentPlan.map(p =>
+          p.machineId === machineId ? {...p, skus: newSkus} : p
+        );
+      } else {
+        newPlan = currentPlan.filter(p => p.machineId !== machineId);
+      }
 
-        DataService.updateProductionPlan(newPlan);
-        return newPlan;
-      });
+      setProductionPlan(newPlan);
+      await DataService.updateProductionPlan(newPlan);
 
       toast({
         title: 'SKU Removed',
         description: `SKU has been removed from the plan.`,
       });
     },
-    [toast]
+    [productionPlan, toast]
   );
 
   const handleClearDataConfirm = async () => {
@@ -461,6 +458,7 @@ export default function AdminPage() {
             }));
 
             await DataService.updateProductionPlan(parsedPlan);
+            setProductionPlan(parsedPlan); // Update local state immediately
             toast({
               title: 'Production Plan Uploaded',
               description: `Successfully uploaded and replaced the production plan with ${parsedPlan.length} TBM assignments.`,
@@ -530,7 +528,7 @@ export default function AdminPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
       <Tabs defaultValue="operators">
-        <TabsList className="grid w-full grid-cols-2 gap-1 sm:w-auto sm:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-1 gap-1 sm:w-auto sm:grid-cols-5">
           <TabsTrigger value="operators">Operator Management</TabsTrigger>
           <TabsTrigger value="shifts">Shift Management</TabsTrigger>
           <TabsTrigger value="plan">Production Plan</TabsTrigger>
@@ -724,7 +722,8 @@ export default function AdminPage() {
             <CardHeader>
               <CardTitle>Upload Production Plan</CardTitle>
               <CardDescription>
-                Upload an Excel file to set the production plan.
+                Upload an Excel file to set the production plan. This will
+                replace the existing plan.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
