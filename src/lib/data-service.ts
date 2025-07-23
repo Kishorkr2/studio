@@ -39,11 +39,11 @@ const seedCollection = async <T>(
   initialData: T[],
   idField: keyof T
 ) => {
-  const batch = writeBatch(db);
   const collectionRef = collection(db, collectionName);
   const snapshot = await getDocs(collectionRef);
   if (snapshot.empty) {
-    console.log(`Collection '${collectionName}' is empty. Seeding...`);
+    console.log(`Seeding '${collectionName}'...`);
+    const batch = writeBatch(db);
     initialData.forEach(item => {
       const docId = String(item[idField]);
       const docRef = doc(collectionRef, docId);
@@ -63,6 +63,8 @@ export const subscribeToCollection = <T>(
   const unsub = onSnapshot(
     q,
     async querySnapshot => {
+      // Seeding logic is now handled more safely on startup.
+      // Let's ensure initial data exists if collection is empty.
       if (querySnapshot.empty && initialData?.length) {
         const idField =
           collectionName === 'operators'
@@ -75,19 +77,21 @@ export const subscribeToCollection = <T>(
           initialData as any[],
           idField as any
         );
+        // The listener will be re-triggered after seeding, so we can return here.
         return;
       }
 
       const data = querySnapshot.docs.map(d => {
-        if (collectionName === 'shifts') {
-          return d.data() as T;
-        }
+        const docData = d.data() as T;
+        const id = d.id;
+        // Reconstruct object with a stable ID property.
         if (collectionName === 'operators') {
-          return {cardNo: d.id, ...d.data()} as T;
+          return {cardNo: id, ...docData};
         }
-        return {id: d.id, ...d.data()} as T;
+        return {id, ...docData};
       });
-      setData(data);
+
+      setData(data as T[]);
     },
     error => {
       console.error(`Error subscribing to ${collectionName}:`, error);
@@ -125,11 +129,7 @@ export const subscribeToProductionLog = (
   const docRef = doc(db, 'productionLogs', logId);
 
   return onSnapshot(docRef, snapshot => {
-    if (snapshot.exists()) {
-      setLog(snapshot.data() as ProductionLog);
-    } else {
-      setLog({});
-    }
+    setLog(snapshot.exists() ? (snapshot.data() as ProductionLog) : {});
   });
 };
 
@@ -184,12 +184,23 @@ export const updateShifts = async (shifts: ShiftInfo[]) => {
 export const updateProductionPlan = async (plan: ProductionPlanItem[]) => {
   const batch = writeBatch(db);
   const planCollection = collection(db, 'productionPlan');
-  const currentDocs = await getDocs(planCollection);
-  currentDocs.forEach(doc => batch.delete(doc.ref));
+
+  // To prevent data loss on partial updates, first fetch all existing docs
+  const existingDocsSnapshot = await getDocs(planCollection);
+  const existingDocIds = new Set(existingDocsSnapshot.docs.map(d => d.id));
+
+  // Set (add or overwrite) all items from the new plan
   plan.forEach(item => {
     const docRef = doc(planCollection, item.machineId);
     batch.set(docRef, item);
+    existingDocIds.delete(item.machineId); // Remove from the set of docs to delete
   });
+
+  // Delete any old documents that are no longer in the new plan
+  existingDocIds.forEach(docId => {
+    batch.delete(doc(planCollection, docId));
+  });
+
   await batch.commit();
 };
 
@@ -243,7 +254,7 @@ export const saveDailyProductionLog = async (log: any) => {
   const batch = writeBatch(db);
   Object.entries(log).forEach(([dateKey, dateData]) => {
     const docRef = doc(db, 'dailyTreadProduction', dateKey);
-    batch.set(docRef, dateData as any);
+    batch.set(docRef, dateData as any, {merge: true});
   });
   await batch.commit();
 };
@@ -251,42 +262,27 @@ export const saveDailyProductionLog = async (log: any) => {
 export const saveTreadOpeningStock = async (stock: TreadStock[]) => {
   const batch = writeBatch(db);
   const stockCollection = collection(db, 'treadOpeningStock');
-  const existingDocsSnapshot = await getDocs(stockCollection);
-  const skuToDocIdMap = new Map<string, string>();
-  existingDocsSnapshot.forEach(doc => {
-    const data = doc.data();
-    if (data.sku) {
-      skuToDocIdMap.set(data.sku, doc.id);
-    }
-  });
 
   for (const item of stock) {
-    if (skuToDocIdMap.has(item.sku)) {
-      const docId = skuToDocIdMap.get(item.sku)!;
-      const docRef = doc(stockCollection, docId);
-      batch.set(docRef, item, {merge: true}); // Use merge to be safe
-    } else {
-      const docRef = doc(stockCollection);
-      batch.set(docRef, item);
-    }
+    // Use SKU as the document ID for stable updates
+    const docRef = doc(stockCollection, item.sku);
+    batch.set(docRef, item, {merge: true});
   }
   await batch.commit();
 };
 
 export const clearAllProductionData = async () => {
   const batch = writeBatch(db);
-  const logsSnapshot = await getDocs(collection(db, 'productionLogs'));
-  logsSnapshot.forEach(doc => batch.delete(doc.ref));
+  const collectionsToClear = [
+    'productionLogs',
+    'dailyTreadProduction',
+    'treadOpeningStock',
+  ];
 
-  const dailyLogsSnapshot = await getDocs(
-    collection(db, 'dailyTreadProduction')
-  );
-  dailyLogsSnapshot.forEach(doc => batch.delete(doc.ref));
-
-  const openingStockSnapshot = await getDocs(
-    collection(db, 'treadOpeningStock')
-  );
-  openingStockSnapshot.forEach(doc => batch.delete(doc.ref));
+  for (const collectionName of collectionsToClear) {
+    const snapshot = await getDocs(collection(db, collectionName));
+    snapshot.forEach(doc => batch.delete(doc.ref));
+  }
 
   await batch.commit();
 };
