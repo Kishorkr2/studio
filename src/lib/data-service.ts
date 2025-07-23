@@ -53,7 +53,7 @@ export const subscribeToProductionLogs = (setData: (data: any[]) => void): Unsub
 
 
 export const subscribeToProductionLog = (date: Date, shift: ShiftInfo, setLog: (log: ProductionLog) => void): Unsubscribe => {
-    const logId = `production-log-${format(date, "yyyy-MM-dd")}-${shift.name.replace(/\s+/g, '-')}`;
+    const logId = `production-log-${format(date, "yyyy-MM-dd")}-${shift.name}`;
     const docRef = doc(db, 'productionLogs', logId);
 
     return onSnapshot(docRef, (snapshot) => {
@@ -114,7 +114,7 @@ export const updateProductionPlan = async (plan: ProductionPlanItem[]) => {
 };
 
 export const saveProductionRound = async (date: Date, shift: ShiftInfo, round: string, entries: MachineProductionData[]) => {
-    const logId = `production-log-${format(date, "yyyy-MM-dd")}-${shift.name.replace(/\s+/g, '-')}`;
+    const logId = `production-log-${format(date, "yyyy-MM-dd")}-${shift.name}`;
     const docRef = doc(db, 'productionLogs', logId);
 
     const sanitizedEntries = entries.map(entry => ({
@@ -135,7 +135,7 @@ export const saveProductionRound = async (date: Date, shift: ShiftInfo, round: s
 };
 
 export const clearShiftData = async (date: Date, shift: ShiftInfo) => {
-    const logId = `production-log-${format(date, "yyyy-MM-dd")}-${shift.name.replace(/\s+/g, '-')}`;
+    const logId = `production-log-${format(date, "yyyy-MM-dd")}-${shift.name}`;
     await deleteDoc(doc(db, 'productionLogs', logId));
 };
 

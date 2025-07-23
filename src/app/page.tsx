@@ -512,7 +512,7 @@ export default function DashboardPage() {
                     id={`quantity-${entry.machineId}`}
                     type="number"
                     placeholder="e.g., 50"
-                    value={entry.quantity || 0}
+                    value={entry.quantity || ''}
                     onChange={(e) => handleEntryChange(entry.machineId, 'quantity', parseInt(e.target.value, 10) || 0)}
                   />
                 </div>
@@ -545,5 +545,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
