@@ -67,8 +67,14 @@ export default function DailyTreadProductionPage() {
     const skuMap = new Map<string, SkuPlan>();
     productionPlan.forEach(item => {
       item.skus.forEach(skuPlan => {
-        if (!skuMap.has(skuPlan.sku)) {
-          skuMap.set(skuPlan.sku, skuPlan);
+        const existing = skuMap.get(skuPlan.sku);
+        if (existing) {
+          skuMap.set(skuPlan.sku, {
+            ...existing,
+            quantity: existing.quantity + skuPlan.quantity,
+          });
+        } else {
+          skuMap.set(skuPlan.sku, {...skuPlan});
         }
       });
     });
@@ -116,7 +122,7 @@ export default function DailyTreadProductionPage() {
   useEffect(() => {
     if (!selectedDate || !selectedShift) return;
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
-    const shiftName = selectedShift.name;
+    const shiftName = selectedShift.name.replace(/\s+/g, '-');
     setDailyProductionEntries(dailyProductionLog[dateKey]?.[shiftName] || {});
   }, [selectedDate, selectedShift, dailyProductionLog]);
 
@@ -149,7 +155,7 @@ export default function DailyTreadProductionPage() {
       return;
     }
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
-    const shiftName = selectedShift.name;
+    const shiftName = selectedShift.name.replace(/\s+/g, '-');
 
     const updatedLogForDate = {
       ...(dailyProductionLog[dateKey] || {}),
