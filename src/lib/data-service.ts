@@ -7,16 +7,19 @@ import type { Operator, Machine, ShiftInfo, ProductionPlanItem, ProductionLog, T
 import { format } from 'date-fns';
 
 // --- Seeding Functions ---
-const seedCollection = async <T extends { cardNo?: string }>(collectionName: string, initialData: T[]) => {
+const seedCollection = async <T>(collectionName: string, initialData: T[], idField: keyof T) => {
     const batch = writeBatch(db);
     const collectionRef = collection(db, collectionName);
-    initialData.forEach(item => {
-        const docId = item.cardNo; // Assuming cardNo is unique and can be used as ID for operators
-        const { cardNo, ...data } = item;
-        const docRef = docId ? doc(collectionRef, docId) : doc(collectionRef);
-        batch.set(docRef, data);
-    });
-    await batch.commit();
+    const snapshot = await getDocs(collectionRef);
+    if (snapshot.empty) {
+        console.log(`Collection '${collectionName}' is empty. Seeding...`);
+        initialData.forEach(item => {
+            const docId = String(item[idField]);
+            const docRef = doc(collectionRef, docId);
+            batch.set(docRef, item);
+        });
+        await batch.commit();
+    }
 };
 
 // --- Real-time Subscriptions ---
@@ -25,12 +28,10 @@ export const subscribeToCollection = <T>(collectionName: string, setData: (data:
     const q = collection(db, collectionName);
     return onSnapshot(q, async (querySnapshot) => {
         if (querySnapshot.empty && initialData?.length) {
-            console.log(`Collection '${collectionName}' is empty. Seeding...`);
-            if (collectionName === 'operators') {
-                await seedCollection<Operator>(collectionName, initialData as Operator[]);
-            } else {
-                await seedCollection(collectionName, initialData);
-            }
+            console.log(`Collection '${collectionName}' is empty. Seeding initial data.`);
+            const idField = collectionName === 'operators' ? 'cardNo' : 'id';
+            await seedCollection(collectionName, initialData, idField);
+            // The snapshot will re-fire after seeding, so we don't set data here.
         } else {
             const data = querySnapshot.docs.map(doc => ({ [collectionName === 'operators' ? 'cardNo' : 'id']: doc.id, ...doc.data() } as T));
             setData(data);
@@ -151,20 +152,18 @@ export const saveTreadOpeningStock = async (stock: TreadStock[]) => {
     const batch = writeBatch(db);
     const stockCollection = collection(db, 'treadOpeningStock');
     
-    // Get all SKUs from the new stock data
-    const newSkus = new Set(stock.map(item => item.sku));
-    
-    // Find existing documents to update
-    const existingDocs = await getDocs(query(stockCollection, where('sku', 'in', Array.from(newSkus))));
-    const existingSkuMap = new Map(existingDocs.docs.map(d => [d.data().sku, d.id]));
+    // Efficiently fetch all existing stock documents at once
+    const existingDocsSnapshot = await getDocs(stockCollection);
+    const existingSkuMap = new Map(existingDocsSnapshot.docs.map(d => [d.data().sku, d.id]));
 
     stock.forEach(item => {
-        if (existingSkuMap.has(item.sku)) {
+        const existingDocId = existingSkuMap.get(item.sku);
+        if (existingDocId) {
             // Update existing document
-            const docRef = doc(db, 'treadOpeningStock', existingSkuMap.get(item.sku)!);
+            const docRef = doc(db, 'treadOpeningStock', existingDocId);
             batch.set(docRef, item);
         } else {
-            // Create new document, letting firestore generate the ID
+            // Create new document, letting Firestore generate the ID
              const docRef = doc(stockCollection);
              batch.set(docRef, item);
         }
