@@ -73,7 +73,6 @@ export default function AdminPage() {
     const operatorToUpdate = operators.find(op => op.cardNo === originalCardNo);
     if (!operatorToUpdate) return;
   
-    // Optimistically update local state
     const updatedOperators = operators.map(op => 
         op.cardNo === originalCardNo ? { ...op, [field]: value } : op
     );
@@ -81,8 +80,6 @@ export default function AdminPage() {
   
     try {
       if (field === 'cardNo') {
-        // If the Card No (which is the document ID) is being changed,
-        // we need to create a new document and delete the old one.
         const newCardNo = value;
         const newOperatorData = { ...operatorToUpdate, cardNo: newCardNo };
         
@@ -94,7 +91,6 @@ export default function AdminPage() {
            });
         }
       } else {
-        // Otherwise, just update the field in the existing document.
         await DataService.updateOperator(originalCardNo, { [field]: value });
       }
     } catch (error) {
@@ -241,7 +237,7 @@ export default function AdminPage() {
       });
   };
 
-  const handlePlanUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePlanUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -328,7 +324,7 @@ export default function AdminPage() {
     if(event.target) {
       event.target.value = '';
     }
-  };
+  }, [machines, toast]);
 
   const handleClearCache = async () => {
     try {
@@ -397,22 +393,24 @@ export default function AdminPage() {
                       <TableCell>
                         <Input
                           value={op.cardNo || ''}
-                          onChange={(e) => handleOperatorChange(op.cardNo, 'cardNo', e.target.value)}
                           onBlur={(e) => handleOperatorChange(op.cardNo, 'cardNo', e.target.value)}
+                          onChange={(e) => setOperators(ops => ops.map(o => o.cardNo === op.cardNo ? {...o, cardNo: e.target.value} : o))}
                           className="font-mono text-xs max-w-xs"
                         />
                       </TableCell>
                       <TableCell>
                          <Input
                           value={op.name || ''}
-                          onChange={(e) => handleOperatorChange(op.cardNo, 'name', e.target.value)}
+                          onBlur={(e) => handleOperatorChange(op.cardNo, 'name', e.target.value)}
+                          onChange={(e) => setOperators(ops => ops.map(o => o.cardNo === op.cardNo ? {...o, name: e.target.value} : o))}
                           className="max-w-xs"
                         />
                       </TableCell>
                       <TableCell>
                          <Input
                           value={op.builderNo || ''}
-                          onChange={(e) => handleOperatorChange(op.cardNo, 'builderNo', e.target.value)}
+                          onBlur={(e) => handleOperatorChange(op.cardNo, 'builderNo', e.target.value)}
+                          onChange={(e) => setOperators(ops => ops.map(o => o.cardNo === op.cardNo ? {...o, builderNo: e.target.value} : o))}
                           className="max-w-xs"
                         />
                       </TableCell>

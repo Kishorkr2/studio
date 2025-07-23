@@ -60,23 +60,16 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
     const startTimeInMinutes = startHour * 60 + startMinute;
     let endTimeInMinutes = endHour * 60 + endMinute;
 
-    // Handle overnight shifts (e.g., Night Shift)
     if (endTimeInMinutes < startTimeInMinutes) {
-      // If current time is after start time OR before end time (on the next day)
       if (currentTime >= startTimeInMinutes || currentTime < endTimeInMinutes) {
         return shift;
       }
     } else {
-      // Standard day shift
       if (currentTime >= startTimeInMinutes && currentTime < endTimeInMinutes) {
         return shift;
       }
     }
   }
-
-  // Fallback for times outside defined shifts (e.g., during shift change)
-  // This logic could be refined, e.g., default to the upcoming shift.
-  // For now, defaulting to the first shift if no active one is found.
   return shifts[0];
 };
 
@@ -107,13 +100,11 @@ export default function DashboardPage() {
     remark: true,
   });
 
-  // --- Data Fetching and Subscriptions ---
   useEffect(() => {
     setLoading(true);
     const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', (data) => {
         setAllShifts(data);
         if (data.length > 0 && !selectedShift) {
-            // Automatically set the shift based on the current time
             const currentShift = getCurrentShift(data);
             setSelectedShift(currentShift);
         }
@@ -133,7 +124,7 @@ export default function DashboardPage() {
         unsubOperators();
         unsubProductionPlan();
     };
-  }, [selectedShift]);
+  }, []);
 
   const generateRoundTimes = useCallback((shift: ShiftInfo | undefined): string[] => {
     if (!shift) return [];
@@ -186,7 +177,6 @@ export default function DashboardPage() {
 
         const loggedEntry = logMap.get(planItem.machineId);
         
-        // Use the logged SKU if available, otherwise default to the first planned SKU.
         const currentSkuString = loggedEntry?.sku || planItem.skus[0]?.sku;
         const skuPlan = planItem.skus.find(s => s.sku === currentSkuString) || planItem.skus[0];
         
@@ -220,7 +210,6 @@ export default function DashboardPage() {
             [field]: value,
           };
 
-          // If the SKU was changed, update the SAP code as well
           if (field === 'sku') {
             const planItem = allProductionPlan.find(p => p.machineId === machineId);
             const newSkuPlan = planItem?.skus.find(s => s.sku === value);
@@ -232,7 +221,6 @@ export default function DashboardPage() {
         return entry;
       })
     );
-     // Indicate that there are pending changes for the current round
     if(selectedRound) {
         setProductionLog(prevLog => ({
             ...prevLog,
