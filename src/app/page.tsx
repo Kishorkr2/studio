@@ -76,7 +76,6 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
     let startTimeInMinutes = startHour * 60 + startMinute;
     let endTimeInMinutes = endHour * 60 + endMinute;
 
-    // Handle overnight shifts
     if (endTimeInMinutes < startTimeInMinutes) {
       if (currentTime >= startTimeInMinutes || currentTime < endTimeInMinutes) {
         return shift;
@@ -87,7 +86,7 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
       }
     }
   }
-  // Default to first shift if no current shift is found (e.g., between shifts)
+
   return shifts[0];
 };
 
@@ -143,9 +142,12 @@ export default function DashboardPage() {
       setAllOperators,
       initialOperators
     );
-    const unsubProductionPlan = DataService.subscribeToCollection<
-      ProductionPlanItem
-    >('productionPlan', setAllProductionPlan, initialProductionPlan);
+    const unsubProductionPlan =
+      DataService.subscribeToCollection<ProductionPlanItem>(
+        'productionPlan',
+        setAllProductionPlan,
+        initialProductionPlan
+      );
 
     setLoading(false);
 
@@ -161,22 +163,40 @@ export default function DashboardPage() {
     setAvailableOperators(allOperators.filter(op => !op.isAbsent));
   }, [allOperators]);
 
-  const generateRoundTimes = useCallback((shift: ShiftInfo | undefined): string[] => {
-    if (!shift) return [];
+  const generateRoundTimes = useCallback(
+    (shift: ShiftInfo | undefined): string[] => {
+      if (!shift) return [];
 
-    const times: string[] = [];
-    const currentHour = parseInt(shift.startTime.split(':')[0], 10);
+      const times: string[] = [];
+      let startHour: number;
+      let endHour: number;
 
-    for (let i = 0; i < 12; i++) {
-      const hour = (currentHour + i) % 24;
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      let displayHour = hour % 12;
-      if (displayHour === 0) displayHour = 12;
-      times.push(`${displayHour}:00 ${ampm}`);
-    }
+      if (shift.name === 'Day Shift') {
+        startHour = 9; // 9:00 AM
+        endHour = 19; // 7:00 PM
+      } else if (shift.name === 'Night Shift') {
+        startHour = 21; // 9:00 PM
+        endHour = 7; // 7:00 AM
+      } else {
+        return [];
+      }
 
-    return times;
-  }, []);
+      let currentHour = startHour;
+      const totalHours =
+        endHour > startHour ? endHour - startHour : 24 - startHour + endHour;
+
+      for (let i = 0; i <= totalHours; i++) {
+        const hour = (startHour + i) % 24;
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        let displayHour = hour % 12;
+        if (displayHour === 0) displayHour = 12;
+        times.push(`${displayHour}:00 ${ampm}`);
+      }
+
+      return times;
+    },
+    []
+  );
 
   useEffect(() => {
     if (!selectedShift) return;
@@ -218,7 +238,8 @@ export default function DashboardPage() {
 
         const currentSkuString = loggedEntry?.sku || planItem.skus[0]?.sku;
         const skuPlan =
-          planItem.skus.find(s => s.sku === currentSkuString) || planItem.skus[0];
+          planItem.skus.find(s => s.sku === currentSkuString) ||
+          planItem.skus[0];
 
         const sku = skuPlan?.sku || '';
         const sapCode = skuPlan?.sapCode || '';
@@ -309,10 +330,9 @@ export default function DashboardPage() {
     await DataService.clearShiftData(selectedDate, selectedShift);
     toast({
       title: 'Shift Data Cleared',
-      description: `All production entries for ${selectedShift.name} on ${format(
-        selectedDate,
-        'PPP'
-      )} have been removed.`,
+      description: `All production entries for ${
+        selectedShift.name
+      } on ${format(selectedDate, 'PPP')} have been removed.`,
     });
   }, [selectedDate, selectedShift, toast]);
 
@@ -362,7 +382,10 @@ export default function DashboardPage() {
     }
     if (status === 'pending') {
       return (
-        <Loader2 className="h-4 w-4 animate-spin text-yellow-500" title="Syncing..." />
+        <Loader2
+          className="h-4 w-4 animate-spin text-yellow-500"
+          title="Syncing..."
+        />
       );
     }
     return <Clock className="h-4 w-4 text-muted-foreground" />;
@@ -409,7 +432,10 @@ export default function DashboardPage() {
               </PopoverContent>
             </Popover>
 
-            <Select value={selectedShift?.name || ''} onValueChange={handleShiftChange}>
+            <Select
+              value={selectedShift?.name || ''}
+              onValueChange={handleShiftChange}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select shift" />
               </SelectTrigger>
@@ -425,7 +451,9 @@ export default function DashboardPage() {
             <Select value={selectedRound} onValueChange={setSelectedRound}>
               <SelectTrigger className="font-semibold">
                 <div className="flex items-center gap-2">
-                  <RoundStatusIndicator status={productionLog[selectedRound]?.status} />
+                  <RoundStatusIndicator
+                    status={productionLog[selectedRound]?.status}
+                  />
                   <SelectValue placeholder="Select time" />
                 </div>
               </SelectTrigger>
@@ -517,7 +545,11 @@ export default function DashboardPage() {
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="lg" className="w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full sm:w-auto"
+                  >
                     <Eraser className="mr-2 h-4 w-4" />
                     Clear Shift Data
                   </Button>
@@ -528,8 +560,8 @@ export default function DashboardPage() {
                     <AlertDialogDescription>
                       This will permanently delete all production data for the
                       selected shift ({selectedShift?.name} on{' '}
-                      {selectedDate ? format(selectedDate, 'PPP') : ''}). This action
-                      cannot be undone.
+                      {selectedDate ? format(selectedDate, 'PPP') : ''}). This
+                      action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -612,7 +644,9 @@ export default function DashboardPage() {
                       <SelectTrigger id={`sku-${entry.machineId}`}>
                         <SelectValue
                           placeholder={
-                            machineSkus.length > 0 ? 'Select SKU' : 'No SKUs planned'
+                            machineSkus.length > 0
+                              ? 'Select SKU'
+                              : 'No SKUs planned'
                           }
                         />
                       </SelectTrigger>
@@ -646,13 +680,19 @@ export default function DashboardPage() {
                 </div>
                 {columnVisibility.trolleyNo && (
                   <div className="space-y-2">
-                    <Label htmlFor={`trolley-${entry.machineId}`}>Trolley No</Label>
+                    <Label htmlFor={`trolley-${entry.machineId}`}>
+                      Trolley No
+                    </Label>
                     <Input
                       id={`trolley-${entry.machineId}`}
                       placeholder="e.g., T-123"
                       value={entry.trolleyNo || ''}
                       onChange={e =>
-                        handleEntryChange(entry.machineId, 'trolleyNo', e.target.value)
+                        handleEntryChange(
+                          entry.machineId,
+                          'trolleyNo',
+                          e.target.value
+                        )
                       }
                     />
                   </div>
@@ -665,7 +705,11 @@ export default function DashboardPage() {
                       placeholder="Add remark..."
                       value={entry.remark || ''}
                       onChange={e =>
-                        handleEntryChange(entry.machineId, 'remark', e.target.value)
+                        handleEntryChange(
+                          entry.machineId,
+                          'remark',
+                          e.target.value
+                        )
                       }
                     />
                   </div>
