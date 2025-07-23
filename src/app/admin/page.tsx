@@ -240,8 +240,9 @@ export default function AdminPage() {
         {machineId: newPlanMachineId, skus: [newSkuPlan]},
       ];
     }
-    setProductionPlan(newPlan);
+
     await DataService.updateProductionPlan(newPlan);
+    setProductionPlan(newPlan); // Keep UI in sync
 
     toast({
       title: 'Plan Item Added',
@@ -282,8 +283,8 @@ export default function AdminPage() {
         newPlan = currentPlan.filter(p => p.machineId !== machineId);
       }
 
-      setProductionPlan(newPlan);
       await DataService.updateProductionPlan(newPlan);
+      setProductionPlan(newPlan); // Keep UI in sync
 
       toast({
         title: 'SKU Removed',
@@ -410,10 +411,11 @@ export default function AdminPage() {
 
             const planMap = new Map<string, SkuPlan[]>();
             const machineNameToIdMap = new Map(
-              machines.map(m => [
-                m.name.trim().toLowerCase().replace(/[\s-]+/g, ''),
-                m.id,
-              ])
+              machines.map(m => {
+                const match = m.name.match(/\d+/);
+                const number = match ? match[0] : null;
+                return [number, m.id];
+              })
             );
 
             for (const row of jsonFromSheet) {
@@ -425,10 +427,13 @@ export default function AdminPage() {
               );
 
               const tbmNoRaw = String(cleanedRow['tbm no'] || '').trim();
-              const normalizedTbmNo = tbmNoRaw
-                .toLowerCase()
-                .replace(/[\s-]+/g, '');
-              const machineId = machineNameToIdMap.get(normalizedTbmNo);
+              const match = tbmNoRaw.match(/\d+/);
+              const tbmNumber = match ? match[0] : null;
+              const machineId = tbmNumber
+                ? machineNameToIdMap.get(
+                    String(parseInt(tbmNumber, 10))
+                  ) || machineNameToIdMap.get(tbmNumber)
+                : null;
 
               if (machineId) {
                 const sapCode = String(cleanedRow['sap code'] || '').trim();
