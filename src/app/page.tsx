@@ -57,7 +57,7 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
     const [startHour, startMinute] = shift.startTime.split(':').map(Number);
     const [endHour, endMinute] = shift.endTime.split(':').map(Number);
     
-    const startTimeInMinutes = startHour * 60 + startMinute;
+    let startTimeInMinutes = startHour * 60 + startMinute;
     let endTimeInMinutes = endHour * 60 + endMinute;
 
     // Handle overnight shifts
@@ -112,9 +112,7 @@ export default function DashboardPage() {
         }
     }, shifts);
     const unsubMachines = DataService.subscribeToCollection<Machine>('machines', setAllMachines, initialMachines);
-    const unsubOperators = DataService.subscribeToCollection<Operator>('operators', (data) => {
-        setAllOperators(data);
-    }, initialOperators);
+    const unsubOperators = DataService.subscribeToCollection<Operator>('operators', setAllOperators, initialOperators);
     const unsubProductionPlan = DataService.subscribeToCollection<ProductionPlanItem>('productionPlan', setAllProductionPlan, initialProductionPlan);
     
     setLoading(false);
@@ -474,7 +472,7 @@ export default function DashboardPage() {
                 {columnVisibility.operator && (
                   <div className="space-y-2">
                     <Label htmlFor={`operator-${entry.machineId}`}>Operator Name</Label>
-                    <Select value={entry.operatorId} onValueChange={(val) => handleEntryChange(entry.machineId, 'operatorId', val)}>
+                    <Select value={entry.operatorId || ''} onValueChange={(val) => handleEntryChange(entry.machineId, 'operatorId', val)}>
                       <SelectTrigger id={`operator-${entry.machineId}`}><SelectValue placeholder="Select Operator" /></SelectTrigger>
                       <SelectContent>
                         {availableOperators.map(op => <SelectItem key={op.cardNo} value={op.cardNo}>{op.name}</SelectItem>)}
