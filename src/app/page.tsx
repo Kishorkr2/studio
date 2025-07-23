@@ -1,3 +1,4 @@
+
 'use client';
 
 import {useState, useEffect, useMemo, useCallback} from 'react';
@@ -181,16 +182,25 @@ export default function DashboardPage() {
         return [];
       }
 
-      let currentHour = startHour;
-      const totalHours =
-        endHour > startHour ? endHour - startHour : 24 - startHour + endHour;
-
-      for (let i = 0; i <= totalHours; i++) {
-        const hour = (startHour + i) % 24;
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        let displayHour = hour % 12;
-        if (displayHour === 0) displayHour = 12;
-        times.push(`${displayHour}:00 ${ampm}`);
+      if (endHour < startHour) {
+        // Night shift crosses midnight
+        let currentHour = startHour;
+        while (currentHour !== (endHour + 1) % 24) {
+          const ampm = currentHour >= 12 ? 'PM' : 'AM';
+          let displayHour = currentHour % 12;
+          if (displayHour === 0) displayHour = 12;
+          times.push(`${displayHour}:00 ${ampm}`);
+          currentHour = (currentHour + 1) % 24;
+        }
+      } else {
+        // Day shift
+        for (let i = startHour; i <= endHour; i++) {
+          const hour = i;
+          const ampm = hour >= 12 ? 'PM' : 'AM';
+          let displayHour = hour % 12;
+          if (displayHour === 0) displayHour = 12;
+          times.push(`${displayHour}:00 ${ampm}`);
+        }
       }
 
       return times;
@@ -288,17 +298,8 @@ export default function DashboardPage() {
           return entry;
         })
       );
-      if (selectedRound) {
-        setProductionLog(prevLog => ({
-          ...prevLog,
-          [selectedRound]: {
-            ...(prevLog[selectedRound] || {entries: []}),
-            status: 'pending',
-          },
-        }));
-      }
     },
-    [selectedRound, allProductionPlan]
+    [allProductionPlan]
   );
 
   const handleSaveRound = useCallback(async () => {
@@ -310,6 +311,14 @@ export default function DashboardPage() {
       });
       return;
     }
+
+    setProductionLog(prevLog => ({
+      ...prevLog,
+      [selectedRound]: {
+        ...(prevLog[selectedRound] || {entries: []}),
+        status: 'pending',
+      },
+    }));
 
     await DataService.saveProductionRound(
       selectedDate,
@@ -668,7 +677,7 @@ export default function DashboardPage() {
                     id={`quantity-${entry.machineId}`}
                     type="number"
                     placeholder="e.g., 50"
-                    value={entry.quantity || ''}
+                    value={entry.quantity === 0 ? '' : entry.quantity}
                     onChange={e =>
                       handleEntryChange(
                         entry.machineId,
@@ -722,3 +731,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
