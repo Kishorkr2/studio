@@ -1,3 +1,4 @@
+
 'use client';
 
 import {useState, useEffect, useMemo, useCallback} from 'react';
@@ -27,7 +28,13 @@ import type {
   MachineProductionData,
   SkuPlan,
 } from '@/lib/types';
-import {Save, SlidersHorizontal, ClipboardList, Factory, Scale} from 'lucide-react';
+import {
+  Save,
+  SlidersHorizontal,
+  ClipboardList,
+  Factory,
+  Scale,
+} from 'lucide-react';
 import {cn} from '@/lib/utils';
 import {
   DropdownMenu,
@@ -153,7 +160,10 @@ export default function TreadExtrusionPage() {
           item.sku === sku ? {...item, openingStock: numericValue} : item
         );
       } else {
-        return [...currentData, {sku, openingStock: numericValue, production: 0}];
+        return [
+          ...currentData,
+          {sku, openingStock: numericValue, production: 0},
+        ];
       }
     });
   }, []);
@@ -192,8 +202,9 @@ export default function TreadExtrusionPage() {
   const filteredSkus = useMemo(() => {
     return allSkusFromPlan.filter(
       req =>
-        (req.sapCode?.toLowerCase() || '').includes(sapCodeFilter.toLowerCase()) &&
-        (req.sku?.toLowerCase() || '').includes(skuFilter.toLowerCase())
+        (req.sapCode?.toLowerCase() || '').includes(
+          sapCodeFilter.toLowerCase()
+        ) && (req.sku?.toLowerCase() || '').includes(skuFilter.toLowerCase())
     );
   }, [allSkusFromPlan, sapCodeFilter, skuFilter]);
 
@@ -220,7 +231,12 @@ export default function TreadExtrusionPage() {
         treadBalanceToProduce,
       };
     });
-  }, [filteredSkus, openingStockData, tyreProductionData, totalProductionBySku]);
+  }, [
+    filteredSkus,
+    openingStockData,
+    tyreProductionData,
+    totalProductionBySku,
+  ]);
 
   const visibleColumnsCount =
     1 + Object.values(columnVisibility).filter(Boolean).length;
@@ -324,11 +340,12 @@ export default function TreadExtrusionPage() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between flex-wrap gap-4">
           <div>
             <CardTitle>Tread Stock &amp; Planning</CardTitle>
             <CardDescription>
-              Manage tread inventory and plan production to meet the production plan.
+              Manage tread inventory and plan production to meet the production
+              plan.
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -361,7 +378,10 @@ export default function TreadExtrusionPage() {
                 <DropdownMenuCheckboxItem
                   checked={columnVisibility.openingStock}
                   onCheckedChange={value =>
-                    setColumnVisibility(prev => ({...prev, openingStock: !!value}))
+                    setColumnVisibility(prev => ({
+                      ...prev,
+                      openingStock: !!value,
+                    }))
                   }
                 >
                   Opening Stock
@@ -369,7 +389,10 @@ export default function TreadExtrusionPage() {
                 <DropdownMenuCheckboxItem
                   checked={columnVisibility.production}
                   onCheckedChange={value =>
-                    setColumnVisibility(prev => ({...prev, production: !!value}))
+                    setColumnVisibility(prev => ({
+                      ...prev,
+                      production: !!value,
+                    }))
                   }
                 >
                   Total Production
@@ -415,7 +438,7 @@ export default function TreadExtrusionPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 my-4">
+          <div className="flex flex-col sm:flex-row gap-4 my-4">
             <Input
               placeholder="Filter by SAP Code..."
               value={sapCodeFilter}
@@ -429,7 +452,7 @@ export default function TreadExtrusionPage() {
               className="max-w-sm"
             />
           </div>
-          <div className="border rounded-lg">
+          <div className="border rounded-lg overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -442,13 +465,19 @@ export default function TreadExtrusionPage() {
                     <TableHead className="text-right">Opening Stock</TableHead>
                   )}
                   {columnVisibility.production && (
-                    <TableHead className="text-right">Total Production</TableHead>
+                    <TableHead className="text-right">
+                      Total Production
+                    </TableHead>
                   )}
                   {columnVisibility.tyreProduction && (
-                    <TableHead className="text-right">Tyre Production</TableHead>
+                    <TableHead className="text-right">
+                      Tyre Production
+                    </TableHead>
                   )}
                   {columnVisibility.currentTreadStock && (
-                    <TableHead className="text-right">Current Tread Stock</TableHead>
+                    <TableHead className="text-right">
+                      Current Tread Stock
+                    </TableHead>
                   )}
                   {columnVisibility.treadBalanceToProduce && (
                     <TableHead className="text-right">
@@ -461,7 +490,9 @@ export default function TreadExtrusionPage() {
                 {combinedData.length > 0 ? (
                   combinedData.map((item, index) => (
                     <TableRow key={`${item.sku}-${item.sapCode}-${index}`}>
-                      {columnVisibility.sapCode && <TableCell>{item.sapCode}</TableCell>}
+                      {columnVisibility.sapCode && (
+                        <TableCell>{item.sapCode}</TableCell>
+                      )}
                       <TableCell className="font-medium">{item.sku}</TableCell>
                       {columnVisibility.quantity && (
                         <TableCell className="text-right">
@@ -479,7 +510,10 @@ export default function TreadExtrusionPage() {
                                 ?.openingStock || ''
                             }
                             onChange={e =>
-                              handleOpeningStockChange(item.sku, e.target.value)
+                              handleOpeningStockChange(
+                                item.sku,
+                                e.target.value
+                              )
                             }
                           />
                         </TableCell>

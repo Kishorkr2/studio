@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -110,7 +111,8 @@ export default function ReportsPage() {
   });
 
   const [selectedShift, setSelectedShift] = React.useState<string>('all');
-  const [selectedOperator, setSelectedOperator] = React.useState<string>('all');
+  const [selectedOperator, setSelectedOperator] =
+    React.useState<string>('all');
   const [selectedMachine, setSelectedMachine] = React.useState<string>('all');
 
   const [allOperators, setAllOperators] = React.useState<Operator[]>([]);
@@ -125,12 +127,18 @@ export default function ReportsPage() {
   const [breakdownData, setBreakdownData] = React.useState<ReportDataRow[]>([]);
 
   React.useEffect(() => {
-    const unsubOperators =
-      DataService.subscribeToCollection<Operator>('operators', setAllOperators);
-    const unsubMachines =
-      DataService.subscribeToCollection<Machine>('machines', setAllMachines);
-    const unsubShifts =
-      DataService.subscribeToCollection<ShiftInfo>('shifts', setAllShifts);
+    const unsubOperators = DataService.subscribeToCollection<Operator>(
+      'operators',
+      setAllOperators
+    );
+    const unsubMachines = DataService.subscribeToCollection<Machine>(
+      'machines',
+      setAllMachines
+    );
+    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>(
+      'shifts',
+      setAllShifts
+    );
     const unsubHistory =
       DataService.subscribeToProductionLogs(setRawProductionLogs);
 
@@ -227,7 +235,14 @@ export default function ReportsPage() {
       title: 'Filters Applied',
       description: `Displaying ${data.length} records.`,
     });
-  }, [allReportData, date, selectedShift, selectedOperator, selectedMachine, toast]);
+  }, [
+    allReportData,
+    date,
+    selectedShift,
+    selectedOperator,
+    selectedMachine,
+    toast,
+  ]);
 
   React.useEffect(() => {
     handleApplyFilters();
@@ -279,7 +294,10 @@ export default function ReportsPage() {
   };
 
   const totalProduction = React.useMemo(() => {
-    return filteredReportData.reduce((acc, item) => acc + (item.quantity || 0), 0);
+    return filteredReportData.reduce(
+      (acc, item) => acc + (item.quantity || 0),
+      0
+    );
   }, [filteredReportData]);
 
   return (
@@ -322,7 +340,10 @@ export default function ReportsPage() {
                 </div>
                 <div className="grid gap-2">
                   <Label>Shift</Label>
-                  <Select value={selectedShift} onValueChange={setSelectedShift}>
+                  <Select
+                    value={selectedShift}
+                    onValueChange={setSelectedShift}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="All Shifts" />
                     </SelectTrigger>
@@ -357,7 +378,10 @@ export default function ReportsPage() {
                 </div>
                 <div className="grid gap-2">
                   <Label>TBM No</Label>
-                  <Select value={selectedMachine} onValueChange={setSelectedMachine}>
+                  <Select
+                    value={selectedMachine}
+                    onValueChange={setSelectedMachine}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="All TBMs" />
                     </SelectTrigger>
@@ -389,7 +413,7 @@ export default function ReportsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="border rounded-lg max-h-[60vh] overflow-y-auto">
+              <div className="border rounded-lg max-h-[60vh] overflow-x-auto">
                 <Table>
                   <TableHeader className="sticky top-0 bg-background">
                     <TableRow>
@@ -418,7 +442,9 @@ export default function ReportsPage() {
                           <TableCell>{row.machineName}</TableCell>
                           <TableCell>{row.sku}</TableCell>
                           <TableCell>{row.trolleyNo || '-'}</TableCell>
-                          <TableCell className="text-right">{row.quantity}</TableCell>
+                          <TableCell className="text-right">
+                            {row.quantity}
+                          </TableCell>
                         </TableRow>
                       ))
                     ) : (
@@ -442,7 +468,9 @@ export default function ReportsPage() {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Overall OEE</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Overall OEE
+                </CardTitle>
                 <Percent className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -454,26 +482,34 @@ export default function ReportsPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Availability</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Availability
+                </CardTitle>
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
                   {mockOeeData.availability}%
                 </div>
-                <p className="text-xs text-muted-foreground">Measures downtime losses</p>
+                <p className="text-xs text-muted-foreground">
+                  Measures downtime losses
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Performance</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Performance
+                </CardTitle>
                 <Wrench className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
                   {mockOeeData.performance}%
                 </div>
-                <p className="text-xs text-muted-foreground">Measures speed losses</p>
+                <p className="text-xs text-muted-foreground">
+                  Measures speed losses
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -482,8 +518,12 @@ export default function ReportsPage() {
                 <Check className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{mockOeeData.quality}%</div>
-                <p className="text-xs text-muted-foreground">Measures quality losses</p>
+                <div className="text-2xl font-bold">
+                  {mockOeeData.quality}%
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Measures quality losses
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -491,12 +531,16 @@ export default function ReportsPage() {
             <CardHeader>
               <CardTitle>OEE Component Breakdown</CardTitle>
               <CardDescription>
-                This is a visual demonstration. Accurate OEE calculation requires
-                additional data points like ideal cycle times and scrap counts.
+                This is a visual demonstration. Accurate OEE calculation
+                requires additional data points like ideal cycle times and
+                scrap counts.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={oeeChartConfig} className="min-h-[200px] w-full">
+              <ChartContainer
+                config={oeeChartConfig}
+                className="min-h-[200px] w-full"
+              >
                 <BarChart
                   accessibilityLayer
                   data={oeeChartData}
@@ -534,7 +578,7 @@ export default function ReportsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="border rounded-lg max-h-[60vh] overflow-y-auto">
+              <div className="border rounded-lg max-h-[60vh] overflow-x-auto">
                 <Table>
                   <TableHeader className="sticky top-0 bg-background">
                     <TableRow>
@@ -548,7 +592,9 @@ export default function ReportsPage() {
                   <TableBody>
                     {breakdownData.length > 0 ? (
                       breakdownData.map((row, index) => (
-                        <TableRow key={`${row.date}-${row.machineName}-${index}`}>
+                        <TableRow
+                          key={`${row.date}-${row.machineName}-${index}`}
+                        >
                           <TableCell>
                             {format(parseISO(row.date), 'yyyy-MM-dd')}
                           </TableCell>
@@ -566,7 +612,8 @@ export default function ReportsPage() {
                           colSpan={5}
                           className="text-center h-24 text-muted-foreground"
                         >
-                          No breakdowns with remarks logged in the selected period.
+                          No breakdowns with remarks logged in the selected
+                          period.
                         </TableCell>
                       </TableRow>
                     )}

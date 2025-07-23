@@ -1,3 +1,4 @@
+
 'use client';
 
 import {useState, useEffect} from 'react';
@@ -239,7 +240,9 @@ export default function OptimizePage() {
         <Card>
           <CardHeader>
             <CardTitle>Operators</CardTitle>
-            <CardDescription>Manage operator skills and attendance.</CardDescription>
+            <CardDescription>
+              Manage operator skills and attendance.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 max-h-96 overflow-y-auto pr-2">
             {operators.map(op => (
@@ -266,7 +269,11 @@ export default function OptimizePage() {
                   <Input
                     value={op.builderNo}
                     onChange={e =>
-                      handleOperatorChange(op.cardNo, 'builderNo', e.target.value)
+                      handleOperatorChange(
+                        op.cardNo,
+                        'builderNo',
+                        e.target.value
+                      )
                     }
                     className="text-sm border-none p-0 h-auto focus-visible:ring-0"
                   />
@@ -330,9 +337,11 @@ export default function OptimizePage() {
               <div className="w-full space-y-4">
                 <div>
                   <h3 className="font-semibold text-lg">Summary</h3>
-                  <p className="text-sm text-muted-foreground">{result.summary}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {result.summary}
+                  </p>
                 </div>
-                <div className="border rounded-lg">
+                <div className="border rounded-lg overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -348,8 +357,9 @@ export default function OptimizePage() {
                             <div className="flex items-center gap-2">
                               <User className="h-4 w-4 text-muted-foreground" />
                               <span>
-                                {operators.find(op => op.cardNo === a.operatorId)
-                                  ?.name || a.operatorId}
+                                {operators.find(
+                                  op => op.cardNo === a.operatorId
+                                )?.name || a.operatorId}
                               </span>
                             </div>
                           </TableCell>
@@ -357,8 +367,8 @@ export default function OptimizePage() {
                             <div className="flex items-center gap-2">
                               <Wrench className="h-4 w-4 text-muted-foreground" />
                               <span>
-                                {machines.find(m => m.id === a.machineId)?.name ||
-                                  a.machineId}
+                                {machines.find(m => m.id === a.machineId)
+                                  ?.name || a.machineId}
                               </span>
                             </div>
                           </TableCell>

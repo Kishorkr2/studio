@@ -1,3 +1,4 @@
+
 'use client';
 
 import {useState, useEffect, useMemo} from 'react';
@@ -171,8 +172,9 @@ export default function DailyTreadProductionPage() {
   const filteredSkus = useMemo(() => {
     return allSkusFromPlan.filter(
       req =>
-        (req.sapCode?.toLowerCase() || '').includes(sapCodeFilter.toLowerCase()) &&
-        (req.sku?.toLowerCase() || '').includes(skuFilter.toLowerCase())
+        (req.sapCode?.toLowerCase() || '').includes(
+          sapCodeFilter.toLowerCase()
+        ) && (req.sku?.toLowerCase() || '').includes(skuFilter.toLowerCase())
     );
   }, [allSkusFromPlan, sapCodeFilter, skuFilter]);
 
@@ -205,7 +207,8 @@ export default function DailyTreadProductionPage() {
         <CardHeader>
           <CardTitle>Log Tread Production</CardTitle>
           <CardDescription>
-            Enter the quantity of tread produced and the trolley number for each SKU.
+            Enter the quantity of tread produced and the trolley number for each
+            SKU.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -261,7 +264,7 @@ export default function DailyTreadProductionPage() {
             </Button>
           </div>
 
-          <div className="flex gap-4 my-4">
+          <div className="flex flex-col sm:flex-row gap-4 my-4">
             <Input
               placeholder="Filter by SAP Code..."
               value={sapCodeFilter}
@@ -276,13 +279,15 @@ export default function DailyTreadProductionPage() {
             />
           </div>
 
-          <div className="border rounded-lg max-h-[60vh] overflow-y-auto">
+          <div className="border rounded-lg max-h-[60vh] overflow-x-auto">
             <Table>
               <TableHeader className="sticky top-0 bg-background">
                 <TableRow>
                   <TableHead>SKU</TableHead>
                   <TableHead>Trolley No</TableHead>
-                  <TableHead className="text-right">Production Quantity</TableHead>
+                  <TableHead className="text-right">
+                    Production Quantity
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -294,7 +299,9 @@ export default function DailyTreadProductionPage() {
                         <Input
                           className="w-32"
                           placeholder="e.g., T-123"
-                          value={dailyProductionEntries[req.sku]?.trolleyNo || ''}
+                          value={
+                            dailyProductionEntries[req.sku]?.trolleyNo || ''
+                          }
                           onChange={e =>
                             handleDailyProductionChange(
                               req.sku,
@@ -309,7 +316,9 @@ export default function DailyTreadProductionPage() {
                           type="number"
                           className="w-32 ml-auto text-right"
                           placeholder="0"
-                          value={dailyProductionEntries[req.sku]?.quantity || ''}
+                          value={
+                            dailyProductionEntries[req.sku]?.quantity || ''
+                          }
                           onChange={e =>
                             handleDailyProductionChange(
                               req.sku,
@@ -327,8 +336,8 @@ export default function DailyTreadProductionPage() {
                       colSpan={3}
                       className="h-24 text-center text-muted-foreground"
                     >
-                      No SKUs available. Please create a production plan in the Admin
-                      panel.
+                      No SKUs available. Please create a production plan in the
+                      Admin panel.
                     </TableCell>
                   </TableRow>
                 )}

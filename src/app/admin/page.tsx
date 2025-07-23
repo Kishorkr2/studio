@@ -513,7 +513,7 @@ export default function AdminPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
       <Tabs defaultValue="operators">
-        <TabsList className="grid w-full grid-cols-2 gap-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-2 gap-1 sm:w-auto sm:grid-cols-5">
           <TabsTrigger value="operators">Operator Management</TabsTrigger>
           <TabsTrigger value="shifts">Shift Management</TabsTrigger>
           <TabsTrigger value="plan">Production Plan</TabsTrigger>
@@ -530,118 +530,124 @@ export default function AdminPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Card No</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Builder No</TableHead>
-                    <TableHead>Skill Rating</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {operators.map(op => (
-                    <TableRow key={op.cardNo}>
-                      <TableCell>
-                        <Input
-                          value={op.cardNo || ''}
-                          onBlur={e =>
-                            handleOperatorChange(
-                              op.cardNo,
-                              'cardNo',
-                              e.target.value
-                            )
-                          }
-                          onChange={e =>
-                            setOperators(ops =>
-                              ops.map(o =>
-                                o.cardNo === op.cardNo
-                                  ? {...o, cardNo: e.target.value}
-                                  : o
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Card No</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Builder No</TableHead>
+                      <TableHead>Skill Rating</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {operators.map(op => (
+                      <TableRow key={op.cardNo}>
+                        <TableCell>
+                          <Input
+                            value={op.cardNo || ''}
+                            onBlur={e =>
+                              handleOperatorChange(
+                                op.cardNo,
+                                'cardNo',
+                                e.target.value
                               )
-                            )
-                          }
-                          className="font-mono text-xs max-w-xs"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={op.name || ''}
-                          onBlur={e =>
-                            handleOperatorChange(
-                              op.cardNo,
-                              'name',
-                              e.target.value
-                            )
-                          }
-                          onChange={e =>
-                            setOperators(ops =>
-                              ops.map(o =>
-                                o.cardNo === op.cardNo
-                                  ? {...o, name: e.target.value}
-                                  : o
-                              )
-                            )
-                          }
-                          className="max-w-xs"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={op.builderNo || ''}
-                          onBlur={e =>
-                            handleOperatorChange(
-                              op.cardNo,
-                              'builderNo',
-                              e.target.value
-                            )
-                          }
-                          onChange={e =>
-                            setOperators(ops =>
-                              ops.map(o =>
-                                o.cardNo === op.cardNo
-                                  ? {...o, builderNo: e.target.value}
-                                  : o
-                              )
-                            )
-                          }
-                          className="max-w-xs"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Slider
-                            value={[op.skillRating]}
-                            onValueChange={([val]) =>
-                              handleOperatorChange(op.cardNo, 'skillRating', val)
                             }
-                            min={1}
-                            max={5}
-                            step={1}
+                            onChange={e =>
+                              setOperators(ops =>
+                                ops.map(o =>
+                                  o.cardNo === op.cardNo
+                                    ? {...o, cardNo: e.target.value}
+                                    : o
+                                )
+                              )
+                            }
+                            className="font-mono text-xs w-28"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={op.name || ''}
+                            onBlur={e =>
+                              handleOperatorChange(
+                                op.cardNo,
+                                'name',
+                                e.target.value
+                              )
+                            }
+                            onChange={e =>
+                              setOperators(ops =>
+                                ops.map(o =>
+                                  o.cardNo === op.cardNo
+                                    ? {...o, name: e.target.value}
+                                    : o
+                                )
+                              )
+                            }
+                            className="w-36"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={op.builderNo || ''}
+                            onBlur={e =>
+                              handleOperatorChange(
+                                op.cardNo,
+                                'builderNo',
+                                e.target.value
+                              )
+                            }
+                            onChange={e =>
+                              setOperators(ops =>
+                                ops.map(o =>
+                                  o.cardNo === op.cardNo
+                                    ? {...o, builderNo: e.target.value}
+                                    : o
+                                )
+                              )
+                            }
                             className="w-24"
                           />
-                          <Badge
-                            variant="secondary"
-                            className="w-8 h-6 flex items-center justify-center"
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Slider
+                              value={[op.skillRating]}
+                              onValueChange={([val]) =>
+                                handleOperatorChange(
+                                  op.cardNo,
+                                  'skillRating',
+                                  val
+                                )
+                              }
+                              min={1}
+                              max={5}
+                              step={1}
+                              className="w-24"
+                            />
+                            <Badge
+                              variant="secondary"
+                              className="w-8 h-6 flex items-center justify-center"
+                            >
+                              {op.skillRating}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteOperator(op.cardNo)}
                           >
-                            {op.skillRating}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteOperator(op.cardNo)}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
             <CardFooter>
               <Button onClick={handleAddOperator}>
@@ -734,7 +740,7 @@ export default function AdminPage() {
                   <strong>TBM No</strong>, <strong>SAP Code</strong>,{' '}
                   <strong>SKU</strong>, and <strong>Quantity</strong>.
                 </p>
-                <div className="border rounded-lg overflow-hidden">
+                <div className="border rounded-lg overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -828,7 +834,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="border rounded-lg">
+              <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -892,61 +898,66 @@ export default function AdminPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>TBM No</TableHead>
-                    <TableHead>Available</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {machines.map(machine => (
-                    <TableRow key={machine.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={machine.name}
-                            onChange={e =>
-                              handleMachineNameChange(
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>TBM No</TableHead>
+                      <TableHead>Available</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {machines.map(machine => (
+                      <TableRow key={machine.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={machine.name}
+                              onChange={e =>
+                                handleMachineNameChange(
+                                  machine.id,
+                                  e.target.value
+                                )
+                              }
+                              className="w-36"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleSaveMachineName(machine.id)}
+                            >
+                              <Save className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={machine.isAvailable}
+                            onCheckedChange={checked =>
+                              handleMachineAvailabilityChange(
                                 machine.id,
-                                e.target.value
+                                checked
                               )
                             }
-                            className="max-w-xs"
                           />
+                        </TableCell>
+                        <TableCell className="text-right">
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleSaveMachineName(machine.id)}
+                            onClick={() => handleDeleteMachine(machine.id)}
                           >
-                            <Save className="h-4 w-4" />
+                            <Trash className="h-4 w-4" />
                           </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={machine.isAvailable}
-                          onCheckedChange={checked =>
-                            handleMachineAvailabilityChange(machine.id, checked)
-                          }
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteMachine(machine.id)}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
-            <CardFooter className="flex justify-between">
+            <CardFooter className="flex justify-between flex-wrap gap-2">
               <Button onClick={handleAddMachine}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add TBM
@@ -1046,5 +1057,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    

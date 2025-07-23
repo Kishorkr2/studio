@@ -312,14 +312,6 @@ export default function DashboardPage() {
       return;
     }
 
-    setProductionLog(prevLog => ({
-      ...prevLog,
-      [selectedRound]: {
-        ...(prevLog[selectedRound] || {entries: []}),
-        status: 'pending',
-      },
-    }));
-
     await DataService.saveProductionRound(
       selectedDate,
       selectedShift,
@@ -565,7 +557,9 @@ export default function DashboardPage() {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogTitle>
+                      Are you absolutely sure?
+                    </AlertDialogTitle>
                     <AlertDialogDescription>
                       This will permanently delete all production data for the
                       selected shift ({selectedShift?.name} on{' '}
@@ -615,7 +609,7 @@ export default function DashboardPage() {
               <CardHeader>
                 <CardTitle>{entry.name}</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-6 md:grid-cols-3 lg:grid-cols-5">
+              <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
                 {columnVisibility.operator && (
                   <div className="space-y-2">
                     <Label htmlFor={`operator-${entry.machineId}`}>
@@ -642,7 +636,9 @@ export default function DashboardPage() {
                 )}
                 {columnVisibility.sku && (
                   <div className="space-y-2">
-                    <Label htmlFor={`sku-${entry.machineId}`}>SKU (Size)</Label>
+                    <Label htmlFor={`sku-${entry.machineId}`}>
+                      SKU (Size)
+                    </Label>
                     <Select
                       value={entry.sku}
                       onValueChange={val =>
@@ -707,7 +703,7 @@ export default function DashboardPage() {
                   </div>
                 )}
                 {columnVisibility.remark && (
-                  <div className="space-y-2">
+                  <div className="space-y-2 md:col-span-2 lg:col-span-1">
                     <Label htmlFor={`remark-${entry.machineId}`}>Remark</Label>
                     <Input
                       id={`remark-${entry.machineId}`}
@@ -731,5 +727,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
