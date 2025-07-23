@@ -6,6 +6,7 @@ import {
   getDocs,
   getDoc,
   setDoc,
+  updateDoc,
   addDoc,
   deleteDoc,
   writeBatch,
@@ -59,40 +60,40 @@ export const subscribeToCollection = <T>(
 ): Unsubscribe => {
   const q = collection(db, collectionName);
 
-  // Define the idField based on the collection name. This is a bit of a convention-based approach.
-  const getIdField = (name: string): keyof T | 'id' => {
-    if (name === 'operators') return 'cardNo' as keyof T;
-    if (name === 'shifts') return 'name' as keyof T;
-    return 'id'; // Default for machines, productionPlan etc.
-  };
-  const idField = getIdField(collectionName);
-
   const unsub = onSnapshot(
     q,
     async querySnapshot => {
+      // If the collection is empty AND we have initial data, seed it.
+      // This is safer than checking querySnapshot.metadata.hasPendingWrites.
       if (querySnapshot.empty && initialData?.length) {
         console.log(`Seeding initial data for ${collectionName}`);
+        const idField =
+          collectionName === 'operators'
+            ? 'cardNo'
+            : collectionName === 'shifts'
+              ? 'name'
+              : 'id';
         await seedCollection(
           collectionName,
-          initialData,
-          idField as keyof any
+          initialData as any[],
+          idField as any
         );
-        // Snapshot listener will re-trigger with new data, so we don't need to call setData here.
-      } else {
-        const data = querySnapshot.docs.map(d => {
-          // For shifts, the ID is derived from the name, but the name is also in the data.
-          // For operators, the ID is the cardNo.
-          // For others, the ID is the field 'id'.
-          if (collectionName === 'shifts') {
-            return d.data() as T;
-          }
-          if (collectionName === 'operators') {
-            return {cardNo: d.id, ...d.data()} as T;
-          }
-          return {id: d.id, ...d.data()} as T;
-        });
-        setData(data);
+        // The listener will be re-triggered by seedCollection, so we don't need to call setData here.
+        return;
       }
+
+      const data = querySnapshot.docs.map(d => {
+        // For shifts, the ID is derived from the name, but the name is also in the data.
+        if (collectionName === 'shifts') {
+          return d.data() as T;
+        }
+        // For operators, the ID is the cardNo.
+        if (collectionName === 'operators') {
+          return {cardNo: d.id, ...d.data()} as T;
+        }
+        return {id: d.id, ...d.data()} as T;
+      });
+      setData(data);
     },
     error => {
       console.error(`Error subscribing to ${collectionName}:`, error);
@@ -123,10 +124,7 @@ export const subscribeToProductionLog = (
   shift: ShiftInfo,
   setLog: (log: ProductionLog) => void
 ): Unsubscribe => {
-  const logId = `production-log-${format(
-    date,
-    'yyyy-MM-dd'
-  )}-${shift.name.replace(/\s+/g, '-')}`;
+  const logId = `production-log-${format(date, 'yyyy-MM-dd')}-${shift.name.replace(/\s+/g, '-')}`;
   const docRef = doc(db, 'productionLogs', logId);
 
   return onSnapshot(docRef, snapshot => {
@@ -157,7 +155,6 @@ export const renameOperator = async (
   operatorData: Operator
 ) => {
   const batch = writeBatch(db);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const {cardNo, ...dataToSave} = operatorData;
   batch.set(doc(db, 'operators', newCardNo), dataToSave);
   batch.delete(doc(db, 'operators', oldCardNo));
@@ -167,7 +164,6 @@ export const renameOperator = async (
 export const updateMachines = async (machines: Machine[]) => {
   const batch = writeBatch(db);
   machines.forEach(machine => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const {id, ...data} = machine;
     if (id) batch.set(doc(db, 'machines', id), data, {merge: true});
   });
@@ -224,13 +220,36 @@ export const saveProductionRound = async (
     trolleyNo: entry.trolleyNo || null,
   }));
 
-  await setDoc(
-    docRef,
-    {
-      [round]: {entries: sanitizedEntries, status: 'synced'},
-    },
-    {merge: true}
-  );
+  try {
+    const docSnap = await getDoc(docRef);
+    const updatePayload = {
+      [`${round}.entries`]: sanitizedEntries,
+      [`${round}.status`]: 'synced',
+    };
+
+    if (docSnap.exists()) {
+      // Document exists, so update it.
+      await updateDoc(docRef, updatePayload);
+    } else {
+      // Document does not exist, so create it with the initial round data.
+      await setDoc(docRef, {
+        [round]: {
+          entries: sanitizedEntries,
+          status: 'synced',
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Error saving production round: ', error);
+    // If update fails (e.g., doc deleted between check and update), try setDoc as a fallback.
+    await setDoc(
+      docRef,
+      {
+        [round]: {entries: sanitizedEntries, status: 'synced'},
+      },
+      {merge: true}
+    );
+  }
 };
 
 export const clearShiftData = async (date: Date, shift: ShiftInfo) => {
@@ -253,18 +272,21 @@ export const saveDailyProductionLog = async (log: any) => {
 export const saveTreadOpeningStock = async (stock: TreadStock[]) => {
   const batch = writeBatch(db);
   const stockCollection = collection(db, 'treadOpeningStock');
+  const existingDocsSnapshot = await getDocs(stockCollection);
+  const skuToDocIdMap = new Map<string, string>();
+  existingDocsSnapshot.forEach(doc => {
+    const data = doc.data();
+    if (data.sku) {
+      skuToDocIdMap.set(data.sku, doc.id);
+    }
+  });
 
   for (const item of stock) {
-    // For each item, query if a doc with that SKU already exists.
-    const q = query(stockCollection, where('sku', '==', item.sku));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-      // Update existing document
-      const docRef = querySnapshot.docs[0].ref;
-      batch.set(docRef, item);
+    if (skuToDocIdMap.has(item.sku)) {
+      const docId = skuToDocIdMap.get(item.sku)!;
+      const docRef = doc(stockCollection, docId);
+      batch.set(docRef, item, {merge: true}); // Use merge to be safe
     } else {
-      // Create new document, letting Firestore generate the ID
       const docRef = doc(stockCollection);
       batch.set(docRef, item);
     }
@@ -289,5 +311,3 @@ export const clearAllProductionData = async () => {
 
   await batch.commit();
 };
-
-    
