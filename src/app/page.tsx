@@ -60,6 +60,7 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
     const startTimeInMinutes = startHour * 60 + startMinute;
     let endTimeInMinutes = endHour * 60 + endMinute;
 
+    // Handle overnight shifts
     if (endTimeInMinutes < startTimeInMinutes) {
       if (currentTime >= startTimeInMinutes || currentTime < endTimeInMinutes) {
         return shift;
@@ -70,6 +71,7 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
       }
     }
   }
+  // Default to first shift if no current shift is found (e.g., between shifts)
   return shifts[0];
 };
 
@@ -104,7 +106,7 @@ export default function DashboardPage() {
     setLoading(true);
     const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', (data) => {
         setAllShifts(data);
-        if (data.length > 0 && !selectedShift) {
+        if (data.length > 0) {
             const currentShift = getCurrentShift(data);
             setSelectedShift(currentShift);
         }
@@ -112,7 +114,6 @@ export default function DashboardPage() {
     const unsubMachines = DataService.subscribeToCollection<Machine>('machines', setAllMachines, initialMachines);
     const unsubOperators = DataService.subscribeToCollection<Operator>('operators', (data) => {
         setAllOperators(data);
-        setAvailableOperators(data.filter(op => !op.isAbsent));
     }, initialOperators);
     const unsubProductionPlan = DataService.subscribeToCollection<ProductionPlanItem>('productionPlan', setAllProductionPlan, initialProductionPlan);
     
@@ -125,6 +126,10 @@ export default function DashboardPage() {
         unsubProductionPlan();
     };
   }, []);
+
+  useEffect(() => {
+    setAvailableOperators(allOperators.filter(op => !op.isAbsent));
+  }, [allOperators]);
 
   const generateRoundTimes = useCallback((shift: ShiftInfo | undefined): string[] => {
     if (!shift) return [];
