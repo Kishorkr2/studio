@@ -1,9 +1,9 @@
-import type { Metadata } from 'next';
+import type {Metadata} from 'next';
 import './globals.css';
-import { Inter } from 'next/font/google';
-import { AppLayout } from '@/components/app-layout';
-import { ThemeProvider } from '@/components/theme-provider';
-import { Toaster } from '@/components/ui/toaster';
+import {Inter} from 'next/font/google';
+import {AppLayout} from '@/components/app-layout';
+import {ThemeProvider} from '@/components/theme-provider';
+import {Toaster} from '@/components/ui/toaster';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -22,7 +22,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-body antialiased`} suppressHydrationWarning>
+      <body
+        className={`${inter.variable} font-body antialiased`}
+        suppressHydrationWarning
+      >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AppLayout>{children}</AppLayout>
           <Toaster />

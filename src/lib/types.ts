@@ -1,4 +1,3 @@
-
 export interface Operator {
   cardNo: string;
   name: string;
@@ -32,9 +31,9 @@ export interface ShiftInfo {
 }
 
 export interface SkuPlan {
-    sku: string;
-    sapCode: string;
-    quantity: number;
+  sku: string;
+  sapCode: string;
+  quantity: number;
 }
 
 export interface ProductionPlanItem {

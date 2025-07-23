@@ -13,12 +13,19 @@ import {z} from 'genkit';
 
 const OperatorSkillSchema = z.object({
   operatorId: z.string().describe('Unique identifier for the operator.'),
-  skillRating: z.number().int().min(1).max(5).describe('Skill rating of the operator (1-5).'),
+  skillRating: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .describe('Skill rating of the operator (1-5).'),
 });
 
 const MachineAvailabilitySchema = z.object({
   machineId: z.string().describe('Unique identifier for the machine.'),
-  isAvailable: z.boolean().describe('Whether the machine is available for the shift.'),
+  isAvailable: z
+    .boolean()
+    .describe('Whether the machine is available for the shift.'),
 });
 
 const ShiftTimeSchema = z.object({
@@ -28,30 +35,53 @@ const ShiftTimeSchema = z.object({
 
 const OperatorAbsenteeismSchema = z.object({
   operatorId: z.string().describe('Unique identifier for the operator.'),
-  isAbsent: z.boolean().describe('Whether the operator is absent for the shift.'),
+  isAbsent: z
+    .boolean()
+    .describe('Whether the operator is absent for the shift.'),
 });
 
 const OptimizeOperatorAssignmentInputSchema = z.object({
-  operators: z.array(OperatorSkillSchema).describe('List of operators and their skill ratings.'),
-  machines: z.array(MachineAvailabilitySchema).describe('List of machines and their availability.'),
+  operators: z
+    .array(OperatorSkillSchema)
+    .describe('List of operators and their skill ratings.'),
+  machines: z
+    .array(MachineAvailabilitySchema)
+    .describe('List of machines and their availability.'),
   shiftTimes: ShiftTimeSchema.describe('Shift start and end times.'),
-  absenteeism: z.array(OperatorAbsenteeismSchema).describe('List of operators and their absenteeism status.'),
+  absenteeism: z
+    .array(OperatorAbsenteeismSchema)
+    .describe('List of operators and their absenteeism status.'),
 });
-export type OptimizeOperatorAssignmentInput = z.infer<typeof OptimizeOperatorAssignmentInputSchema>;
+export type OptimizeOperatorAssignmentInput = z.infer<
+  typeof OptimizeOperatorAssignmentInputSchema
+>;
 
 const AssignmentSchema = z.object({
   operatorId: z.string().describe('The ID of the assigned operator.'),
-  machineId: z.string().describe('The ID of the machine the operator is assigned to.'),
-  reason: z.string().optional().describe('Reasoning for the assignment, if available.'),
+  machineId: z
+    .string()
+    .describe('The ID of the machine the operator is assigned to.'),
+  reason: z
+    .string()
+    .optional()
+    .describe('Reasoning for the assignment, if available.'),
 });
 
 const OptimizeOperatorAssignmentOutputSchema = z.object({
-  assignments: z.array(AssignmentSchema).describe('Recommended assignments of operators to machines.'),
-  summary: z.string().describe('A summary of the assignment optimization process.'),
+  assignments: z
+    .array(AssignmentSchema)
+    .describe('Recommended assignments of operators to machines.'),
+  summary: z
+    .string()
+    .describe('A summary of the assignment optimization process.'),
 });
-export type OptimizeOperatorAssignmentOutput = z.infer<typeof OptimizeOperatorAssignmentOutputSchema>;
+export type OptimizeOperatorAssignmentOutput = z.infer<
+  typeof OptimizeOperatorAssignmentOutputSchema
+>;
 
-export async function optimizeOperatorAssignment(input: OptimizeOperatorAssignmentInput): Promise<OptimizeOperatorAssignmentOutput> {
+export async function optimizeOperatorAssignment(
+  input: OptimizeOperatorAssignmentInput
+): Promise<OptimizeOperatorAssignmentOutput> {
   return optimizeOperatorAssignmentFlow(input);
 }
 

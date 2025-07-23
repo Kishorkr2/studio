@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
+import {useState, useEffect} from 'react';
 
 export function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(true);
@@ -12,18 +12,18 @@ export function useOnlineStatus() {
     function handleOffline() {
       setIsOnline(false);
     }
-    
+
     // Check for window existence for SSR
-    if (typeof window !== "undefined" && "onLine" in navigator) {
+    if (typeof window !== 'undefined' && 'onLine' in navigator) {
       setIsOnline(navigator.onLine);
-      window.addEventListener("online", handleOnline);
-      window.addEventListener("offline", handleOffline);
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
     }
 
     return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("online", handleOnline);
-        window.removeEventListener("offline", handleOffline);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
       }
     };
   }, []);

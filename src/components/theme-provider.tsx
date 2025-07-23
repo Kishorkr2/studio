@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import * as React from "react";
+import * as React from 'react';
 
-type Theme = "dark" | "light" | "system";
+type Theme = 'dark' | 'light' | 'system';
 
 type ThemeProviderProps = {
   children: React.ReactNode;
@@ -18,17 +18,18 @@ type ThemeProviderState = {
 };
 
 const initialState: ThemeProviderState = {
-  theme: "system",
+  theme: 'system',
   setTheme: () => null,
 };
 
-const ThemeProviderContext = React.createContext<ThemeProviderState>(initialState);
+const ThemeProviderContext =
+  React.createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({
   children,
-  defaultTheme = "system",
-  storageKey = "ui-theme",
-  attribute = "class",
+  defaultTheme = 'system',
+  storageKey = 'ui-theme',
+  attribute = 'class',
   enableSystem = true,
 }: ThemeProviderProps) {
   // Initialize with the default theme to ensure server and client match on first render.
@@ -44,15 +45,17 @@ export function ThemeProvider({
 
   React.useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove("light", "dark");
+    root.classList.remove('light', 'dark');
 
     let systemTheme: Theme = 'light';
-    if(enableSystem) {
-        systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    if (enableSystem) {
+      systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light';
     }
 
-    const effectiveTheme = theme === "system" ? systemTheme : theme;
-    
+    const effectiveTheme = theme === 'system' ? systemTheme : theme;
+
     root.classList.add(effectiveTheme);
   }, [theme, enableSystem]);
 
@@ -75,7 +78,7 @@ export const useTheme = () => {
   const context = React.useContext(ThemeProviderContext);
 
   if (context === undefined)
-    throw new Error("useTheme must be used within a ThemeProvider");
+    throw new Error('useTheme must be used within a ThemeProvider');
 
   return context;
 };

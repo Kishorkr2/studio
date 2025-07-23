@@ -1,23 +1,49 @@
+'use client';
 
-"use client";
-
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
-import { Loader2, PlusCircle, Sparkles, Trash, User, Wrench } from 'lucide-react';
-import type { Operator, Machine, ShiftInfo } from '@/lib/types';
-import { initialOperators, initialMachines, shifts } from '@/lib/data';
-import { optimizeOperatorAssignment } from './actions';
-import type { OptimizeOperatorAssignmentOutput } from '@/ai/flows/optimize-operator-assignment';
-import { useToast } from '@/hooks/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {useState, useEffect} from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from '@/components/ui/card';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {Switch} from '@/components/ui/switch';
+import {Slider} from '@/components/ui/slider';
+import {
+  Loader2,
+  PlusCircle,
+  Sparkles,
+  Trash,
+  User,
+  Wrench,
+} from 'lucide-react';
+import type {Operator, Machine, ShiftInfo} from '@/lib/types';
+import {initialOperators, initialMachines, shifts} from '@/lib/data';
+import {optimizeOperatorAssignment} from './actions';
+import type {OptimizeOperatorAssignmentOutput} from '@/ai/flows/optimize-operator-assignment';
+import {useToast} from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import * as DataService from '@/lib/data-service';
-import { Skeleton } from '@/components/ui/skeleton';
+import {Skeleton} from '@/components/ui/skeleton';
 
 export default function OptimizePage() {
   const [loading, setLoading] = useState(true);
@@ -26,26 +52,40 @@ export default function OptimizePage() {
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
   const [shift, setShift] = useState<ShiftInfo | undefined>();
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<OptimizeOperatorAssignmentOutput | null>(null);
-  const { toast } = useToast();
+  const [result, setResult] = useState<OptimizeOperatorAssignmentOutput | null>(
+    null
+  );
+  const {toast} = useToast();
 
   useEffect(() => {
     setLoading(true);
-    const unsubOperators = DataService.subscribeToCollection<Operator>('operators', setOperators, initialOperators);
-    const unsubMachines = DataService.subscribeToCollection<Machine>('machines', setMachines, initialMachines);
-    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', (data) => {
+    const unsubOperators = DataService.subscribeToCollection<Operator>(
+      'operators',
+      setOperators,
+      initialOperators
+    );
+    const unsubMachines = DataService.subscribeToCollection<Machine>(
+      'machines',
+      setMachines,
+      initialMachines
+    );
+    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>(
+      'shifts',
+      data => {
         setAllShifts(data);
         if (data.length > 0 && !shift) {
-            setShift(data[0]);
+          setShift(data[0]);
         }
-    }, shifts);
-    
+      },
+      shifts
+    );
+
     setLoading(false);
 
     return () => {
-        unsubOperators();
-        unsubMachines();
-        unsubShifts();
+      unsubOperators();
+      unsubMachines();
+      unsubShifts();
     };
   }, [shift]);
 
@@ -62,10 +102,19 @@ export default function OptimizePage() {
     setResult(null);
     try {
       const input = {
-        operators: operators.map(op => ({ operatorId: op.cardNo, skillRating: op.skillRating })),
-        machines: machines.map(m => ({ machineId: m.id, isAvailable: m.isAvailable })),
-        shiftTimes: { startTime: shift.startTime, endTime: shift.endTime },
-        absenteeism: operators.map(op => ({ operatorId: op.cardNo, isAbsent: op.isAbsent })),
+        operators: operators.map(op => ({
+          operatorId: op.cardNo,
+          skillRating: op.skillRating,
+        })),
+        machines: machines.map(m => ({
+          machineId: m.id,
+          isAvailable: m.isAvailable,
+        })),
+        shiftTimes: {startTime: shift.startTime, endTime: shift.endTime},
+        absenteeism: operators.map(op => ({
+          operatorId: op.cardNo,
+          isAbsent: op.isAbsent,
+        })),
       };
       const response = await optimizeOperatorAssignment(input);
       setResult(response);
@@ -80,44 +129,62 @@ export default function OptimizePage() {
     setIsLoading(false);
   };
 
-  const handleOperatorChange = async (cardNo: string, field: keyof Operator, value: any) => {
-    const updatedOperators = operators.map(op => (op.cardNo === cardNo ? { ...op, [field]: value } : op));
+  const handleOperatorChange = async (
+    cardNo: string,
+    field: keyof Operator,
+    value: any
+  ) => {
+    const updatedOperators = operators.map(op =>
+      op.cardNo === cardNo ? {...op, [field]: value} : op
+    );
     setOperators(updatedOperators);
-    await DataService.updateOperator(cardNo, { [field]: value });
+    await DataService.updateOperator(cardNo, {[field]: value});
   };
 
-  const handleMachineChange = async (id: string, field: keyof Machine, value: any) => {
-    const updatedMachines = machines.map(m => (m.id === id ? { ...m, [field]: value } : m));
+  const handleMachineChange = async (
+    id: string,
+    field: keyof Machine,
+    value: any
+  ) => {
+    const updatedMachines = machines.map(m =>
+      m.id === id ? {...m, [field]: value} : m
+    );
     setMachines(updatedMachines);
     await DataService.updateMachines(updatedMachines);
   };
-  
+
   const handleShiftChange = (name: string) => {
-    const selectedShift = allShifts.find((s) => s.name === name);
+    const selectedShift = allShifts.find(s => s.name === name);
     if (selectedShift) {
       setShift(selectedShift);
     }
   };
 
   const addOperator = async () => {
-    await DataService.addOperator({cardNo: `OP-${Math.floor(Math.random() * 1000)}`, name: 'New Hire', builderNo: `B-${Math.floor(Math.random() * 100)}`, skillRating: 1, isAbsent: false});
-  }
-  
+    await DataService.addOperator({
+      cardNo: `OP-${Math.floor(Math.random() * 1000)}`,
+      name: 'New Hire',
+      builderNo: `B-${Math.floor(Math.random() * 100)}`,
+      skillRating: 1,
+      isAbsent: false,
+    });
+  };
+
   const removeOperator = async (cardNo: string) => {
     await DataService.deleteOperator(cardNo);
-  }
-  
+  };
+
   if (loading) {
     return (
-        <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-1 space-y-6">
-                <Skeleton className="h-48 w-full" />
-                <Skeleton className="h-72 w-full" />
-            </div>
-            <div className="lg:col-span-2">
-                <Skeleton className="min-h-full h-96 w-full" />
-            </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-1 space-y-6">
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-72 w-full" />
         </div>
+        <div className="lg:col-span-2">
+          <Skeleton className="min-h-full h-96 w-full" />
+        </div>
+      </div>
     );
   }
 
@@ -127,7 +194,9 @@ export default function OptimizePage() {
         <Card>
           <CardHeader>
             <CardTitle>Shift &amp; Machines</CardTitle>
-            <CardDescription>Configure shift times and machine availability.</CardDescription>
+            <CardDescription>
+              Configure shift times and machine availability.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -137,7 +206,7 @@ export default function OptimizePage() {
                   <SelectValue placeholder="Select shift" />
                 </SelectTrigger>
                 <SelectContent>
-                  {allShifts.map((s) => (
+                  {allShifts.map(s => (
                     <SelectItem key={s.name} value={s.name}>
                       {s.name} ({s.startTime} - {s.endTime})
                     </SelectItem>
@@ -146,63 +215,109 @@ export default function OptimizePage() {
               </Select>
             </div>
             <div className="space-y-2">
-                <Label>Machine Status</Label>
-                <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+              <Label>Machine Status</Label>
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                 {machines.map(m => (
-                    <div key={m.id} className="flex items-center justify-between p-2 rounded-md border">
-                        <span className="text-sm font-medium">{m.name}</span>
-                        <Switch checked={m.isAvailable} onCheckedChange={(checked) => handleMachineChange(m.id, 'isAvailable', checked)} />
-                    </div>
+                  <div
+                    key={m.id}
+                    className="flex items-center justify-between p-2 rounded-md border"
+                  >
+                    <span className="text-sm font-medium">{m.name}</span>
+                    <Switch
+                      checked={m.isAvailable}
+                      onCheckedChange={checked =>
+                        handleMachineChange(m.id, 'isAvailable', checked)
+                      }
+                    />
+                  </div>
                 ))}
-                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
-        
-        <Card>
-            <CardHeader>
-                <CardTitle>Operators</CardTitle>
-                <CardDescription>Manage operator skills and attendance.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2 max-h-96 overflow-y-auto pr-2">
-                {operators.map(op => (
-                    <div key={op.cardNo} className="p-3 rounded-md border space-y-3">
-                        <div className="flex items-center justify-between">
-                            <Input value={op.name} onChange={e => handleOperatorChange(op.cardNo, 'name', e.target.value)} className="text-sm font-semibold border-none p-0 h-auto focus-visible:ring-0"/>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeOperator(op.cardNo)}><Trash className="h-4 w-4"/></Button>
-                        </div>
-                        <div>
-                            <Label>Builder No:</Label>
-                            <Input value={op.builderNo} onChange={e => handleOperatorChange(op.cardNo, 'builderNo', e.target.value)} className="text-sm border-none p-0 h-auto focus-visible:ring-0"/>
-                        </div>
-                        <div>
-                            <Label>Skill: {op.skillRating}</Label>
-                            <Slider value={[op.skillRating]} onValueChange={([val]) => handleOperatorChange(op.cardNo, 'skillRating', val)} min={1} max={5} step={1} />
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <Label>Absent</Label>
-                            <Switch checked={op.isAbsent} onCheckedChange={(checked) => handleOperatorChange(op.cardNo, 'isAbsent', checked)} />
-                        </div>
-                    </div>
-                ))}
-            </CardContent>
-            <CardFooter>
-                <Button variant="outline" onClick={addOperator}><PlusCircle className="w-4 h-4 mr-2"/>Add Operator</Button>
-            </CardFooter>
-        </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle>Operators</CardTitle>
+            <CardDescription>Manage operator skills and attendance.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-96 overflow-y-auto pr-2">
+            {operators.map(op => (
+              <div key={op.cardNo} className="p-3 rounded-md border space-y-3">
+                <div className="flex items-center justify-between">
+                  <Input
+                    value={op.name}
+                    onChange={e =>
+                      handleOperatorChange(op.cardNo, 'name', e.target.value)
+                    }
+                    className="text-sm font-semibold border-none p-0 h-auto focus-visible:ring-0"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => removeOperator(op.cardNo)}
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div>
+                  <Label>Builder No:</Label>
+                  <Input
+                    value={op.builderNo}
+                    onChange={e =>
+                      handleOperatorChange(op.cardNo, 'builderNo', e.target.value)
+                    }
+                    className="text-sm border-none p-0 h-auto focus-visible:ring-0"
+                  />
+                </div>
+                <div>
+                  <Label>Skill: {op.skillRating}</Label>
+                  <Slider
+                    value={[op.skillRating]}
+                    onValueChange={([val]) =>
+                      handleOperatorChange(op.cardNo, 'skillRating', val)
+                    }
+                    min={1}
+                    max={5}
+                    step={1}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>Absent</Label>
+                  <Switch
+                    checked={op.isAbsent}
+                    onCheckedChange={checked =>
+                      handleOperatorChange(op.cardNo, 'isAbsent', checked)
+                    }
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+          <CardFooter>
+            <Button variant="outline" onClick={addOperator}>
+              <PlusCircle className="w-4 h-4 mr-2" />
+              Add Operator
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
       <div className="lg:col-span-2">
         <Card className="min-h-full flex flex-col">
           <CardHeader>
             <CardTitle>AI-Powered Assignment</CardTitle>
-            <CardDescription>Generate optimal operator assignments based on current data.</CardDescription>
+            <CardDescription>
+              Generate optimal operator assignments based on current data.
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col items-center justify-center">
             {!result && !isLoading && (
               <div className="text-center text-muted-foreground">
                 <Sparkles className="mx-auto h-12 w-12" />
-                <p className="mt-4">Click "Optimize Assignments" to get started.</p>
+                <p className="mt-4">
+                  Click "Optimize Assignments" to get started.
+                </p>
               </div>
             )}
             {isLoading && (
@@ -218,30 +333,53 @@ export default function OptimizePage() {
                   <p className="text-sm text-muted-foreground">{result.summary}</p>
                 </div>
                 <div className="border rounded-lg">
-                    <Table>
-                        <TableHeader>
-                        <TableRow>
-                            <TableHead>Operator</TableHead>
-                            <TableHead>Assigned Machine</TableHead>
-                            <TableHead>Reasoning</TableHead>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Operator</TableHead>
+                        <TableHead>Assigned Machine</TableHead>
+                        <TableHead>Reasoning</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {result.assignments.map((a, i) => (
+                        <TableRow key={i}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              <span>
+                                {operators.find(op => op.cardNo === a.operatorId)
+                                  ?.name || a.operatorId}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Wrench className="h-4 w-4 text-muted-foreground" />
+                              <span>
+                                {machines.find(m => m.id === a.machineId)?.name ||
+                                  a.machineId}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {a.reason}
+                          </TableCell>
                         </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                        {result.assignments.map((a, i) => (
-                            <TableRow key={i}>
-                            <TableCell><div className="flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground"/><span>{operators.find(op => op.cardNo === a.operatorId)?.name || a.operatorId}</span></div></TableCell>
-                            <TableCell><div className="flex items-center gap-2"><Wrench className="h-4 w-4 text-muted-foreground"/><span>{machines.find(m => m.id === a.machineId)?.name || a.machineId}</span></div></TableCell>
-                            <TableCell className="text-sm text-muted-foreground">{a.reason}</TableCell>
-                            </TableRow>
-                        ))}
-                        </TableBody>
-                    </Table>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
             )}
           </CardContent>
           <CardFooter>
-            <Button size="lg" onClick={handleOptimize} disabled={isLoading} className="w-full">
+            <Button
+              size="lg"
+              onClick={handleOptimize}
+              disabled={isLoading}
+              className="w-full"
+            >
               {isLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (

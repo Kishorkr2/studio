@@ -1,22 +1,40 @@
+'use client';
 
-"use client";
-
-import { useState, useEffect, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useToast } from '@/hooks/use-toast';
-import type { ProductionPlanItem, ShiftInfo, SkuPlan } from '@/lib/types';
-import { CalendarIcon, Save } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { shifts as initialShifts } from '@/lib/data';
+import {useState, useEffect, useMemo} from 'react';
+import {Button} from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {Input} from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {useToast} from '@/hooks/use-toast';
+import type {ProductionPlanItem, ShiftInfo, SkuPlan} from '@/lib/types';
+import {CalendarIcon, Save} from 'lucide-react';
+import {cn} from '@/lib/utils';
+import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
+import {Calendar} from '@/components/ui/calendar';
+import {format} from 'date-fns';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {shifts as initialShifts} from '@/lib/data';
 import * as DataService from '@/lib/data-service';
-import { Skeleton } from '@/components/ui/skeleton';
+import {Skeleton} from '@/components/ui/skeleton';
 
 interface DailyProductionEntry {
   quantity: number;
@@ -24,58 +42,74 @@ interface DailyProductionEntry {
 }
 
 export default function DailyTreadProductionPage() {
-  const { toast } = useToast();
-  
+  const {toast} = useToast();
+
   const [loading, setLoading] = useState(true);
-  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>([]);
-  const [dailyProductionLog, setDailyProductionLog] = useState<Record<string, Record<string, Record<string, DailyProductionEntry>>>>({});
+  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>(
+    []
+  );
+  const [dailyProductionLog, setDailyProductionLog] = useState<
+    Record<string, Record<string, Record<string, DailyProductionEntry>>>
+  >({});
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [dailyProductionEntries, setDailyProductionEntries] = useState<Record<string, DailyProductionEntry>>({});
-  
+  const [dailyProductionEntries, setDailyProductionEntries] = useState<
+    Record<string, DailyProductionEntry>
+  >({});
+
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
 
   const [sapCodeFilter, setSapCodeFilter] = useState('');
   const [skuFilter, setSkuFilter] = useState('');
-  
-  const allSkusFromPlan = useMemo((): SkuPlan[] => {
-      const skuMap = new Map<string, SkuPlan>();
-      productionPlan.forEach(item => {
-          item.skus.forEach(skuPlan => {
-              if (!skuMap.has(skuPlan.sku)) {
-                  skuMap.set(skuPlan.sku, skuPlan);
-              }
-          });
-      });
-      return Array.from(skuMap.values());
-  }, [productionPlan]);
 
+  const allSkusFromPlan = useMemo((): SkuPlan[] => {
+    const skuMap = new Map<string, SkuPlan>();
+    productionPlan.forEach(item => {
+      item.skus.forEach(skuPlan => {
+        if (!skuMap.has(skuPlan.sku)) {
+          skuMap.set(skuPlan.sku, skuPlan);
+        }
+      });
+    });
+    return Array.from(skuMap.values());
+  }, [productionPlan]);
 
   useEffect(() => {
     setLoading(true);
-    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>('shifts', (data) => {
+    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>(
+      'shifts',
+      data => {
         setAllShifts(data);
         if (data.length > 0 && !selectedShift) {
-            setSelectedShift(data[0]);
+          setSelectedShift(data[0]);
         }
-    }, initialShifts);
+      },
+      initialShifts
+    );
 
-    const unsubPlan = DataService.subscribeToCollection<ProductionPlanItem>('productionPlan', setProductionPlan);
-    
-    const unsubLog = DataService.subscribeToCollection<any>('dailyTreadProduction', (docs) => {
+    const unsubPlan =
+      DataService.subscribeToCollection<ProductionPlanItem>(
+        'productionPlan',
+        setProductionPlan
+      );
+
+    const unsubLog = DataService.subscribeToCollection<any>(
+      'dailyTreadProduction',
+      docs => {
         const log: any = {};
         docs.forEach(doc => {
-            log[doc.id] = doc;
+          log[doc.id] = doc;
         });
         setDailyProductionLog(log);
         setLoading(false);
-    });
+      }
+    );
 
     return () => {
-        unsubShifts();
-        unsubPlan();
-        unsubLog();
-    }
+      unsubShifts();
+      unsubPlan();
+      unsubLog();
+    };
   }, []);
 
   useEffect(() => {
@@ -85,26 +119,31 @@ export default function DailyTreadProductionPage() {
     setDailyProductionEntries(dailyProductionLog[dateKey]?.[shiftName] || {});
   }, [selectedDate, selectedShift, dailyProductionLog]);
 
-  const handleDailyProductionChange = (sku: string, field: 'quantity' | 'trolleyNo', value: string) => {
+  const handleDailyProductionChange = (
+    sku: string,
+    field: 'quantity' | 'trolleyNo',
+    value: string
+  ) => {
     setDailyProductionEntries(currentEntries => {
-        const entry = currentEntries[sku] || { quantity: 0, trolleyNo: '' };
-        const newEntry = {
-            ...entry,
-            [field]: field === 'quantity' ? parseInt(value, 10) || 0 : value,
-        };
-        return {
-            ...currentEntries,
-            [sku]: newEntry
-        };
+      const entry = currentEntries[sku] || {quantity: 0, trolleyNo: ''};
+      const newEntry = {
+        ...entry,
+        [field]: field === 'quantity' ? parseInt(value, 10) || 0 : value,
+      };
+      return {
+        ...currentEntries,
+        [sku]: newEntry,
+      };
     });
   };
-  
+
   const handleSaveDailyProduction = async () => {
     if (!selectedDate || !selectedShift) {
       toast({
         variant: 'destructive',
         title: 'Please wait',
-        description: 'The date or shift is still loading. Please try again in a moment.',
+        description:
+          'The date or shift is still loading. Please try again in a moment.',
       });
       return;
     }
@@ -115,92 +154,124 @@ export default function DailyTreadProductionPage() {
       ...(dailyProductionLog[dateKey] || {}),
       [shiftName]: dailyProductionEntries,
     };
-    
-    const newLog = { ...dailyProductionLog, [dateKey]: updatedLogForDate };
+
+    const newLog = {...dailyProductionLog, [dateKey]: updatedLogForDate};
 
     await DataService.saveDailyProductionLog(newLog);
     // No need to set state here, the listener will do it.
     toast({
       title: 'Success!',
-      description: `Tread production for ${selectedShift.name} on ${format(selectedDate, "PPP")} has been saved.`,
+      description: `Tread production for ${
+        selectedShift.name
+      } on ${format(selectedDate, 'PPP')} has been saved.`,
       action: <Save className="text-green-500" />,
     });
   };
 
   const filteredSkus = useMemo(() => {
-    return allSkusFromPlan.filter(req =>
-      (req.sapCode?.toLowerCase() || '').includes(sapCodeFilter.toLowerCase()) &&
-      (req.sku?.toLowerCase() || '').includes(skuFilter.toLowerCase())
+    return allSkusFromPlan.filter(
+      req =>
+        (req.sapCode?.toLowerCase() || '').includes(sapCodeFilter.toLowerCase()) &&
+        (req.sku?.toLowerCase() || '').includes(skuFilter.toLowerCase())
     );
   }, [allSkusFromPlan, sapCodeFilter, skuFilter]);
-  
+
   if (loading) {
-      return (
-        <div className="space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight">Daily Tread Production</h1>
-            <Card>
-                <CardHeader>
-                    <Skeleton className="h-8 w-1/3" />
-                    <Skeleton className="h-4 w-1/2" />
-                </CardHeader>
-                <CardContent>
-                    <Skeleton className="h-48 w-full" />
-                </CardContent>
-            </Card>
-        </div>
-      );
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">
+          Daily Tread Production
+        </h1>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-8 w-1/3" />
+            <Skeleton className="h-4 w-1/2" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-48 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Daily Tread Production</h1>
-      
+      <h1 className="text-3xl font-bold tracking-tight">
+        Daily Tread Production
+      </h1>
+
       <Card>
         <CardHeader>
           <CardTitle>Log Tread Production</CardTitle>
-          <CardDescription>Enter the quantity of tread produced and the trolley number for each SKU.</CardDescription>
+          <CardDescription>
+            Enter the quantity of tread produced and the trolley number for each SKU.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn("w-full sm:w-[240px] justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} initialFocus />
-                  </PopoverContent>
-                </Popover>
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={'outline'}
+                    className={cn(
+                      'w-full sm:w-[240px] justify-start text-left font-normal',
+                      !selectedDate && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? (
+                      format(selectedDate, 'PPP')
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={date => date && setSelectedDate(date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
 
-                <Select value={selectedShift?.name} onValueChange={(name) => setSelectedShift(allShifts.find(s => s.name === name))}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                        <SelectValue placeholder="Select shift" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {allShifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
+              <Select
+                value={selectedShift?.name}
+                onValueChange={name =>
+                  setSelectedShift(allShifts.find(s => s.name === name))
+                }
+              >
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Select shift" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allShifts.map(s => (
+                    <SelectItem key={s.name} value={s.name}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Button onClick={handleSaveDailyProduction}><Save className="mr-2 h-4 w-4" /> Save Daily Production</Button>
+            <Button onClick={handleSaveDailyProduction}>
+              <Save className="mr-2 h-4 w-4" /> Save Daily Production
+            </Button>
           </div>
 
           <div className="flex gap-4 my-4">
             <Input
               placeholder="Filter by SAP Code..."
               value={sapCodeFilter}
-              onChange={(e) => setSapCodeFilter(e.target.value)}
+              onChange={e => setSapCodeFilter(e.target.value)}
               className="max-w-sm"
             />
             <Input
               placeholder="Filter by SKU..."
               value={skuFilter}
-              onChange={(e) => setSkuFilter(e.target.value)}
+              onChange={e => setSkuFilter(e.target.value)}
               className="max-w-sm"
             />
           </div>
@@ -215,31 +286,49 @@ export default function DailyTreadProductionPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSkus.length > 0 ? filteredSkus.map((req, index) => (
-                  <TableRow key={`${req.sku}-${index}`}>
-                    <TableCell className="font-medium">{req.sku}</TableCell>
-                    <TableCell>
-                      <Input
-                        className="w-32"
-                        placeholder="e.g., T-123"
-                        value={dailyProductionEntries[req.sku]?.trolleyNo || ''}
-                        onChange={(e) => handleDailyProductionChange(req.sku, 'trolleyNo', e.target.value)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        className="w-32 ml-auto text-right"
-                        placeholder="0"
-                        value={dailyProductionEntries[req.sku]?.quantity || ''}
-                        onChange={(e) => handleDailyProductionChange(req.sku, 'quantity', e.target.value)}
-                      />
-                    </TableCell>
-                  </TableRow>
-                )) : (
+                {filteredSkus.length > 0 ? (
+                  filteredSkus.map((req, index) => (
+                    <TableRow key={`${req.sku}-${index}`}>
+                      <TableCell className="font-medium">{req.sku}</TableCell>
+                      <TableCell>
+                        <Input
+                          className="w-32"
+                          placeholder="e.g., T-123"
+                          value={dailyProductionEntries[req.sku]?.trolleyNo || ''}
+                          onChange={e =>
+                            handleDailyProductionChange(
+                              req.sku,
+                              'trolleyNo',
+                              e.target.value
+                            )
+                          }
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          className="w-32 ml-auto text-right"
+                          placeholder="0"
+                          value={dailyProductionEntries[req.sku]?.quantity || ''}
+                          onChange={e =>
+                            handleDailyProductionChange(
+                              req.sku,
+                              'quantity',
+                              e.target.value
+                            )
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                      No SKUs available. Please create a production plan in the Admin panel.
+                    <TableCell
+                      colSpan={3}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      No SKUs available. Please create a production plan in the Admin
+                      panel.
                     </TableCell>
                   </TableRow>
                 )}
@@ -249,5 +338,5 @@ export default function DailyTreadProductionPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

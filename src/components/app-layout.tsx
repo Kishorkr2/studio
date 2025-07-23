@@ -1,15 +1,10 @@
-
-"use client";
+'use client';
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
-import { Button } from '@/components/ui/button';
+import {usePathname} from 'next/navigation';
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
+import {Button} from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +12,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 import {
   SidebarProvider,
   Sidebar,
@@ -31,41 +26,47 @@ import {
   SidebarInset,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { ThemeToggle } from '@/components/theme-toggle';
-import { cn } from '@/lib/utils';
-import { BotMessageSquare, Cog, LayoutDashboard, LineChart, Truck, Wifi, WifiOff, ClipboardList, ListPlus } from 'lucide-react';
-import { useOnlineStatus } from '@/hooks/use-online-status';
+import {ThemeToggle} from '@/components/theme-toggle';
+import {cn} from '@/lib/utils';
+import {
+  BotMessageSquare,
+  Cog,
+  LayoutDashboard,
+  LineChart,
+  Truck,
+  Wifi,
+  WifiOff,
+  ClipboardList,
+  ListPlus,
+} from 'lucide-react';
+import {useOnlineStatus} from '@/hooks/use-online-status';
 
 const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/tread-extrusion', label: 'Tread Extrusion', icon: ClipboardList },
-  { href: '/daily-tread-production', label: 'Daily Production', icon: ListPlus },
-  { href: '/optimize', label: 'AI Optimizer', icon: BotMessageSquare },
-  { href: '/reports', label: 'Reports', icon: LineChart },
-  { href: '/admin', label: 'Admin', icon: Cog },
+  {href: '/', label: 'Dashboard', icon: LayoutDashboard},
+  {href: '/tread-extrusion', label: 'Tread Extrusion', icon: ClipboardList},
+  {href: '/daily-tread-production', label: 'Daily Production', icon: ListPlus},
+  {href: '/optimize', label: 'AI Optimizer', icon: BotMessageSquare},
+  {href: '/reports', label: 'Reports', icon: LineChart},
+  {href: '/admin', label: 'Admin', icon: Cog},
 ];
 
 function NavLinks() {
   const pathname = usePathname();
-  const { isExpanded } = useSidebar();
+  const {isExpanded} = useSidebar();
 
   return (
-     <SidebarMenu>
-        {navItems.map((item) => (
-          <SidebarMenuItem key={item.href}>
-            <SidebarMenuButton
-              isActive={pathname === item.href}
-              tooltip={item.label}
-              asChild
-            >
-              <Link href={item.href}>
-                <item.icon />
-                {isExpanded && <span>{item.label}</span>}
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
-      </SidebarMenu>
+    <SidebarMenu>
+      {navItems.map(item => (
+        <SidebarMenuItem key={item.href}>
+          <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label} asChild>
+            <Link href={item.href}>
+              <item.icon />
+              {isExpanded && <span>{item.label}</span>}
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
   );
 }
 
@@ -89,7 +90,7 @@ function OnlineStatusIndicator() {
   );
 }
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export function AppLayout({children}: {children: React.ReactNode}) {
   const pathname = usePathname();
 
   return (
@@ -102,7 +103,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          <NavLinks/>
+          <NavLinks />
         </SidebarContent>
         <SidebarFooter>
           <div className="flex items-center justify-between p-2">
@@ -116,7 +117,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-4">
               <SidebarTrigger className="md:hidden" />
               <h1 className="text-xl font-semibold">
-                {navItems.find(item => item.href === pathname)?.label || 'Dashboard'}
+                {navItems.find(item => item.href === pathname)?.label ||
+                  'Dashboard'}
               </h1>
             </div>
             <div className="flex items-center gap-4">
@@ -125,9 +127,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <UserMenu />
             </div>
           </header>
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">
-            {children}
-          </main>
+          <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
         </div>
       </SidebarInset>
     </SidebarProvider>
@@ -140,7 +140,11 @@ function UserMenu() {
       <DropdownMenuTrigger asChild>
         <Button variant="secondary" size="icon" className="rounded-full">
           <Avatar>
-            <AvatarImage src="https://placehold.co/40x40" alt="User" data-ai-hint="user avatar" />
+            <AvatarImage
+              src="https://placehold.co/40x40"
+              alt="User"
+              data-ai-hint="user avatar"
+            />
             <AvatarFallback>AD</AvatarFallback>
           </Avatar>
           <span className="sr-only">Toggle user menu</span>
@@ -157,5 +161,3 @@ function UserMenu() {
     </DropdownMenu>
   );
 }
-
-    
