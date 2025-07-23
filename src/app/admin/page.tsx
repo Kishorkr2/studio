@@ -1,3 +1,4 @@
+
 'use client';
 
 import {useState, useEffect, useCallback} from 'react';
@@ -293,16 +294,35 @@ export default function AdminPage() {
     );
   };
 
-  const handleMachineAvailabilityChange = (id: string, isAvailable: boolean) => {
-    setMachines(currentMachines =>
-      currentMachines.map(m => (m.id === id ? {...m, isAvailable} : m))
-    );
+  const handleSaveMachineName = async (id: string) => {
+    const machineToSave = machines.find(m => m.id === id);
+    if (machineToSave) {
+      await DataService.updateMachines([machineToSave]);
+      toast({
+        title: 'TBM Name Updated',
+        description: `Successfully saved name for ${machineToSave.name}.`,
+      });
+    }
   };
 
-  const handleSaveMachines = async () => {
+  const handleMachineAvailabilityChange = async (
+    id: string,
+    isAvailable: boolean
+  ) => {
+    const machineToUpdate = machines.find(m => m.id === id);
+    if (machineToUpdate) {
+      const updatedMachine = {...machineToUpdate, isAvailable};
+      await DataService.updateMachines([updatedMachine]);
+      setMachines(currentMachines =>
+        currentMachines.map(m => (m.id === id ? updatedMachine : m))
+      );
+    }
+  };
+
+  const handleSaveAllMachineChanges = async () => {
     await DataService.updateMachines(machines);
     toast({
-      title: 'TBMs Updated',
+      title: 'All TBM Changes Saved',
       description: 'All TBM numbers and statuses have been saved successfully.',
     });
   };
@@ -310,10 +330,16 @@ export default function AdminPage() {
   const handleAddMachine = async () => {
     const newIdNumber =
       machines.length > 0
-        ? Math.max(...machines.map(m => parseInt(m.id.replace('TBM-', '')) || 0)) + 1
+        ? Math.max(
+            ...machines.map(m => parseInt(m.id.replace('TBM-', '')) || 0)
+          ) + 1
         : 1;
     const newId = `TBM-${String(newIdNumber).padStart(2, '0')}`;
-    const newMachine = {id: newId, name: `TBM ${newIdNumber}`, isAvailable: true};
+    const newMachine = {
+      id: newId,
+      name: `TBM ${newIdNumber}`,
+      isAvailable: true,
+    };
     const newMachines = [...machines, newMachine];
     await DataService.updateMachines(newMachines);
   };
@@ -358,7 +384,9 @@ export default function AdminPage() {
               h.trim().toLowerCase()
             );
             const requiredHeaders = ['tbm no', 'sap code', 'sku', 'quantity'];
-            const hasAllHeaders = requiredHeaders.every(rh => header.includes(rh));
+            const hasAllHeaders = requiredHeaders.every(rh =>
+              header.includes(rh)
+            );
 
             if (!hasAllHeaders) {
               throw new Error(
@@ -383,7 +411,9 @@ export default function AdminPage() {
               );
 
               const tbmNoRaw = String(cleanedRow['tbm no'] || '').trim();
-              const normalizedTbmNo = tbmNoRaw.toLowerCase().replace(/[\s-]+/g, '');
+              const normalizedTbmNo = tbmNoRaw
+                .toLowerCase()
+                .replace(/[\s-]+/g, '');
               const machineId = machineNameToIdMap.get(normalizedTbmNo);
 
               if (machineId) {
@@ -517,7 +547,11 @@ export default function AdminPage() {
                         <Input
                           value={op.cardNo || ''}
                           onBlur={e =>
-                            handleOperatorChange(op.cardNo, 'cardNo', e.target.value)
+                            handleOperatorChange(
+                              op.cardNo,
+                              'cardNo',
+                              e.target.value
+                            )
                           }
                           onChange={e =>
                             setOperators(ops =>
@@ -535,12 +569,18 @@ export default function AdminPage() {
                         <Input
                           value={op.name || ''}
                           onBlur={e =>
-                            handleOperatorChange(op.cardNo, 'name', e.target.value)
+                            handleOperatorChange(
+                              op.cardNo,
+                              'name',
+                              e.target.value
+                            )
                           }
                           onChange={e =>
                             setOperators(ops =>
                               ops.map(o =>
-                                o.cardNo === op.cardNo ? {...o, name: e.target.value} : o
+                                o.cardNo === op.cardNo
+                                  ? {...o, name: e.target.value}
+                                  : o
                               )
                             )
                           }
@@ -847,7 +887,9 @@ export default function AdminPage() {
           <Card>
             <CardHeader>
               <CardTitle>TBM Management</CardTitle>
-              <CardDescription>View and edit your TBM inventory.</CardDescription>
+              <CardDescription>
+                View and edit your TBM inventory.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -862,13 +904,25 @@ export default function AdminPage() {
                   {machines.map(machine => (
                     <TableRow key={machine.id}>
                       <TableCell>
-                        <Input
-                          value={machine.name}
-                          onChange={e =>
-                            handleMachineNameChange(machine.id, e.target.value)
-                          }
-                          className="max-w-xs"
-                        />
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={machine.name}
+                            onChange={e =>
+                              handleMachineNameChange(
+                                machine.id,
+                                e.target.value
+                              )
+                            }
+                            className="max-w-xs"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleSaveMachineName(machine.id)}
+                          >
+                            <Save className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Switch
@@ -897,7 +951,9 @@ export default function AdminPage() {
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add TBM
               </Button>
-              <Button onClick={handleSaveMachines}>Save Changes</Button>
+              <Button onClick={handleSaveAllMachineChanges}>
+                Save All Changes
+              </Button>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -929,15 +985,20 @@ export default function AdminPage() {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogTitle>
+                        Are you absolutely sure?
+                      </AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete all
-                        production log data from the cloud. Please type{' '}
-                        <strong>admin123</strong> to confirm.
+                        This action cannot be undone. This will permanently
+                        delete all production log data from the cloud. Please
+                        type <strong>admin123</strong> to confirm.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="space-y-2 py-2">
-                      <Label htmlFor="clear-data-password" className="sr-only">
+                      <Label
+                        htmlFor="clear-data-password"
+                        className="sr-only"
+                      >
                         Password
                       </Label>
                       <Input
@@ -969,9 +1030,9 @@ export default function AdminPage() {
                   </h4>
                   <p className="text-sm text-yellow-700/80 dark:text-yellow-300/80 mt-1">
                     If the application is behaving unexpectedly or not loading
-                    data, clearing the local cache can often resolve the issue. This
-                    action is safe and will not delete any data stored in the
-                    cloud.
+                    data, clearing the local cache can often resolve the issue.
+                    This action is safe and will not delete any data stored in
+                    the cloud.
                   </p>
                 </div>
                 <Button variant="outline" onClick={handleClearCache}>
@@ -985,3 +1046,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    

@@ -1,3 +1,4 @@
+
 import {db} from './firebase';
 import {
   collection,
@@ -71,12 +72,25 @@ export const subscribeToCollection = <T>(
     async querySnapshot => {
       if (querySnapshot.empty && initialData?.length) {
         console.log(`Seeding initial data for ${collectionName}`);
-        await seedCollection(collectionName, initialData, idField as keyof any);
+        await seedCollection(
+          collectionName,
+          initialData,
+          idField as keyof any
+        );
         // Snapshot listener will re-trigger with new data, so we don't need to call setData here.
       } else {
-        const data = querySnapshot.docs.map(
-          d => ({[idField]: d.id, ...d.data()}) as T
-        );
+        const data = querySnapshot.docs.map(d => {
+          // For shifts, the ID is derived from the name, but the name is also in the data.
+          // For operators, the ID is the cardNo.
+          // For others, the ID is the field 'id'.
+          if (collectionName === 'shifts') {
+            return d.data() as T;
+          }
+          if (collectionName === 'operators') {
+            return {cardNo: d.id, ...d.data()} as T;
+          }
+          return {id: d.id, ...d.data()} as T;
+        });
         setData(data);
       }
     },
@@ -126,12 +140,14 @@ export const subscribeToProductionLog = (
 
 export const updateOperator = async (cardNo: string, data: Partial<Operator>) =>
   await setDoc(doc(db, 'operators', cardNo), data, {merge: true});
+
 export const addOperator = async (
   data: Omit<Operator, 'id' | 'cardNo'> & {cardNo: string}
 ) => {
   const {cardNo, ...operatorData} = data;
   await setDoc(doc(db, 'operators', cardNo), operatorData);
 };
+
 export const deleteOperator = async (cardNo: string) =>
   await deleteDoc(doc(db, 'operators', cardNo));
 
@@ -153,12 +169,14 @@ export const updateMachines = async (machines: Machine[]) => {
   machines.forEach(machine => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const {id, ...data} = machine;
-    if (id) batch.set(doc(db, 'machines', id), data);
+    if (id) batch.set(doc(db, 'machines', id), data, {merge: true});
   });
   await batch.commit();
 };
+
 export const addMachine = async (data: Omit<Machine, 'id'>) =>
   await addDoc(collection(db, 'machines'), data);
+
 export const deleteMachine = async (id: string) =>
   await deleteDoc(doc(db, 'machines', id));
 
@@ -259,11 +277,17 @@ export const clearAllProductionData = async () => {
   const logsSnapshot = await getDocs(collection(db, 'productionLogs'));
   logsSnapshot.forEach(doc => batch.delete(doc.ref));
 
-  const dailyLogsSnapshot = await getDocs(collection(db, 'dailyTreadProduction'));
+  const dailyLogsSnapshot = await getDocs(
+    collection(db, 'dailyTreadProduction')
+  );
   dailyLogsSnapshot.forEach(doc => batch.delete(doc.ref));
 
-  const openingStockSnapshot = await getDocs(collection(db, 'treadOpeningStock'));
+  const openingStockSnapshot = await getDocs(
+    collection(db, 'treadOpeningStock')
+  );
   openingStockSnapshot.forEach(doc => batch.delete(doc.ref));
 
   await batch.commit();
 };
+
+    
