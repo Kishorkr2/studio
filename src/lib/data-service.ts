@@ -63,10 +63,7 @@ export const subscribeToCollection = <T>(
   const unsub = onSnapshot(
     q,
     async querySnapshot => {
-      // If the collection is empty AND we have initial data, seed it.
-      // This is safer than checking querySnapshot.metadata.hasPendingWrites.
       if (querySnapshot.empty && initialData?.length) {
-        console.log(`Seeding initial data for ${collectionName}`);
         const idField =
           collectionName === 'operators'
             ? 'cardNo'
@@ -78,16 +75,13 @@ export const subscribeToCollection = <T>(
           initialData as any[],
           idField as any
         );
-        // The listener will be re-triggered by seedCollection, so we don't need to call setData here.
         return;
       }
 
       const data = querySnapshot.docs.map(d => {
-        // For shifts, the ID is derived from the name, but the name is also in the data.
         if (collectionName === 'shifts') {
           return d.data() as T;
         }
-        // For operators, the ID is the cardNo.
         if (collectionName === 'operators') {
           return {cardNo: d.id, ...d.data()} as T;
         }
@@ -124,7 +118,10 @@ export const subscribeToProductionLog = (
   shift: ShiftInfo,
   setLog: (log: ProductionLog) => void
 ): Unsubscribe => {
-  const logId = `production-log-${format(date, 'yyyy-MM-dd')}-${shift.name.replace(/\s+/g, '-')}`;
+  const logId = `production-log-${format(
+    date,
+    'yyyy-MM-dd'
+  )}-${shift.name.replace(/\s+/g, '-')}`;
   const docRef = doc(db, 'productionLogs', logId);
 
   return onSnapshot(docRef, snapshot => {
@@ -220,35 +217,17 @@ export const saveProductionRound = async (
     trolleyNo: entry.trolleyNo || null,
   }));
 
-  try {
-    const docSnap = await getDoc(docRef);
-    const updatePayload = {
-      [`${round}.entries`]: sanitizedEntries,
-      [`${round}.status`]: 'synced',
-    };
+  const updatePayload = {
+    [`${round}`]: {
+      entries: sanitizedEntries,
+      status: 'synced',
+    },
+  };
 
-    if (docSnap.exists()) {
-      // Document exists, so update it.
-      await updateDoc(docRef, updatePayload);
-    } else {
-      // Document does not exist, so create it with the initial round data.
-      await setDoc(docRef, {
-        [round]: {
-          entries: sanitizedEntries,
-          status: 'synced',
-        },
-      });
-    }
+  try {
+    await setDoc(docRef, updatePayload, {merge: true});
   } catch (error) {
     console.error('Error saving production round: ', error);
-    // If update fails (e.g., doc deleted between check and update), try setDoc as a fallback.
-    await setDoc(
-      docRef,
-      {
-        [round]: {entries: sanitizedEntries, status: 'synced'},
-      },
-      {merge: true}
-    );
   }
 };
 
