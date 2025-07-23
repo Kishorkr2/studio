@@ -206,7 +206,7 @@ export default function AdminPage() {
     });
   };
 
-  const handleAddPlanItem = async () => {
+  const handleAddPlanItem = useCallback(async () => {
     if (!newPlanMachineId || !newPlanSku || !newPlanSapCode) {
       toast({
         variant: 'destructive',
@@ -222,25 +222,28 @@ export default function AdminPage() {
       quantity: newPlanQuantity,
     };
 
-    const existingPlanItem = productionPlan.find(
-      p => p.machineId === newPlanMachineId
-    );
-    let newPlan;
-
-    if (existingPlanItem) {
-      newPlan = productionPlan.map(p =>
-        p.machineId === newPlanMachineId
-          ? {...p, skus: [...p.skus, newSkuPlan]}
-          : p
+    setProductionPlan(currentPlan => {
+      const existingPlanItem = currentPlan.find(
+        p => p.machineId === newPlanMachineId
       );
-    } else {
-      newPlan = [
-        ...productionPlan,
-        {machineId: newPlanMachineId, skus: [newSkuPlan]},
-      ];
-    }
+      let newPlan: ProductionPlanItem[];
 
-    await DataService.updateProductionPlan(newPlan);
+      if (existingPlanItem) {
+        newPlan = currentPlan.map(p =>
+          p.machineId === newPlanMachineId
+            ? {...p, skus: [...p.skus, newSkuPlan]}
+            : p
+        );
+      } else {
+        newPlan = [
+          ...currentPlan,
+          {machineId: newPlanMachineId, skus: [newSkuPlan]},
+        ];
+      }
+
+      DataService.updateProductionPlan(newPlan);
+      return newPlan;
+    });
 
     toast({
       title: 'Plan Item Added',
@@ -254,30 +257,44 @@ export default function AdminPage() {
     setNewPlanSku('');
     setNewPlanSapCode('');
     setNewPlanQuantity(0);
-  };
+  }, [
+    machines,
+    newPlanMachineId,
+    newPlanQuantity,
+    newPlanSapCode,
+    newPlanSku,
+    toast,
+  ]);
 
-  const handleDeletePlanSku = async (machineId: string, skuIndex: number) => {
-    const planItem = productionPlan.find(p => p.machineId === machineId);
-    if (!planItem) return;
+  const handleDeletePlanSku = useCallback(
+    async (machineId: string, skuIndex: number) => {
+      setProductionPlan(currentPlan => {
+        const planItem = currentPlan.find(p => p.machineId === machineId);
+        if (!planItem) return currentPlan;
 
-    const newSkus = planItem.skus.filter((_, index) => index !== skuIndex);
+        const newSkus = planItem.skus.filter((_, index) => index !== skuIndex);
+        let newPlan: ProductionPlanItem[];
 
-    let newPlan;
-    if (newSkus.length > 0) {
-      newPlan = productionPlan.map(p =>
-        p.machineId === machineId ? {...p, skus: newSkus} : p
-      );
-    } else {
-      // If no SKUs left, remove the entire plan item for that machine
-      newPlan = productionPlan.filter(p => p.machineId !== machineId);
-    }
+        if (newSkus.length > 0) {
+          newPlan = currentPlan.map(p =>
+            p.machineId === machineId ? {...p, skus: newSkus} : p
+          );
+        } else {
+          // If no SKUs left, remove the entire plan item for that machine
+          newPlan = currentPlan.filter(p => p.machineId !== machineId);
+        }
 
-    await DataService.updateProductionPlan(newPlan);
-    toast({
-      title: 'SKU Removed',
-      description: `SKU has been removed from the plan.`,
-    });
-  };
+        DataService.updateProductionPlan(newPlan);
+        return newPlan;
+      });
+
+      toast({
+        title: 'SKU Removed',
+        description: `SKU has been removed from the plan.`,
+      });
+    },
+    [toast]
+  );
 
   const handleClearDataConfirm = async () => {
     await DataService.clearAllProductionData();
