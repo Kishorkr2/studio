@@ -45,6 +45,7 @@ import {
   ShieldAlert,
   Save,
   DatabaseZap,
+  Loader2,
 } from 'lucide-react';
 import {useToast} from '@/hooks/use-toast';
 import {Badge} from '@/components/ui/badge';
@@ -86,6 +87,7 @@ export default function AdminPage() {
   const [newPlanQuantity, setNewPlanQuantity] = useState(0);
 
   const [password, setPassword] = useState('');
+  const [isRenaming, setIsRenaming] = useState<string | null>(null);
 
   const {toast} = useToast();
 
@@ -123,7 +125,7 @@ export default function AdminPage() {
 
   const handleAddOperator = async () => {
     const newOperator = {
-      cardNo: `OP-${Math.floor(Math.random() * 1000)}`,
+      cardNo: `OP-${Date.now()}`,
       name: 'New Operator',
       builderNo: `B-${Math.floor(Math.random() * 100)}`,
       skillRating: 3,
@@ -138,43 +140,66 @@ export default function AdminPage() {
     field: keyof Operator,
     value: any
   ) => {
-    const operatorToUpdate = operators.find(op => op.cardNo === originalCardNo);
-    if (!operatorToUpdate) return;
-
-    const updatedOperators = operators.map(op =>
-      op.cardNo === originalCardNo ? {...op, [field]: value} : op
+    // Optimistic update for immediate UI feedback
+    setOperators(currentOps =>
+      currentOps.map(op =>
+        op.cardNo === originalCardNo ? {...op, [field]: value} : op
+      )
     );
-    setOperators(updatedOperators);
+    await DataService.updateOperator(originalCardNo, {[field]: value});
+  };
 
-    try {
-      if (field === 'cardNo') {
-        const newCardNo = value;
-        const newOperatorData = {...operatorToUpdate, cardNo: newCardNo};
+  const handleRenameOperator = async (
+    originalCardNo: string,
+    newCardNo: string
+  ) => {
+    const operatorToUpdate = operators.find(op => op.cardNo === originalCardNo);
+    if (!operatorToUpdate || !newCardNo || originalCardNo === newCardNo) {
+      return; // No change needed
+    }
 
-        if (newCardNo && newCardNo !== originalCardNo) {
-          await DataService.renameOperator(
-            originalCardNo,
-            newCardNo,
-            newOperatorData
-          );
-          toast({
-            title: 'Operator Card No Updated',
-            description: `Card No changed from ${originalCardNo} to ${newCardNo}.`,
-          });
-        }
-      } else {
-        await DataService.updateOperator(originalCardNo, {[field]: value});
-      }
-    } catch (error) {
-      console.error('Failed to update operator:', error);
+    if (operators.some(op => op.cardNo === newCardNo)) {
       toast({
         variant: 'destructive',
         title: 'Update Failed',
-        description:
-          'Could not save operator changes. Please check for duplicate Card Nos.',
+        description: `Card No "${newCardNo}" already exists. Please use a unique Card No.`,
+      });
+      // Revert optimistic update
+      setOperators(currentOps =>
+        currentOps.map(op =>
+          op.cardNo === newCardNo ? {...op, cardNo: originalCardNo} : op
+        )
+      );
+      return;
+    }
+
+    setIsRenaming(originalCardNo);
+    try {
+      const newOperatorData = {...operatorToUpdate, cardNo: newCardNo};
+      await DataService.renameOperator(
+        originalCardNo,
+        newCardNo,
+        newOperatorData
+      );
+      toast({
+        title: 'Operator Card No Updated',
+        description: `Card No changed from ${originalCardNo} to ${newCardNo}.`,
+      });
+    } catch (error) {
+      console.error('Failed to rename operator:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Rename Failed',
+        description: 'Could not save operator changes. Please try again.',
       });
       // Revert optimistic update on failure
-      setOperators(operators);
+      setOperators(currentOps =>
+        currentOps.map(op =>
+          op.cardNo === newCardNo ? {...op, cardNo: originalCardNo} : op
+        )
+      );
+    } finally {
+      setIsRenaming(null);
     }
   };
 
@@ -222,27 +247,27 @@ export default function AdminPage() {
       quantity: newPlanQuantity,
     };
 
-    const currentPlan = productionPlan;
-    const existingPlanItem = currentPlan.find(
-      p => p.machineId === newPlanMachineId
-    );
-    let newPlan: ProductionPlanItem[];
-
-    if (existingPlanItem) {
-      newPlan = currentPlan.map(p =>
-        p.machineId === newPlanMachineId
-          ? {...p, skus: [...p.skus, newSkuPlan]}
-          : p
+    setProductionPlan(currentPlan => {
+      const existingPlanItem = currentPlan.find(
+        p => p.machineId === newPlanMachineId
       );
-    } else {
-      newPlan = [
-        ...currentPlan,
-        {machineId: newPlanMachineId, skus: [newSkuPlan]},
-      ];
-    }
+      let newPlan: ProductionPlanItem[];
 
-    await DataService.updateProductionPlan(newPlan);
-    setProductionPlan(newPlan); // Keep UI in sync
+      if (existingPlanItem) {
+        newPlan = currentPlan.map(p =>
+          p.machineId === newPlanMachineId
+            ? {...p, skus: [...p.skus, newSkuPlan]}
+            : p
+        );
+      } else {
+        newPlan = [
+          ...currentPlan,
+          {machineId: newPlanMachineId, skus: [newSkuPlan]},
+        ];
+      }
+      DataService.updateProductionPlan(newPlan);
+      return newPlan;
+    });
 
     toast({
       title: 'Plan Item Added',
@@ -262,43 +287,41 @@ export default function AdminPage() {
     newPlanQuantity,
     newPlanSapCode,
     newPlanSku,
-    productionPlan,
     toast,
   ]);
 
   const handleDeletePlanSku = useCallback(
     async (machineId: string, skuIndex: number) => {
-      const currentPlan = productionPlan;
-      const planItem = currentPlan.find(p => p.machineId === machineId);
-      if (!planItem) return;
+      setProductionPlan(currentPlan => {
+        const planItem = currentPlan.find(p => p.machineId === machineId);
+        if (!planItem) return currentPlan;
 
-      const newSkus = planItem.skus.filter((_, index) => index !== skuIndex);
-      let newPlan: ProductionPlanItem[];
+        const newSkus = planItem.skus.filter((_, index) => index !== skuIndex);
+        let newPlan: ProductionPlanItem[];
 
-      if (newSkus.length > 0) {
-        newPlan = currentPlan.map(p =>
-          p.machineId === machineId ? {...p, skus: newSkus} : p
-        );
-      } else {
-        newPlan = currentPlan.filter(p => p.machineId !== machineId);
-      }
-
-      await DataService.updateProductionPlan(newPlan);
-      setProductionPlan(newPlan); // Keep UI in sync
-
+        if (newSkus.length > 0) {
+          newPlan = currentPlan.map(p =>
+            p.machineId === machineId ? {...p, skus: newSkus} : p
+          );
+        } else {
+          newPlan = currentPlan.filter(p => p.machineId !== machineId);
+        }
+        DataService.updateProductionPlan(newPlan);
+        return newPlan;
+      });
       toast({
         title: 'SKU Removed',
         description: `SKU has been removed from the plan.`,
       });
     },
-    [productionPlan, toast]
+    [toast]
   );
 
   const handleClearDataConfirm = async () => {
     await DataService.clearAllProductionData();
     toast({
       title: 'Success!',
-      description: 'All production data has been cleared.',
+      description: 'All production logs and tread stock have been cleared.',
     });
     setPassword('');
   };
@@ -429,10 +452,10 @@ export default function AdminPage() {
               const tbmNoRaw = String(cleanedRow['tbm no'] || '').trim();
               const match = tbmNoRaw.match(/\d+/);
               const tbmNumber = match ? match[0] : null;
+
               const machineId = tbmNumber
-                ? machineNameToIdMap.get(
-                    String(parseInt(tbmNumber, 10))
-                  ) || machineNameToIdMap.get(tbmNumber)
+                ? machineNameToIdMap.get(String(parseInt(tbmNumber, 10))) ||
+                  machineNameToIdMap.get(tbmNumber)
                 : null;
 
               if (machineId) {
@@ -565,26 +588,28 @@ export default function AdminPage() {
                     {operators.map(op => (
                       <TableRow key={op.cardNo}>
                         <TableCell>
-                          <Input
-                            value={op.cardNo || ''}
-                            onBlur={e =>
-                              handleOperatorChange(
-                                op.cardNo,
-                                'cardNo',
-                                e.target.value
-                              )
-                            }
-                            onChange={e =>
-                              setOperators(ops =>
-                                ops.map(o =>
-                                  o.cardNo === op.cardNo
-                                    ? {...o, cardNo: e.target.value}
-                                    : o
+                          <div className="flex items-center gap-2">
+                            {isRenaming === op.cardNo ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : null}
+                            <Input
+                              value={op.cardNo || ''}
+                              disabled={isRenaming === op.cardNo}
+                              onBlur={e =>
+                                handleRenameOperator(op.cardNo, e.target.value)
+                              }
+                              onChange={e =>
+                                setOperators(ops =>
+                                  ops.map(o =>
+                                    o.cardNo === op.cardNo
+                                      ? {...o, cardNo: e.target.value}
+                                      : o
+                                  )
                                 )
-                              )
-                            }
-                            className="font-mono text-xs w-28"
-                          />
+                              }
+                              className="font-mono text-xs w-28"
+                            />
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Input
@@ -941,15 +966,9 @@ export default function AdminPage() {
                                   e.target.value
                                 )
                               }
+                              onBlur={() => handleSaveMachineName(machine.id)}
                               className="w-36"
                             />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleSaveMachineName(machine.id)}
-                            >
-                              <Save className="h-4 w-4" />
-                            </Button>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -984,7 +1003,7 @@ export default function AdminPage() {
                 Add TBM
               </Button>
               <Button onClick={handleSaveAllMachineChanges}>
-                Save All Changes
+                Save All Availability Changes
               </Button>
             </CardFooter>
           </Card>
@@ -1012,7 +1031,7 @@ export default function AdminPage() {
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive">
                       <ShieldAlert className="mr-2 h-4 w-4" />
-                      Clear All Production Data
+                      Clear Production Data
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -1022,8 +1041,10 @@ export default function AdminPage() {
                       </AlertDialogTitle>
                       <AlertDialogDescription>
                         This action cannot be undone. This will permanently
-                        delete all production log data from the cloud. Please
-                        type <strong>admin123</strong> to confirm.
+                        delete all production log and tread stock data from the
+                        cloud. It will NOT delete operators, TBMs, or the
+                        production plan. Please type <strong>admin123</strong>{' '}
+                        to confirm.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="space-y-2 py-2">

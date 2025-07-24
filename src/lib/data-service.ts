@@ -40,17 +40,14 @@ const seedCollection = async <T>(
   idField: keyof T
 ) => {
   const collectionRef = collection(db, collectionName);
-  const snapshot = await getDocs(collectionRef);
-  if (snapshot.empty) {
-    console.log(`Seeding '${collectionName}'...`);
-    const batch = writeBatch(db);
-    initialData.forEach(item => {
-      const docId = String(item[idField]);
-      const docRef = doc(collectionRef, docId);
-      batch.set(docRef, item);
-    });
-    await batch.commit();
-  }
+  console.log(`Seeding '${collectionName}'...`);
+  const batch = writeBatch(db);
+  initialData.forEach(item => {
+    const docId = String(item[idField]);
+    const docRef = doc(collectionRef, docId);
+    batch.set(docRef, item);
+  });
+  await batch.commit();
 };
 
 export const subscribeToCollection = <T>(
@@ -58,40 +55,57 @@ export const subscribeToCollection = <T>(
   setData: (data: T[]) => void,
   initialData?: T[]
 ): Unsubscribe => {
-  const q = collection(db, collectionName);
+  const q = query(collection(db, collectionName));
 
   const unsub = onSnapshot(
     q,
     async querySnapshot => {
-      // Seeding logic is now handled more safely on startup.
-      // Let's ensure initial data exists if collection is empty.
+      // Seeding logic should only run once on app startup if collection is empty.
       if (querySnapshot.empty && initialData?.length) {
-        const idField =
-          collectionName === 'operators'
-            ? 'cardNo'
-            : collectionName === 'shifts'
-              ? 'name'
-              : 'id';
-        await seedCollection(
-          collectionName,
-          initialData as any[],
-          idField as any
-        );
-        // The listener will be re-triggered after seeding, so we can return here.
-        return;
+        let idField: keyof T | null = null;
+        if (collectionName === 'operators') idField = 'cardNo' as keyof T;
+        else if (collectionName === 'shifts') idField = 'name' as keyof T;
+        else if (collectionName === 'machines') idField = 'id' as keyof T;
+        else if (collectionName === 'productionPlan')
+          idField = 'machineId' as keyof T;
+
+        if (idField) {
+          try {
+            await seedCollection(collectionName, initialData, idField);
+            // After seeding, the listener will be re-triggered, so we can return.
+            return;
+          } catch (error) {
+            console.error(`Failed to seed ${collectionName}:`, error);
+          }
+        }
       }
 
       const data = querySnapshot.docs.map(d => {
         const docData = d.data() as T;
         const id = d.id;
         // Reconstruct object with a stable ID property.
-        if (collectionName === 'operators') {
-          return {cardNo: id, ...docData};
+        if (
+          collectionName === 'operators' &&
+          !('cardNo' in (docData as any))
+        ) {
+          return {...docData, cardNo: id};
+        }
+        if (
+          collectionName === 'machines' &&
+          !('id' in (docData as any))
+        ) {
+          return {...docData, id};
+        }
+        if (
+          collectionName === 'productionPlan' &&
+          !('machineId' in (docData as any))
+        ) {
+          return {...docData, machineId: id};
         }
         return {id, ...docData};
-      });
+      }) as T[];
 
-      setData(data as T[]);
+      setData(data);
     },
     error => {
       console.error(`Error subscribing to ${collectionName}:`, error);
@@ -185,18 +199,15 @@ export const updateProductionPlan = async (plan: ProductionPlanItem[]) => {
   const batch = writeBatch(db);
   const planCollection = collection(db, 'productionPlan');
 
-  // To prevent data loss on partial updates, first fetch all existing docs
   const existingDocsSnapshot = await getDocs(planCollection);
   const existingDocIds = new Set(existingDocsSnapshot.docs.map(d => d.id));
 
-  // Set (add or overwrite) all items from the new plan
   plan.forEach(item => {
     const docRef = doc(planCollection, item.machineId);
     batch.set(docRef, item);
-    existingDocIds.delete(item.machineId); // Remove from the set of docs to delete
+    existingDocIds.delete(item.machineId);
   });
 
-  // Delete any old documents that are no longer in the new plan
   existingDocIds.forEach(docId => {
     batch.delete(doc(planCollection, docId));
   });
@@ -236,6 +247,7 @@ export const saveProductionRound = async (
   };
 
   try {
+    // Use merge: true to avoid overwriting the whole document
     await setDoc(docRef, updatePayload, {merge: true});
   } catch (error) {
     console.error('Error saving production round: ', error);
@@ -264,7 +276,6 @@ export const saveTreadOpeningStock = async (stock: TreadStock[]) => {
   const stockCollection = collection(db, 'treadOpeningStock');
 
   for (const item of stock) {
-    // Use SKU as the document ID for stable updates
     const docRef = doc(stockCollection, item.sku);
     batch.set(docRef, item, {merge: true});
   }
@@ -280,8 +291,12 @@ export const clearAllProductionData = async () => {
   ];
 
   for (const collectionName of collectionsToClear) {
-    const snapshot = await getDocs(collection(db, collectionName));
-    snapshot.forEach(doc => batch.delete(doc.ref));
+    try {
+      const snapshot = await getDocs(collection(db, collectionName));
+      snapshot.forEach(doc => batch.delete(doc.ref));
+    } catch (error) {
+      console.error(`Error fetching docs from ${collectionName}:`, error);
+    }
   }
 
   await batch.commit();
