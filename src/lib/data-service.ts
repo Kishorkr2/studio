@@ -61,13 +61,16 @@ export const subscribeToCollection = <T>(
     q,
     async querySnapshot => {
       // Seeding logic should only run once on app startup if collection is empty.
-      if (querySnapshot.empty && initialData?.length) {
+      // Do NOT seed productionPlan as it's user-managed.
+      if (
+        querySnapshot.empty &&
+        initialData?.length &&
+        collectionName !== 'productionPlan'
+      ) {
         let idField: keyof T | null = null;
         if (collectionName === 'operators') idField = 'cardNo' as keyof T;
         else if (collectionName === 'shifts') idField = 'name' as keyof T;
         else if (collectionName === 'machines') idField = 'id' as keyof T;
-        else if (collectionName === 'productionPlan')
-          idField = 'machineId' as keyof T;
 
         if (idField) {
           try {
