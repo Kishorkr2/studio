@@ -40,18 +40,22 @@ const seedCollection = async <T>(
   idField: keyof T
 ) => {
   const collectionRef = collection(db, collectionName);
-  const snapshot = await getDocsFromCache(collectionRef);
-  if (!snapshot.empty) {
-    console.log(`'${collectionName}' already has data. Skipping seed.`);
-    return;
-  }
-
   console.log(`Seeding '${collectionName}'...`);
   const batch = writeBatch(db);
   initialData.forEach(item => {
-    const docId = String(item[idField]);
+    // For productionPlan, the document ID is the machineId
+    const docId =
+      collectionName === 'productionPlan'
+        ? String((item as any).machineId)
+        : String(item[idField]);
+
     const docRef = doc(collectionRef, docId);
-    batch.set(docRef, item);
+    if (collectionName === 'productionPlan') {
+      const {machineId, ...dataToSet} = item as any;
+      batch.set(docRef, dataToSet);
+    } else {
+      batch.set(docRef, item);
+    }
   });
   await batch.commit();
   console.log(`'${collectionName}' seeded successfully.`);
@@ -67,17 +71,40 @@ export const subscribeToCollection = <T>(
   const unsub = onSnapshot(
     q,
     async querySnapshot => {
-      // Logic for initial data seeding
+      // Logic for initial data seeding. This is safer because it runs once
+      // on the first successful connection.
       if (querySnapshot.empty && initialData?.length) {
-        let idField: keyof T | null = null;
-        if (collectionName === 'operators') idField = 'cardNo' as keyof T;
-        else if (collectionName === 'shifts') idField = 'name' as keyof T;
-        else if (collectionName === 'machines') idField = 'id' as keyof T;
+        let idField: keyof T | undefined;
+
+        switch (collectionName) {
+          case 'operators':
+            idField = 'cardNo' as keyof T;
+            break;
+          case 'shifts':
+            idField = 'name' as keyof T;
+            break;
+          case 'machines':
+            idField = 'id' as keyof T;
+            break;
+          case 'productionPlan':
+            // Special handling for productionPlan, no single ID field
+            try {
+              console.log('Seeding production plan...');
+              await seedCollection(collectionName, initialData, 'machineId' as any);
+            } catch (error) {
+              console.error(`Failed to seed ${collectionName}:`, error);
+            }
+            // After seeding, the snapshot will update again, so we can return early
+            return;
+          default:
+            break;
+        }
 
         if (idField) {
           try {
-            // No return here, seed and then process the (now non-empty) snapshot
             await seedCollection(collectionName, initialData, idField);
+            // After seeding, snapshot will update, so return
+            return;
           } catch (error) {
             console.error(`Failed to seed ${collectionName}:`, error);
           }
@@ -90,20 +117,22 @@ export const subscribeToCollection = <T>(
 
         // Correctly reconstruct objects based on collection type
         if (collectionName === 'productionPlan') {
-          return {...docData, machineId: id};
+          return {machineId: id, ...docData} as T;
         }
         if (collectionName === 'operators') {
-          return {...docData, cardNo: id};
+          return {cardNo: id, ...docData} as T;
         }
         if (collectionName === 'machines') {
-          return {...docData, id: id};
+          return {id: id, ...docData} as T;
         }
         if (collectionName === 'treadOpeningStock') {
-          return {...docData, sapCode: id};
+          return {sapCode: id, ...docData} as T;
         }
 
-        return {id, ...docData};
-      }) as T[];
+        // Default for collections like 'shifts' where id is not part of the object
+        // or for any other generic collection.
+        return {id, ...docData} as T;
+      });
 
       setData(data);
     },
@@ -288,7 +317,6 @@ export const saveTreadOpeningStock = async (stock: TreadStock[]) => {
 
 export const clearAllProductionData = async () => {
   const batch = writeBatch(db);
-  // These are the only collections that should be cleared in this operation.
   const collectionsToClear = [
     'productionLogs',
     'dailyTreadProduction',
