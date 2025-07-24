@@ -488,8 +488,8 @@ export default function TreadExtrusionPage() {
               </TableHeader>
               <TableBody>
                 {combinedData.length > 0 ? (
-                  combinedData.map((item, index) => (
-                    <TableRow key={`${item.sku}-${item.sapCode}-${index}`}>
+                  combinedData.map(item => (
+                    <TableRow key={`${item.sku}-${item.sapCode}`}>
                       {columnVisibility.sapCode && (
                         <TableCell>{item.sapCode}</TableCell>
                       )}

@@ -298,8 +298,8 @@ export default function DailyTreadProductionPage() {
               </TableHeader>
               <TableBody>
                 {filteredSkus.length > 0 ? (
-                  filteredSkus.map((req, index) => (
-                    <TableRow key={`${req.sku}-${index}`}>
+                  filteredSkus.map(req => (
+                    <TableRow key={`${req.sku}-${req.sapCode}`}>
                       <TableCell className="font-medium">{req.sku}</TableCell>
                       <TableCell>
                         <Input
