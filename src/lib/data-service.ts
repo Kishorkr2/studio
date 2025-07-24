@@ -60,8 +60,6 @@ export const subscribeToCollection = <T>(
   const unsub = onSnapshot(
     q,
     async querySnapshot => {
-      // Seeding logic should only run once on app startup if collection is empty.
-      // Do NOT seed productionPlan as it's user-managed.
       if (
         querySnapshot.empty &&
         initialData?.length &&
@@ -75,7 +73,6 @@ export const subscribeToCollection = <T>(
         if (idField) {
           try {
             await seedCollection(collectionName, initialData, idField);
-            // After seeding, the listener will be re-triggered, so we can return.
             return;
           } catch (error) {
             console.error(`Failed to seed ${collectionName}:`, error);
@@ -86,24 +83,15 @@ export const subscribeToCollection = <T>(
       const data = querySnapshot.docs.map(d => {
         const docData = d.data() as T;
         const id = d.id;
-        // Reconstruct object with a stable ID property.
-        if (
-          collectionName === 'operators' &&
-          !('cardNo' in (docData as any))
-        ) {
+
+        if (collectionName === 'productionPlan') {
+          return {...docData, machineId: id};
+        }
+        if (collectionName === 'operators') {
           return {...docData, cardNo: id};
         }
-        if (
-          collectionName === 'machines' &&
-          !('id' in (docData as any))
-        ) {
-          return {...docData, id};
-        }
-        if (
-          collectionName === 'productionPlan' &&
-          !('machineId' in (docData as any))
-        ) {
-          return {...docData, machineId: id};
+        if (collectionName === 'machines') {
+          return {...docData, id: id};
         }
         return {id, ...docData};
       }) as T[];
@@ -250,7 +238,6 @@ export const saveProductionRound = async (
   };
 
   try {
-    // Use merge: true to avoid overwriting the whole document
     await setDoc(docRef, updatePayload, {merge: true});
   } catch (error) {
     console.error('Error saving production round: ', error);
