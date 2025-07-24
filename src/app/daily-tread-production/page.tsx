@@ -64,21 +64,23 @@ export default function DailyTreadProductionPage() {
   const [skuFilter, setSkuFilter] = useState('');
 
   const allSkusFromPlan = useMemo((): SkuPlan[] => {
-    const skuMap = new Map<string, SkuPlan>();
+    const sapCodeMap = new Map<string, SkuPlan>();
     productionPlan.forEach(item => {
       item.skus.forEach(skuPlan => {
-        const existing = skuMap.get(skuPlan.sku);
+        if (!skuPlan.sapCode) return;
+        const key = skuPlan.sapCode;
+        const existing = sapCodeMap.get(key);
         if (existing) {
-          skuMap.set(skuPlan.sku, {
+          sapCodeMap.set(key, {
             ...existing,
             quantity: existing.quantity + skuPlan.quantity,
           });
         } else {
-          skuMap.set(skuPlan.sku, {...skuPlan});
+          sapCodeMap.set(key, {...skuPlan});
         }
       });
     });
-    return Array.from(skuMap.values());
+    return Array.from(sapCodeMap.values());
   }, [productionPlan]);
 
   useEffect(() => {
@@ -127,19 +129,19 @@ export default function DailyTreadProductionPage() {
   }, [selectedDate, selectedShift, dailyProductionLog]);
 
   const handleDailyProductionChange = (
-    sku: string,
+    sapCode: string,
     field: 'quantity' | 'trolleyNo',
     value: string
   ) => {
     setDailyProductionEntries(currentEntries => {
-      const entry = currentEntries[sku] || {quantity: 0, trolleyNo: ''};
+      const entry = currentEntries[sapCode] || {quantity: 0, trolleyNo: ''};
       const newEntry = {
         ...entry,
         [field]: field === 'quantity' ? parseInt(value, 10) || 0 : value,
       };
       return {
         ...currentEntries,
-        [sku]: newEntry,
+        [sapCode]: newEntry,
       };
     });
   };
@@ -299,18 +301,18 @@ export default function DailyTreadProductionPage() {
               <TableBody>
                 {filteredSkus.length > 0 ? (
                   filteredSkus.map(req => (
-                    <TableRow key={`${req.sku}-${req.sapCode}`}>
+                    <TableRow key={req.sapCode}>
                       <TableCell className="font-medium">{req.sku}</TableCell>
                       <TableCell>
                         <Input
                           className="w-32"
                           placeholder="e.g., T-123"
                           value={
-                            dailyProductionEntries[req.sku]?.trolleyNo || ''
+                            dailyProductionEntries[req.sapCode]?.trolleyNo || ''
                           }
                           onChange={e =>
                             handleDailyProductionChange(
-                              req.sku,
+                              req.sapCode,
                               'trolleyNo',
                               e.target.value
                             )
@@ -323,11 +325,11 @@ export default function DailyTreadProductionPage() {
                           className="w-32 ml-auto text-right"
                           placeholder="0"
                           value={
-                            dailyProductionEntries[req.sku]?.quantity || ''
+                            dailyProductionEntries[req.sapCode]?.quantity || ''
                           }
                           onChange={e =>
                             handleDailyProductionChange(
-                              req.sku,
+                              req.sapCode,
                               'quantity',
                               e.target.value
                             )

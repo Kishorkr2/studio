@@ -52,6 +52,7 @@ export interface ProductionLog {
 
 export interface TreadStock {
   sku: string;
+  sapCode: string;
   openingStock: number;
   production: number;
 }

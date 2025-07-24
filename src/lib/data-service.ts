@@ -40,6 +40,12 @@ const seedCollection = async <T>(
   idField: keyof T
 ) => {
   const collectionRef = collection(db, collectionName);
+  const snapshot = await getDocsFromCache(collectionRef);
+  if (!snapshot.empty) {
+    console.log(`'${collectionName}' already has data. Skipping seed.`);
+    return;
+  }
+
   console.log(`Seeding '${collectionName}'...`);
   const batch = writeBatch(db);
   initialData.forEach(item => {
@@ -48,6 +54,7 @@ const seedCollection = async <T>(
     batch.set(docRef, item);
   });
   await batch.commit();
+  console.log(`'${collectionName}' seeded successfully.`);
 };
 
 export const subscribeToCollection = <T>(
@@ -60,11 +67,8 @@ export const subscribeToCollection = <T>(
   const unsub = onSnapshot(
     q,
     async querySnapshot => {
-      if (
-        querySnapshot.empty &&
-        initialData?.length &&
-        collectionName !== 'productionPlan'
-      ) {
+      // Logic for initial data seeding
+      if (querySnapshot.empty && initialData?.length) {
         let idField: keyof T | null = null;
         if (collectionName === 'operators') idField = 'cardNo' as keyof T;
         else if (collectionName === 'shifts') idField = 'name' as keyof T;
@@ -72,8 +76,8 @@ export const subscribeToCollection = <T>(
 
         if (idField) {
           try {
+            // No return here, seed and then process the (now non-empty) snapshot
             await seedCollection(collectionName, initialData, idField);
-            return;
           } catch (error) {
             console.error(`Failed to seed ${collectionName}:`, error);
           }
@@ -84,6 +88,7 @@ export const subscribeToCollection = <T>(
         const docData = d.data() as T;
         const id = d.id;
 
+        // Correctly reconstruct objects based on collection type
         if (collectionName === 'productionPlan') {
           return {...docData, machineId: id};
         }
@@ -93,6 +98,10 @@ export const subscribeToCollection = <T>(
         if (collectionName === 'machines') {
           return {...docData, id: id};
         }
+        if (collectionName === 'treadOpeningStock') {
+          return {...docData, sapCode: id};
+        }
+
         return {id, ...docData};
       }) as T[];
 
@@ -190,15 +199,18 @@ export const updateProductionPlan = async (plan: ProductionPlanItem[]) => {
   const batch = writeBatch(db);
   const planCollection = collection(db, 'productionPlan');
 
+  // Get current docs to find which ones to delete
   const existingDocsSnapshot = await getDocs(planCollection);
   const existingDocIds = new Set(existingDocsSnapshot.docs.map(d => d.id));
 
   plan.forEach(item => {
-    const docRef = doc(planCollection, item.machineId);
-    batch.set(docRef, item);
-    existingDocIds.delete(item.machineId);
+    const {machineId, ...planData} = item;
+    const docRef = doc(planCollection, machineId);
+    batch.set(docRef, planData);
+    existingDocIds.delete(machineId); // Remove from deletion set
   });
 
+  // Delete any docs that were in the original set but not in the new plan
   existingDocIds.forEach(docId => {
     batch.delete(doc(planCollection, docId));
   });
@@ -238,6 +250,7 @@ export const saveProductionRound = async (
   };
 
   try {
+    // Use merge: true to avoid overwriting the whole document
     await setDoc(docRef, updatePayload, {merge: true});
   } catch (error) {
     console.error('Error saving production round: ', error);
@@ -266,7 +279,8 @@ export const saveTreadOpeningStock = async (stock: TreadStock[]) => {
   const stockCollection = collection(db, 'treadOpeningStock');
 
   for (const item of stock) {
-    const docRef = doc(stockCollection, item.sku);
+    if (!item.sapCode) continue; // Cannot save without a unique ID
+    const docRef = doc(stockCollection, item.sapCode);
     batch.set(docRef, item, {merge: true});
   }
   await batch.commit();
@@ -274,6 +288,7 @@ export const saveTreadOpeningStock = async (stock: TreadStock[]) => {
 
 export const clearAllProductionData = async () => {
   const batch = writeBatch(db);
+  // These are the only collections that should be cleared in this operation.
   const collectionsToClear = [
     'productionLogs',
     'dailyTreadProduction',

@@ -81,21 +81,23 @@ export default function TreadExtrusionPage() {
   const [skuFilter, setSkuFilter] = useState('');
 
   const allSkusFromPlan = useMemo((): SkuPlan[] => {
-    const skuMap = new Map<string, SkuPlan>();
+    const sapCodeMap = new Map<string, SkuPlan>();
     productionPlan.forEach(item => {
       item.skus.forEach(skuPlan => {
-        const existing = skuMap.get(skuPlan.sku);
+        if (!skuPlan.sapCode) return;
+        const key = skuPlan.sapCode;
+        const existing = sapCodeMap.get(key);
         if (existing) {
-          skuMap.set(skuPlan.sku, {
+          sapCodeMap.set(key, {
             ...existing,
             quantity: existing.quantity + skuPlan.quantity,
           });
         } else {
-          skuMap.set(skuPlan.sku, {...skuPlan});
+          sapCodeMap.set(key, {...skuPlan});
         }
       });
     });
-    return Array.from(skuMap.values());
+    return Array.from(sapCodeMap.values());
   }, [productionPlan]);
 
   useEffect(() => {
@@ -129,9 +131,9 @@ export default function TreadExtrusionPage() {
         Object.values(logContent as ProductionLog).forEach((logEntry: any) => {
           if (logEntry.entries) {
             logEntry.entries.forEach((entry: MachineProductionData) => {
-              if (entry.sku && entry.quantity > 0) {
-                tyreProduction[entry.sku] =
-                  (tyreProduction[entry.sku] || 0) + entry.quantity;
+              if (entry.sapCode && entry.quantity > 0) {
+                tyreProduction[entry.sapCode] =
+                  (tyreProduction[entry.sapCode] || 0) + entry.quantity;
               }
             });
           }
@@ -150,23 +152,37 @@ export default function TreadExtrusionPage() {
     };
   }, []);
 
-  const handleOpeningStockChange = useCallback((sku: string, value: string) => {
-    const numericValue = parseInt(value, 10) || 0;
+  const handleOpeningStockChange = useCallback(
+    (sapCode: string, value: string) => {
+      const numericValue = parseInt(value, 10) || 0;
 
-    setOpeningStockData(currentData => {
-      const existingIndex = currentData.findIndex(item => item.sku === sku);
-      if (existingIndex > -1) {
-        return currentData.map(item =>
-          item.sku === sku ? {...item, openingStock: numericValue} : item
+      setOpeningStockData(currentData => {
+        const existingIndex = currentData.findIndex(
+          item => item.sapCode === sapCode
         );
-      } else {
-        return [
-          ...currentData,
-          {sku, openingStock: numericValue, production: 0},
-        ];
-      }
-    });
-  }, []);
+        if (existingIndex > -1) {
+          return currentData.map(item =>
+            item.sapCode === sapCode
+              ? {...item, openingStock: numericValue}
+              : item
+          );
+        } else {
+          // Find the SKU from the plan to associate with the new stock entry
+          const planSku = allSkusFromPlan.find(s => s.sapCode === sapCode);
+          return [
+            ...currentData,
+            {
+              sku: planSku?.sku || '',
+              sapCode: sapCode,
+              openingStock: numericValue,
+              production: 0,
+            },
+          ];
+        }
+      });
+    },
+    [allSkusFromPlan]
+  );
 
   const handleSaveOpeningStock = useCallback(async () => {
     await DataService.saveTreadOpeningStock(openingStockData);
@@ -177,7 +193,7 @@ export default function TreadExtrusionPage() {
     });
   }, [openingStockData, toast]);
 
-  const totalProductionBySku = useMemo(() => {
+  const totalProductionBySapCode = useMemo(() => {
     const totals: Record<string, number> = {};
     for (const dateKey in dailyProductionLog) {
       const dateData = dailyProductionLog[dateKey];
@@ -189,9 +205,9 @@ export default function TreadExtrusionPage() {
           DailyProductionEntry
         >;
         if (shiftEntries && typeof shiftEntries === 'object') {
-          for (const sku in shiftEntries) {
-            const entry = shiftEntries[sku];
-            totals[sku] = (totals[sku] || 0) + (entry.quantity || 0);
+          for (const sapCode in shiftEntries) {
+            const entry = shiftEntries[sapCode];
+            totals[sapCode] = (totals[sapCode] || 0) + (entry.quantity || 0);
           }
         }
       }
@@ -210,11 +226,13 @@ export default function TreadExtrusionPage() {
 
   const combinedData = useMemo(() => {
     return filteredSkus.map(req => {
-      const openingStockInfo = openingStockData.find(t => t.sku === req.sku) || {
+      const openingStockInfo = openingStockData.find(
+        t => t.sapCode === req.sapCode
+      ) || {
         openingStock: 0,
       };
-      const totalProduction = totalProductionBySku[req.sku] || 0;
-      const tyreProduction = tyreProductionData[req.sku] || 0;
+      const totalProduction = totalProductionBySapCode[req.sapCode] || 0;
+      const tyreProduction = tyreProductionData[req.sapCode] || 0;
       const currentTreadStock =
         openingStockInfo.openingStock + totalProduction - tyreProduction;
       const treadBalanceToProduce = Math.max(
@@ -235,7 +253,7 @@ export default function TreadExtrusionPage() {
     filteredSkus,
     openingStockData,
     tyreProductionData,
-    totalProductionBySku,
+    totalProductionBySapCode,
   ]);
 
   const visibleColumnsCount =
@@ -489,7 +507,7 @@ export default function TreadExtrusionPage() {
               <TableBody>
                 {combinedData.length > 0 ? (
                   combinedData.map(item => (
-                    <TableRow key={`${item.sku}-${item.sapCode}`}>
+                    <TableRow key={item.sapCode}>
                       {columnVisibility.sapCode && (
                         <TableCell>{item.sapCode}</TableCell>
                       )}
@@ -506,12 +524,13 @@ export default function TreadExtrusionPage() {
                             className="w-28 ml-auto text-right"
                             placeholder="0"
                             value={
-                              openingStockData.find(s => s.sku === item.sku)
-                                ?.openingStock || ''
+                              openingStockData.find(
+                                s => s.sapCode === item.sapCode
+                              )?.openingStock || ''
                             }
                             onChange={e =>
                               handleOpeningStockChange(
-                                item.sku,
+                                item.sapCode,
                                 e.target.value
                               )
                             }
