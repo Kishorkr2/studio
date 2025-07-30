@@ -22,7 +22,6 @@ import {
 import {useToast} from '@/hooks/use-toast';
 import type {
   ProductionPlanItem,
-  ProductionLog,
   TreadStock,
   MachineProductionData,
   SkuPlan,
@@ -100,14 +99,11 @@ export default function TreadExtrusionPage() {
       setTotalProductionBySapCode(dailyTotals);
 
       const tyreProd: Record<string, number> = {};
-      historyLogs.forEach(logDoc => {
-        const entries: MachineProductionData[] = JSON.parse(logDoc.entries);
-        entries.forEach(entry => {
-          if (entry.sapCode && entry.quantity > 0) {
-            tyreProd[entry.sapCode] =
-              (tyreProd[entry.sapCode] || 0) + entry.quantity;
-          }
-        });
+      (historyLogs as MachineProductionData[]).forEach(entry => {
+        if (entry.sapCode && entry.quantity > 0) {
+          tyreProd[entry.sapCode] =
+            (tyreProd[entry.sapCode] || 0) + entry.quantity;
+        }
       });
       setTyreProductionData(tyreProd);
     } catch (error) {

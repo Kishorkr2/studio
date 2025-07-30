@@ -135,39 +135,9 @@ export default function ReportsPage() {
         setAllOperators(ops);
         setAllMachines(machs);
         setAllShifts(shifts);
-
-        const operatorMap = new Map(ops.map(op => [op.cardNo, op.name]));
-        const machineMap = new Map(machs.map(m => [m.id, m.name]));
-
-        const reportRows: ReportDataRow[] = [];
-        logs.forEach(logDoc => {
-          const logIdParts = logDoc.id.split('::');
-          const logMeta = logIdParts[0].replace('production-log-', '');
-          const metaParts = logMeta.split('-');
-          const date = metaParts.slice(0, 3).join('-');
-          const shift = metaParts.slice(3).join(' ');
-          const round = logIdParts[1] || 'unknown';
-          const entries: MachineProductionData[] = JSON.parse(logDoc.entries);
-
-          entries.forEach(entry => {
-            reportRows.push({
-              date,
-              shift,
-              round,
-              operatorId: entry.operatorId,
-              operatorName: operatorMap.get(entry.operatorId || '') || 'N/A',
-              machineId: entry.machineId,
-              machineName: machineMap.get(entry.machineId) || 'N/A',
-              sku: entry.sku,
-              quantity: entry.quantity,
-              remark: entry.remark,
-              trolleyNo: entry.trolleyNo,
-            });
-          });
-        });
-        setAllReportData(reportRows);
+        setAllReportData(logs as ReportDataRow[]);
         setBreakdownData(
-          reportRows.filter(item => item.remark && item.remark.trim() !== '')
+          (logs as ReportDataRow[]).filter(item => item.remark && item.remark.trim() !== '')
         );
       } catch (error) {
         console.error('Failed to load report data', error);

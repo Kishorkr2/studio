@@ -40,9 +40,21 @@ async function setup() {
       sapCode TEXT,
       quantity INTEGER
     );
-    CREATE TABLE IF NOT EXISTS productionLogs (
-      id TEXT PRIMARY KEY,
-      entries TEXT
+    CREATE TABLE IF NOT EXISTS productionLogEntries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      shiftName TEXT NOT NULL,
+      round TEXT NOT NULL,
+      machineId TEXT NOT NULL,
+      name TEXT,
+      status TEXT,
+      sku TEXT,
+      sapCode TEXT,
+      quantity INTEGER,
+      operatorId TEXT,
+      remark TEXT,
+      trolleyNo TEXT,
+      UNIQUE(date, shiftName, round, machineId)
     );
     CREATE TABLE IF NOT EXISTS dailyTreadProduction (
       id TEXT PRIMARY KEY,
@@ -55,6 +67,9 @@ async function setup() {
       production INTEGER
     );
   `);
+
+  // Drop the old problematic table if it exists
+  await db.exec('DROP TABLE IF EXISTS productionLogs;');
 
   const operatorCount = await db.get('SELECT COUNT(*) as count FROM operators');
   if (operatorCount.count === 0) {
