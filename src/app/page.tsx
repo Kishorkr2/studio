@@ -12,6 +12,7 @@ import {
   Eraser,
   Save,
   SlidersHorizontal,
+  Share2,
 } from 'lucide-react';
 import {
   Select,
@@ -376,6 +377,65 @@ export default function DashboardPage() {
       .reduce((acc, entry) => acc + (entry.quantity || 0), 0);
   }, [productionLog]);
 
+  const handleShare = useCallback(async () => {
+    if (!selectedShift || !selectedRound || entries.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'No Data to Share',
+        description: 'Please select a round with production data.',
+      });
+      return;
+    }
+
+    if (!navigator.share) {
+      toast({
+        variant: 'destructive',
+        title: 'Share Not Supported',
+        description: 'Your browser does not support the Web Share API.',
+      });
+      return;
+    }
+
+    const roundTotal = entries.reduce(
+      (acc, entry) => acc + (entry.quantity || 0),
+      0
+    );
+
+    let shareText = `*Hourly Production Report*\n\n`;
+    shareText += `*Date:* ${format(selectedDate, 'PPP')}\n`;
+    shareText += `*Shift:* ${selectedShift.name}\n`;
+    shareText += `*Round:* ${selectedRound}\n`;
+    shareText += `*Total Production:* ${roundTotal}\n\n`;
+    shareText += `*Machine Breakdown:*\n`;
+
+    entries.forEach(entry => {
+      if (entry.quantity > 0) {
+        shareText += `- *${entry.name}:* ${entry.quantity} units (${entry.sku})\n`;
+      }
+    });
+
+    try {
+      await navigator.share({
+        title: 'Hourly Production Report',
+        text: shareText,
+      });
+      toast({
+        title: 'Shared Successfully',
+        description: 'The production report has been shared.',
+      });
+    } catch (error) {
+      // Don't show an error if user cancels the share sheet
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Share failed:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Share Failed',
+          description: 'Could not share the report.',
+        });
+      }
+    }
+  }, [entries, selectedDate, selectedShift, selectedRound, toast]);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -597,6 +657,15 @@ export default function DashboardPage() {
               >
                 <Save className="mr-2 h-4 w-4" />
                 Save Round
+              </Button>
+              <Button
+                onClick={handleShare}
+                size="lg"
+                className="w-full sm:w-auto"
+                variant="outline"
+              >
+                <Share2 className="mr-2 h-4 w-4" />
+                Share
               </Button>
             </div>
           </div>
