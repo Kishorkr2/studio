@@ -334,10 +334,15 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">
-          Green Tyre Production Entry
-        </h1>
+      <div className="space-y-4">
+        <header>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Green Tyre Production Entry
+          </h1>
+          <p className="text-muted-foreground">
+            Select date, shift, and round to enter production quantities.
+          </p>
+        </header>
         <Card>
           <CardContent className="p-4 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -362,8 +367,8 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex flex-col h-full gap-6">
-      <header>
+    <div className="flex flex-col h-full space-y-4">
+      <header className="flex-shrink-0">
         <h1 className="text-3xl font-bold tracking-tight">
           Green Tyre Production Entry
         </h1>
@@ -372,7 +377,7 @@ export default function DashboardPage() {
         </p>
       </header>
 
-      <Card>
+      <Card className="flex-shrink-0 sticky top-0 z-10">
         <CardContent className="p-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-center gap-4">
             <Popover>
@@ -693,3 +698,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
