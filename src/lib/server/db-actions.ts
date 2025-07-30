@@ -10,6 +10,7 @@ import type {
   TreadStock,
   MachineProductionData,
   DailyProductionEntry,
+  SkuPlan,
 } from '../types';
 import {format} from 'date-fns';
 
@@ -26,17 +27,47 @@ export async function getShifts(): Promise<ShiftInfo[]> {
 }
 
 export async function getProductionPlan(): Promise<ProductionPlanItem[]> {
-  const planItems = await db.all(
-    'SELECT machineId, json_group_array(json_object(\'sku\', sku, \'sapCode\', sapCode, \'quantity\', quantity)) as skus FROM productionPlanItems GROUP BY machineId'
+  const allPlanItems = await db.all(
+    'SELECT machineId, sku, sapCode, quantity FROM productionPlanItems'
   );
-  return planItems.map(item => ({
-    machineId: item.machineId,
-    skus: JSON.parse(item.skus),
-  }));
+
+  const planMap = new Map<string, SkuPlan[]>();
+
+  for (const item of allPlanItems) {
+    const {machineId, sku, sapCode, quantity} = item;
+    const existingSkus = planMap.get(machineId) || [];
+    existingSkus.push({sku, sapCode, quantity});
+    planMap.set(machineId, existingSkus);
+  }
+
+  const result: ProductionPlanItem[] = Array.from(
+    planMap,
+    ([machineId, skus]) => ({
+      machineId,
+      skus,
+    })
+  );
+
+  return result;
 }
 
 export async function getProductionLogs() {
-  return db.all('SELECT * FROM productionLogs');
+  const logs = await db.all('SELECT * FROM productionLogs');
+  return logs.map(logDoc => {
+    try {
+      const entries = JSON.parse(logDoc.entries);
+      return {
+        ...logDoc,
+        entries: Array.isArray(entries) ? entries : [],
+      };
+    } catch (e) {
+      console.error(`Failed to parse entries for log ${logDoc.id}`, e);
+      return {
+        ...logDoc,
+        entries: '[]', // Return empty array string to avoid breaking consumers
+      };
+    }
+  });
 }
 
 export async function getProductionLogForShift(
@@ -54,10 +85,15 @@ export async function getProductionLogForShift(
   rows.forEach(row => {
     const round = row.id.split('::')[1];
     if (round) {
-      log[round] = {
-        entries: JSON.parse(row.entries),
-        status: 'synced',
-      };
+      try {
+        log[round] = {
+          entries: JSON.parse(row.entries),
+          status: 'synced',
+        };
+      } catch (e) {
+        console.error(`Failed to parse log entry for ${row.id}`);
+        // Skip corrupted entry
+      }
     }
   });
   return log;
@@ -70,7 +106,12 @@ export async function getDailyTreadProductionLog() {
     Record<string, Record<string, DailyProductionEntry>>
   > = {};
   rows.forEach(row => {
-    log[row.id] = JSON.parse(row.data);
+    try {
+      log[row.id] = JSON.parse(row.data);
+    } catch (e) {
+      console.error(`Failed to parse daily tread production for ${row.id}`);
+      // Skip corrupted entry
+    }
   });
   return log;
 }
