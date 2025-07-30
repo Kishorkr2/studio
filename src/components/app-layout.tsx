@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import {usePathname} from 'next/navigation';
+import {usePathname, useRouter} from 'next/navigation';
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
 import {Button} from '@/components/ui/button';
 import {
@@ -38,8 +38,10 @@ import {
   WifiOff,
   ClipboardList,
   ListPlus,
+  LogOut,
 } from 'lucide-react';
 import {useOnlineStatus} from '@/hooks/use-online-status';
+import {useAuth} from './auth-provider';
 
 const navItems = [
   {href: '/', label: 'Dashboard', icon: LayoutDashboard},
@@ -58,7 +60,11 @@ function NavLinks() {
     <SidebarMenu>
       {navItems.map(item => (
         <SidebarMenuItem key={item.href}>
-          <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label} asChild>
+          <SidebarMenuButton
+            isActive={pathname === item.href}
+            tooltip={item.label}
+            asChild
+          >
             <Link href={item.href}>
               <item.icon />
               {isExpanded && <span>{item.label}</span>}
@@ -91,7 +97,12 @@ function OnlineStatusIndicator() {
 }
 
 export function AppLayout({children}: {children: React.ReactNode}) {
+  const {isAuthenticated} = useAuth();
   const pathname = usePathname();
+
+  if (!isAuthenticated || pathname === '/login') {
+    return <main className="flex-1 p-4 md:p-6">{children}</main>;
+  }
 
   return (
     <SidebarProvider>
@@ -135,6 +146,14 @@ export function AppLayout({children}: {children: React.ReactNode}) {
 }
 
 function UserMenu() {
+  const {logout} = useAuth();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -156,7 +175,10 @@ function UserMenu() {
         <DropdownMenuItem>Profile</DropdownMenuItem>
         <DropdownMenuItem>Settings</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>Logout</DropdownMenuItem>
+        <DropdownMenuItem onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Logout</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
