@@ -53,7 +53,10 @@ export function AuthProvider({children}: {children: ReactNode}) {
   }, [isAuthenticated, pathname, router, loading]);
 
   const login = (user: string, pass: string): boolean => {
-    if (user === validUsername && pass === validPassword) {
+    if (
+      user.toLowerCase() === validUsername.toLowerCase() &&
+      pass === validPassword
+    ) {
       sessionStorage.setItem('isAuthenticated', 'true');
       setIsAuthenticated(true);
       return true;
