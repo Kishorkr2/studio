@@ -283,7 +283,7 @@ export default function ReportsPage() {
       </div>
 
       <Tabs defaultValue="production">
-        <div className="flex justify-between items-center flex-wrap gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-center flex-wrap gap-4">
           <TabsList>
             <TabsTrigger value="production">Production Report</TabsTrigger>
             <TabsTrigger value="oee">OEE Analysis</TabsTrigger>
@@ -386,7 +386,7 @@ export default function ReportsPage() {
             <CardContent>
               <div className="border rounded-lg max-h-[60vh] overflow-x-auto">
                 <Table>
-                  <TableHeader className="sticky top-0 bg-background">
+                  <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
                       <TableHead>Date</TableHead>
                       <TableHead>Shift</TableHead>
@@ -550,7 +550,7 @@ export default function ReportsPage() {
             <CardContent>
               <div className="border rounded-lg max-h-[60vh] overflow-x-auto">
                 <Table>
-                  <TableHeader className="sticky top-0 bg-background">
+                  <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
                       <TableHead>Date</TableHead>
                       <TableHead>TBM No</TableHead>

@@ -575,7 +575,7 @@ export default function DashboardPage() {
               <CardHeader>
                 <CardTitle>{entry.name}</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+              <CardContent className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                 {columnVisibility.operator && (
                   <div className="space-y-2">
                     <Label htmlFor={`operator-${entry.machineId}`}>
@@ -669,7 +669,7 @@ export default function DashboardPage() {
                   </div>
                 )}
                 {columnVisibility.remark && (
-                  <div className="space-y-2 md:col-span-2 lg:col-span-1">
+                  <div className="space-y-2 sm:col-span-2 md:col-span-3 lg:col-span-1">
                     <Label htmlFor={`remark-${entry.machineId}`}>Remark</Label>
                     <Input
                       id={`remark-${entry.machineId}`}

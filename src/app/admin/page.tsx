@@ -447,7 +447,7 @@ export default function AdminPage() {
       <div className="space-y-6">
         <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
         <div className="space-y-4">
-          <Skeleton className="h-10 w-1/2" />
+          <Skeleton className="h-10 w-full md:w-1/2" />
           <Skeleton className="h-96 w-full" />
         </div>
       </div>
@@ -458,7 +458,7 @@ export default function AdminPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
       <Tabs defaultValue="operators">
-        <TabsList className="grid w-full grid-cols-1 gap-1 sm:w-auto sm:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 lg:grid-cols-5 h-auto">
           <TabsTrigger value="operators">Operator Management</TabsTrigger>
           <TabsTrigger value="shifts">Shift Management</TabsTrigger>
           <TabsTrigger value="plan">Production Plan</TabsTrigger>

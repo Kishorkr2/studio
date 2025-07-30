@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -142,7 +143,7 @@ export const SidebarInset = React.forwardRef<
       ref={ref}
       className={cn(
         "transition-[margin-left] duration-300 ease-in-out",
-        !isMobile && (isExpanded ? "md:ml-64" : "ml-20"),
+        !isMobile && (isExpanded ? "ml-64" : "ml-20"),
         className
       )}
       {...props}

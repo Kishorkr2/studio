@@ -279,7 +279,7 @@ export default function DailyTreadProductionPage() {
 
           <div className="border rounded-lg max-h-[60vh] overflow-x-auto">
             <Table>
-              <TableHeader className="sticky top-0 bg-background">
+              <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
                   <TableHead>SKU</TableHead>
                   <TableHead>Trolley No</TableHead>
