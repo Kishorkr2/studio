@@ -29,7 +29,7 @@ export async function getShifts(): Promise<ShiftInfo[]> {
 
 export async function getProductionPlan(): Promise<ProductionPlanItem[]> {
   const allPlanItems = await db.all(
-    'SELECT machineId, sku, sapCode, quantity FROM productionPlanItems'
+    'SELECT machineId, sku, sapCode, quantity FROM productionPlanItems ORDER BY machineId'
   );
 
   const planMap = new Map<string, SkuPlan[]>();
