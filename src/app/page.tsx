@@ -105,10 +105,13 @@ export default function DashboardPage() {
 
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
 
-  // State to remember the last assigned operator for each machine in the current shift
+  // State to remember the last assigned operator/sku for each machine in the current shift
   const [machineOperatorMap, setMachineOperatorMap] = useState<
     Record<string, string>
   >({});
+  const [machineSkuMap, setMachineSkuMap] = useState<Record<string, string>>(
+    {}
+  );
 
   const [columnVisibility, setColumnVisibility] = useState({
     operator: true,
@@ -206,16 +209,21 @@ export default function DashboardPage() {
       );
       setProductionLog(log);
 
-      // Populate operator map from existing log data for the entire shift
+      // Populate operator & sku maps from existing log data for the entire shift
       const newOperatorMap: Record<string, string> = {};
+      const newSkuMap: Record<string, string> = {};
       Object.values(log).forEach(roundEntry => {
         roundEntry.entries.forEach(entry => {
           if (entry.machineId && entry.operatorId) {
             newOperatorMap[entry.machineId] = entry.operatorId;
           }
+          if (entry.machineId && entry.sku) {
+            newSkuMap[entry.machineId] = entry.sku;
+          }
         });
       });
       setMachineOperatorMap(newOperatorMap);
+      setMachineSkuMap(newSkuMap);
     };
     fetchLog();
   }, [selectedDate, selectedShift, generateRoundTimes, selectedRound]);
@@ -240,19 +248,17 @@ export default function DashboardPage() {
         if (!machine || !machine.isAvailable) return null;
 
         const loggedEntry = logMap.get(planItem.machineId);
-        const currentSkuString = loggedEntry?.sku || planItem.skus[0]?.sku;
-        const skuPlan =
-          planItem.skus.find(s => s.sku === currentSkuString) ||
-          planItem.skus[0];
-        // Use remembered operator if no operator is logged for this specific round
         const operatorId =
           loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
+        const sku = loggedEntry?.sku || machineSkuMap[machine.id] || planItem.skus[0]?.sku || '';
+
+        const skuPlan = planItem.skus.find(s => s.sku === sku) || planItem.skus[0];
 
         return {
           machineId: machine.id,
           name: machine.name,
           status: 'Online' as const,
-          sku: skuPlan?.sku || '',
+          sku: sku,
           sapCode: skuPlan?.sapCode || '',
           quantity: loggedEntry?.quantity || 0,
           operatorId,
@@ -263,7 +269,14 @@ export default function DashboardPage() {
       .filter((entry): entry is MachineProductionData => entry !== null);
 
     setEntries(newEntries);
-  }, [selectedRound, productionLog, allMachines, allProductionPlan, machineOperatorMap]);
+  }, [
+    selectedRound,
+    productionLog,
+    allMachines,
+    allProductionPlan,
+    machineOperatorMap,
+    machineSkuMap,
+  ]);
 
   const handleEntryChange = useCallback(
     (
@@ -287,9 +300,15 @@ export default function DashboardPage() {
           return entry;
         })
       );
-      // Remember the operator selection for the entire shift
+      // Remember the operator/sku selection for the entire shift
       if (field === 'operatorId') {
-        setMachineOperatorMap(prevMap => ({...prevMap, [machineId]: String(value)}));
+        setMachineOperatorMap(prevMap => ({
+          ...prevMap,
+          [machineId]: String(value),
+        }));
+      }
+      if (field === 'sku') {
+        setMachineSkuMap(prevMap => ({...prevMap, [machineId]: String(value)}));
       }
     },
     [allProductionPlan]
@@ -329,7 +348,8 @@ export default function DashboardPage() {
     if (!selectedShift) return;
     await actions.clearShiftData(selectedDate, selectedShift);
     setProductionLog({});
-    setMachineOperatorMap({}); // Also clear the operator memory for the shift
+    setMachineOperatorMap({});
+    setMachineSkuMap({});
     toast({
       title: 'Shift Data Cleared',
       description: `All production entries for ${
@@ -719,5 +739,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
