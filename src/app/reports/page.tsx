@@ -175,6 +175,9 @@ export default function ReportsPage() {
       data = data.filter(item => item.machineId === selectedMachine);
     }
 
+    // Filter out items with zero or no quantity
+    data = data.filter(item => item.quantity > 0);
+    
     setFilteredReportData(data);
     toast({
       title: 'Filters Applied',
