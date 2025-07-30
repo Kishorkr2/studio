@@ -12,7 +12,6 @@ import {
   Eraser,
   Save,
   SlidersHorizontal,
-  ChevronDown,
 } from 'lucide-react';
 import {
   Select,
@@ -41,11 +40,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Calendar} from '@/components/ui/calendar';
 import {Label} from '@/components/ui/label';
@@ -582,135 +576,133 @@ export default function DashboardPage() {
           const machineSkus = planItem?.skus || [];
           return (
             <Card key={entry.machineId}>
-              <CardContent className="p-4">
-                <Collapsible>
-                  <div className="flex items-center justify-between gap-4">
-                    <h3 className="text-lg font-semibold">{entry.name}</h3>
-                    <div className="flex items-center gap-2 flex-1 max-w-xs">
-                      <Label htmlFor={`quantity-${entry.machineId}`} className="sr-only">
-                        Quantity
+              <CardHeader>
+                <CardTitle>{entry.name}</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                {/* Left Column: Quantity */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor={`quantity-${entry.machineId}`}
+                    className="text-lg"
+                  >
+                    Quantity Produced
+                  </Label>
+                  <Input
+                    id={`quantity-${entry.machineId}`}
+                    type="number"
+                    placeholder="0"
+                    className="text-2xl h-16 text-right"
+                    value={entry.quantity === 0 ? '' : entry.quantity}
+                    onChange={e =>
+                      handleEntryChange(
+                        entry.machineId,
+                        'quantity',
+                        parseInt(e.target.value, 10) || 0
+                      )
+                    }
+                  />
+                </div>
+
+                {/* Right Column: Details */}
+                <div className="space-y-4">
+                  {columnVisibility.operator && (
+                    <div className="space-y-2">
+                      <Label htmlFor={`operator-${entry.machineId}`}>
+                        Operator Name
+                      </Label>
+                      <Select
+                        value={entry.operatorId || ''}
+                        onValueChange={val =>
+                          handleEntryChange(entry.machineId, 'operatorId', val)
+                        }
+                      >
+                        <SelectTrigger id={`operator-${entry.machineId}`}>
+                          <SelectValue placeholder="Select Operator" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableOperators.map(op => (
+                            <SelectItem key={op.cardNo} value={op.cardNo}>
+                              {op.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {columnVisibility.sku && (
+                    <div className="space-y-2">
+                      <Label htmlFor={`sku-${entry.machineId}`}>
+                        SKU (Size)
+                      </Label>
+                      <Select
+                        value={entry.sku}
+                        onValueChange={val =>
+                          handleEntryChange(entry.machineId, 'sku', val)
+                        }
+                        disabled={machineSkus.length === 0}
+                      >
+                        <SelectTrigger id={`sku-${entry.machineId}`}>
+                          <SelectValue
+                            placeholder={
+                              machineSkus.length > 0
+                                ? 'Select SKU'
+                                : 'No SKUs planned'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {machineSkus.map(skuPlan => (
+                            <SelectItem
+                              key={skuPlan.sapCode}
+                              value={skuPlan.sku}
+                            >
+                              {skuPlan.sku}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {columnVisibility.trolleyNo && (
+                    <div className="space-y-2">
+                      <Label htmlFor={`trolley-${entry.machineId}`}>
+                        Trolley No
                       </Label>
                       <Input
-                        id={`quantity-${entry.machineId}`}
-                        type="number"
-                        placeholder="Quantity"
-                        className="text-right"
-                        value={entry.quantity === 0 ? '' : entry.quantity}
+                        id={`trolley-${entry.machineId}`}
+                        placeholder="e.g., T-123"
+                        value={entry.trolleyNo || ''}
                         onChange={e =>
                           handleEntryChange(
                             entry.machineId,
-                            'quantity',
-                            parseInt(e.target.value, 10) || 0
+                            'trolleyNo',
+                            e.target.value
                           )
                         }
                       />
-                      <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="sm" className="w-9 p-0">
-                          <ChevronDown className="h-4 w-4" />
-                          <span className="sr-only">Toggle</span>
-                        </Button>
-                      </CollapsibleTrigger>
                     </div>
-                  </div>
-                  <CollapsibleContent className="space-y-4 pt-4">
-                    {columnVisibility.operator && (
-                      <div className="space-y-2">
-                        <Label htmlFor={`operator-${entry.machineId}`}>
-                          Operator Name
-                        </Label>
-                        <Select
-                          value={entry.operatorId || ''}
-                          onValueChange={val =>
-                            handleEntryChange(entry.machineId, 'operatorId', val)
-                          }
-                        >
-                          <SelectTrigger id={`operator-${entry.machineId}`}>
-                            <SelectValue placeholder="Select Operator" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableOperators.map(op => (
-                              <SelectItem key={op.cardNo} value={op.cardNo}>
-                                {op.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    {columnVisibility.sku && (
-                      <div className="space-y-2">
-                        <Label htmlFor={`sku-${entry.machineId}`}>
-                          SKU (Size)
-                        </Label>
-                        <Select
-                          value={entry.sku}
-                          onValueChange={val =>
-                            handleEntryChange(entry.machineId, 'sku', val)
-                          }
-                          disabled={machineSkus.length === 0}
-                        >
-                          <SelectTrigger id={`sku-${entry.machineId}`}>
-                            <SelectValue
-                              placeholder={
-                                machineSkus.length > 0
-                                  ? 'Select SKU'
-                                  : 'No SKUs planned'
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {machineSkus.map(skuPlan => (
-                              <SelectItem
-                                key={skuPlan.sapCode}
-                                value={skuPlan.sku}
-                              >
-                                {skuPlan.sku}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    {columnVisibility.trolleyNo && (
-                      <div className="space-y-2">
-                        <Label htmlFor={`trolley-${entry.machineId}`}>
-                          Trolley No
-                        </Label>
-                        <Input
-                          id={`trolley-${entry.machineId}`}
-                          placeholder="e.g., T-123"
-                          value={entry.trolleyNo || ''}
-                          onChange={e =>
-                            handleEntryChange(
-                              entry.machineId,
-                              'trolleyNo',
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                    )}
-                    {columnVisibility.remark && (
-                      <div className="space-y-2">
-                        <Label htmlFor={`remark-${entry.machineId}`}>
-                          Remark
-                        </Label>
-                        <Input
-                          id={`remark-${entry.machineId}`}
-                          placeholder="Add remark..."
-                          value={entry.remark || ''}
-                          onChange={e =>
-                            handleEntryChange(
-                              entry.machineId,
-                              'remark',
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                    )}
-                  </CollapsibleContent>
-                </Collapsible>
+                  )}
+                  {columnVisibility.remark && (
+                    <div className="space-y-2">
+                      <Label htmlFor={`remark-${entry.machineId}`}>
+                        Remark
+                      </Label>
+                      <Input
+                        id={`remark-${entry.machineId}`}
+                        placeholder="Add remark..."
+                        value={entry.remark || ''}
+                        onChange={e =>
+                          handleEntryChange(
+                            entry.machineId,
+                            'remark',
+                            e.target.value
+                          )
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           );
