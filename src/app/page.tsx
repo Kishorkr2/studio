@@ -29,6 +29,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -211,15 +212,21 @@ export default function DashboardPage() {
 
       const newOperatorMap: Record<string, string> = {};
       const newSkuMap: Record<string, string> = {};
-      Object.values(log).forEach(roundEntry => {
-        roundEntry.entries.forEach(entry => {
-          if (entry.machineId && entry.operatorId) {
-            newOperatorMap[entry.machineId] = entry.operatorId;
-          }
-          if (entry.machineId && entry.sku) {
-            newSkuMap[entry.machineId] = entry.sku;
-          }
-        });
+      
+      const allRounds = generateRoundTimes(selectedShift);
+      // Iterate through rounds in order to find the latest assignment
+      allRounds.forEach(round => {
+        const roundEntry = log[round];
+        if (roundEntry) {
+          roundEntry.entries.forEach(entry => {
+            if (entry.machineId && entry.operatorId) {
+              newOperatorMap[entry.machineId] = entry.operatorId;
+            }
+            if (entry.machineId && entry.sku) {
+              newSkuMap[entry.machineId] = entry.sku;
+            }
+          });
+        }
       });
       setMachineOperatorMap(newOperatorMap);
       setMachineSkuMap(newSkuMap);
@@ -247,6 +254,7 @@ export default function DashboardPage() {
         if (!machine || !machine.isAvailable) return null;
 
         const loggedEntry = logMap.get(planItem.machineId);
+        
         const operatorId =
           loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
         const sku =
@@ -513,6 +521,7 @@ export default function DashboardPage() {
                   mode="single"
                   selected={selectedDate}
                   onSelect={date => date && setSelectedDate(date)}
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                   initialFocus
                 />
               </PopoverContent>
@@ -559,10 +568,10 @@ export default function DashboardPage() {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
                   <SlidersHorizontal className="mr-2 h-4 w-4" />
-                  Columns
+                  Columns & Actions
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
+              <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem
@@ -601,6 +610,38 @@ export default function DashboardPage() {
                 >
                   Remark
                 </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Danger Zone</DropdownMenuLabel>
+                 <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem
+                      onSelect={(e) => e.preventDefault()}
+                      className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                      >
+                      <Eraser className="mr-2 h-4 w-4" />
+                      Clear Shift Data
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        Are you absolutely sure?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete all production data for the
+                        selected shift ({selectedShift?.name} on{' '}
+                        {selectedDate ? format(selectedDate, 'PPP') : ''}). This
+                        action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleClearShiftData}>
+                        Continue
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -626,37 +667,6 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="w-full sm:w-auto"
-                  >
-                    <Eraser className="mr-2 h-4 w-4" />
-                    Clear Shift Data
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      Are you absolutely sure?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete all production data for the
-                      selected shift ({selectedShift?.name} on{' '}
-                      {selectedDate ? format(selectedDate, 'PPP') : ''}). This
-                      action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleClearShiftData}>
-                      Continue
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
               <Button
                 onClick={handleSaveRound}
                 size="lg"
