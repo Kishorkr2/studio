@@ -105,6 +105,11 @@ export default function DashboardPage() {
 
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
 
+  // State to remember the last assigned operator for each machine in the current shift
+  const [machineOperatorMap, setMachineOperatorMap] = useState<
+    Record<string, string>
+  >({});
+
   const [columnVisibility, setColumnVisibility] = useState({
     operator: true,
     sku: true,
@@ -200,6 +205,17 @@ export default function DashboardPage() {
         selectedShift
       );
       setProductionLog(log);
+
+      // Populate operator map from existing log data for the entire shift
+      const newOperatorMap: Record<string, string> = {};
+      Object.values(log).forEach(roundEntry => {
+        roundEntry.entries.forEach(entry => {
+          if (entry.machineId && entry.operatorId) {
+            newOperatorMap[entry.machineId] = entry.operatorId;
+          }
+        });
+      });
+      setMachineOperatorMap(newOperatorMap);
     };
     fetchLog();
   }, [selectedDate, selectedShift, generateRoundTimes, selectedRound]);
@@ -228,6 +244,9 @@ export default function DashboardPage() {
         const skuPlan =
           planItem.skus.find(s => s.sku === currentSkuString) ||
           planItem.skus[0];
+        // Use remembered operator if no operator is logged for this specific round
+        const operatorId =
+          loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
 
         return {
           machineId: machine.id,
@@ -236,7 +255,7 @@ export default function DashboardPage() {
           sku: skuPlan?.sku || '',
           sapCode: skuPlan?.sapCode || '',
           quantity: loggedEntry?.quantity || 0,
-          operatorId: loggedEntry?.operatorId || '',
+          operatorId,
           remark: loggedEntry?.remark || '',
           trolleyNo: loggedEntry?.trolleyNo || '',
         };
@@ -244,7 +263,7 @@ export default function DashboardPage() {
       .filter((entry): entry is MachineProductionData => entry !== null);
 
     setEntries(newEntries);
-  }, [selectedRound, productionLog, allMachines, allProductionPlan]);
+  }, [selectedRound, productionLog, allMachines, allProductionPlan, machineOperatorMap]);
 
   const handleEntryChange = useCallback(
     (
@@ -268,6 +287,10 @@ export default function DashboardPage() {
           return entry;
         })
       );
+      // Remember the operator selection for the entire shift
+      if (field === 'operatorId') {
+        setMachineOperatorMap(prevMap => ({...prevMap, [machineId]: String(value)}));
+      }
     },
     [allProductionPlan]
   );
@@ -306,6 +329,7 @@ export default function DashboardPage() {
     if (!selectedShift) return;
     await actions.clearShiftData(selectedDate, selectedShift);
     setProductionLog({});
+    setMachineOperatorMap({}); // Also clear the operator memory for the shift
     toast({
       title: 'Shift Data Cleared',
       description: `All production entries for ${
@@ -580,59 +604,60 @@ export default function DashboardPage() {
                 <CardTitle>{entry.name}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {columnVisibility.operator && (
-                  <div className="space-y-2">
-                    <Label htmlFor={`operator-${entry.machineId}`}>
-                      Operator Name
-                    </Label>
-                    <Select
-                      value={entry.operatorId || ''}
-                      onValueChange={val =>
-                        handleEntryChange(entry.machineId, 'operatorId', val)
-                      }
-                    >
-                      <SelectTrigger id={`operator-${entry.machineId}`}>
-                        <SelectValue placeholder="Select Operator" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableOperators.map(op => (
-                          <SelectItem key={op.cardNo} value={op.cardNo}>
-                            {op.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                {columnVisibility.sku && (
-                  <div className="space-y-2">
-                    <Label htmlFor={`sku-${entry.machineId}`}>SKU (Size)</Label>
-                    <Select
-                      value={entry.sku}
-                      onValueChange={val =>
-                        handleEntryChange(entry.machineId, 'sku', val)
-                      }
-                      disabled={machineSkus.length === 0}
-                    >
-                      <SelectTrigger id={`sku-${entry.machineId}`}>
-                        <SelectValue
-                          placeholder={
-                            machineSkus.length > 0
-                              ? 'Select SKU'
-                              : 'No SKUs planned'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {machineSkus.map(skuPlan => (
-                          <SelectItem key={skuPlan.sapCode} value={skuPlan.sku}>
-                            {skuPlan.sku}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor={`operator-${entry.machineId}`}>
+                    Operator Name
+                  </Label>
+                  <Select
+                    value={entry.operatorId || ''}
+                    onValueChange={val =>
+                      handleEntryChange(entry.machineId, 'operatorId', val)
+                    }
+                  >
+                    <SelectTrigger id={`operator-${entry.machineId}`}>
+                      <SelectValue placeholder="Select Operator" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableOperators.map(op => (
+                        <SelectItem key={op.cardNo} value={op.cardNo}>
+                          {op.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor={`sku-${entry.machineId}`}>SKU (Size)</Label>
+                  <Select
+                    value={entry.sku}
+                    onValueChange={val =>
+                      handleEntryChange(entry.machineId, 'sku', val)
+                    }
+                    disabled={machineSkus.length === 0}
+                  >
+                    <SelectTrigger id={`sku-${entry.machineId}`}>
+                      <SelectValue
+                        placeholder={
+                          machineSkus.length > 0
+                            ? 'Select SKU'
+                            : 'No SKUs planned'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {machineSkus.map(skuPlan => (
+                        <SelectItem
+                          key={`${skuPlan.sku}-${skuPlan.sapCode}`}
+                          value={skuPlan.sku}
+                        >
+                          {skuPlan.sku}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor={`quantity-${entry.machineId}`}>
                     Quantity Produced
@@ -652,42 +677,40 @@ export default function DashboardPage() {
                     }
                   />
                 </div>
-                {columnVisibility.trolleyNo && (
-                  <div className="space-y-2">
-                    <Label htmlFor={`trolley-${entry.machineId}`}>
-                      Trolley No
-                    </Label>
-                    <Input
-                      id={`trolley-${entry.machineId}`}
-                      placeholder="e.g., T-123"
-                      value={entry.trolleyNo || ''}
-                      onChange={e =>
-                        handleEntryChange(
-                          entry.machineId,
-                          'trolleyNo',
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
-                )}
-                {columnVisibility.remark && (
-                  <div className="space-y-2">
-                    <Label htmlFor={`remark-${entry.machineId}`}>Remark</Label>
-                    <Input
-                      id={`remark-${entry.machineId}`}
-                      placeholder="Add remark..."
-                      value={entry.remark || ''}
-                      onChange={e =>
-                        handleEntryChange(
-                          entry.machineId,
-                          'remark',
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
-                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor={`trolley-${entry.machineId}`}>
+                    Trolley No
+                  </Label>
+                  <Input
+                    id={`trolley-${entry.machineId}`}
+                    placeholder="e.g., T-123"
+                    value={entry.trolleyNo || ''}
+                    onChange={e =>
+                      handleEntryChange(
+                        entry.machineId,
+                        'trolleyNo',
+                        e.target.value
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor={`remark-${entry.machineId}`}>Remark</Label>
+                  <Input
+                    id={`remark-${entry.machineId}`}
+                    placeholder="Add remark..."
+                    value={entry.remark || ''}
+                    onChange={e =>
+                      handleEntryChange(
+                        entry.machineId,
+                        'remark',
+                        e.target.value
+                      )
+                    }
+                  />
+                </div>
               </CardContent>
             </Card>
           );
@@ -696,3 +719,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
