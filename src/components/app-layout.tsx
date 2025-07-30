@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -55,6 +56,13 @@ const navItems = [
 function NavLinks() {
   const pathname = usePathname();
   const {isExpanded} = useSidebar();
+  const {logout} = useAuth();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
 
   return (
     <SidebarMenu>
@@ -72,6 +80,16 @@ function NavLinks() {
           </SidebarMenuButton>
         </SidebarMenuItem>
       ))}
+       <SidebarMenuItem>
+          <SidebarMenuButton
+            onClick={handleLogout}
+            tooltip="Logout"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
+          >
+            <LogOut />
+            {isExpanded && <span>Logout</span>}
+          </SidebarMenuButton>
+        </SidebarMenuItem>
     </SidebarMenu>
   );
 }
