@@ -378,7 +378,7 @@ export default function DashboardPage() {
   }, [productionLog]);
 
   const handleShare = useCallback(async () => {
-    if (!selectedShift || !selectedRound || entries.length === 0) {
+    if (!selectedShift || !selectedRound) {
       toast({
         variant: 'destructive',
         title: 'No Data to Share',
@@ -396,21 +396,27 @@ export default function DashboardPage() {
       return;
     }
 
-    const roundTotal = entries.reduce(
+    const roundProduction = entries.reduce(
       (acc, entry) => acc + (entry.quantity || 0),
       0
     );
 
+    const shiftCumulativeProduction = cumulativeTotal;
+
     let shareText = `*Hourly Production Report*\n\n`;
     shareText += `*Date:* ${format(selectedDate, 'PPP')}\n`;
     shareText += `*Shift:* ${selectedShift.name}\n`;
-    shareText += `*Round:* ${selectedRound}\n`;
-    shareText += `*Total Production:* ${roundTotal}\n\n`;
-    shareText += `*Machine Breakdown:*\n`;
+    shareText += `*Time:* ${selectedRound}\n\n`;
+    shareText += `*Round Production:* ${roundProduction}\n`;
+    shareText += `*Shift Cumulative:* ${shiftCumulativeProduction}\n\n`;
+    shareText += `*Machine-wise Breakdown:*\n`;
+
+    const operatorMap = new Map(allOperators.map(op => [op.cardNo, op.name]));
 
     entries.forEach(entry => {
       if (entry.quantity > 0) {
-        shareText += `- *${entry.name}:* ${entry.quantity} units (${entry.sku})\n`;
+        const operatorName = operatorMap.get(entry.operatorId || '') || 'N/A';
+        shareText += `- *${entry.name}* (${operatorName}): ${entry.quantity}\n`;
       }
     });
 
@@ -419,12 +425,7 @@ export default function DashboardPage() {
         title: 'Hourly Production Report',
         text: shareText,
       });
-      toast({
-        title: 'Shared Successfully',
-        description: 'The production report has been shared.',
-      });
     } catch (error) {
-      // Don't show an error if user cancels the share sheet
       if ((error as Error).name !== 'AbortError') {
         console.error('Share failed:', error);
         toast({
@@ -434,7 +435,15 @@ export default function DashboardPage() {
         });
       }
     }
-  }, [entries, selectedDate, selectedShift, selectedRound, toast]);
+  }, [
+    entries,
+    selectedDate,
+    selectedShift,
+    selectedRound,
+    toast,
+    cumulativeTotal,
+    allOperators,
+  ]);
 
   if (loading) {
     return (
@@ -812,3 +821,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
