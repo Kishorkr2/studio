@@ -58,6 +58,27 @@ import {cn} from '@/lib/utils';
 import {Skeleton} from '@/components/ui/skeleton';
 import * as actions from './actions';
 
+const getLocalStorageItem = (key: string, defaultValue: any) => {
+  if (typeof window === 'undefined') return defaultValue;
+  try {
+    const item = window.localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (error) {
+    console.warn(`Error reading localStorage key "${key}":`, error);
+    return defaultValue;
+  }
+};
+
+const setLocalStorageItem = (key: string, value: any) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.warn(`Error setting localStorage key "${key}":`, error);
+  }
+};
+
+
 const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
   if (!shifts.length) return undefined;
 
@@ -100,7 +121,9 @@ export default function DashboardPage() {
   >([]);
 
   const [roundTimes, setRoundTimes] = useState<string[]>([]);
-  const [selectedRound, setSelectedRound] = useState<string>('');
+  const [selectedRound, setSelectedRound] = useState<string>(() =>
+    getLocalStorageItem('selectedRound', '')
+  );
 
   const [entries, setEntries] = useState<MachineProductionData[]>([]);
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
@@ -109,9 +132,9 @@ export default function DashboardPage() {
 
   const [machineOperatorMap, setMachineOperatorMap] = useState<
     Record<string, string>
-  >({});
+  >(() => getLocalStorageItem('machineOperatorMap', {}));
   const [machineSkuMap, setMachineSkuMap] = useState<Record<string, string>>(
-    {}
+    () => getLocalStorageItem('machineSkuMap', {})
   );
 
   const [columnVisibility, setColumnVisibility] = useState({
@@ -200,7 +223,9 @@ export default function DashboardPage() {
     const newRoundTimes = generateRoundTimes(selectedShift);
     setRoundTimes(newRoundTimes);
     if (!newRoundTimes.includes(selectedRound) || !selectedRound) {
-      setSelectedRound(newRoundTimes[0] || '');
+      const newSelectedRound = newRoundTimes[0] || '';
+      setSelectedRound(newSelectedRound);
+      setLocalStorageItem('selectedRound', newSelectedRound);
     }
 
     const fetchLog = async () => {
@@ -210,11 +235,11 @@ export default function DashboardPage() {
       );
       setProductionLog(log);
 
-      const newOperatorMap: Record<string, string> = {};
-      const newSkuMap: Record<string, string> = {};
+      const newOperatorMap: Record<string, string> = getLocalStorageItem('machineOperatorMap', {});
+      const newSkuMap: Record<string, string> = getLocalStorageItem('machineSkuMap', {});
       
       const allRounds = generateRoundTimes(selectedShift);
-      // Iterate through rounds in order to find the latest assignment
+      // Iterate through rounds in order to find the latest assignment from the log
       allRounds.forEach(round => {
         const roundEntry = log[round];
         if (roundEntry) {
@@ -289,6 +314,11 @@ export default function DashboardPage() {
     machineOperatorMap,
     machineSkuMap,
   ]);
+  
+  const handleSelectedRoundChange = (round: string) => {
+    setSelectedRound(round);
+    setLocalStorageItem('selectedRound', round);
+  }
 
   const handleEntryChange = useCallback(
     (
@@ -313,16 +343,17 @@ export default function DashboardPage() {
         })
       );
       if (field === 'operatorId') {
-        setMachineOperatorMap(prevMap => ({
-          ...prevMap,
-          [machineId]: String(value),
-        }));
+        const newMap = {...machineOperatorMap, [machineId]: String(value)};
+        setMachineOperatorMap(newMap);
+        setLocalStorageItem('machineOperatorMap', newMap);
       }
       if (field === 'sku') {
-        setMachineSkuMap(prevMap => ({...prevMap, [machineId]: String(value)}));
+        const newMap = {...machineSkuMap, [machineId]: String(value)};
+        setMachineSkuMap(newMap);
+        setLocalStorageItem('machineSkuMap', newMap);
       }
     },
-    [allProductionPlan]
+    [allProductionPlan, machineOperatorMap, machineSkuMap]
   );
 
   const handleSaveRound = useCallback(async () => {
@@ -360,6 +391,8 @@ export default function DashboardPage() {
     setProductionLog({});
     setMachineOperatorMap({});
     setMachineSkuMap({});
+    setLocalStorageItem('machineOperatorMap', {});
+    setLocalStorageItem('machineSkuMap', {});
     toast({
       title: 'Shift Data Cleared',
       description: `All production entries for ${
@@ -543,7 +576,7 @@ export default function DashboardPage() {
               </SelectContent>
             </Select>
 
-            <Select value={selectedRound} onValueChange={setSelectedRound}>
+            <Select value={selectedRound} onValueChange={handleSelectedRoundChange}>
               <SelectTrigger className="font-semibold">
                 <div className="flex items-center gap-2">
                   <RoundStatusIndicator
@@ -843,3 +876,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
