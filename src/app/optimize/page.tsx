@@ -1,7 +1,7 @@
 
 'use client';
 
-import {useState, useEffect} from 'react';
+import {useState, useEffect, useCallback} from 'react';
 import {
   Card,
   CardContent,
@@ -32,7 +32,6 @@ import {
   Wrench,
 } from 'lucide-react';
 import type {Operator, Machine, ShiftInfo} from '@/lib/types';
-import {initialOperators, initialMachines, shifts} from '@/lib/data';
 import {optimizeOperatorAssignment} from './actions';
 import type {OptimizeOperatorAssignmentOutput} from '@/ai/flows/optimize-operator-assignment';
 import {useToast} from '@/hooks/use-toast';
@@ -43,8 +42,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import * as DataService from '@/lib/data-service';
 import {Skeleton} from '@/components/ui/skeleton';
+import * as actions from '../actions';
 
 export default function OptimizePage() {
   const [loading, setLoading] = useState(true);
@@ -58,37 +57,31 @@ export default function OptimizePage() {
   );
   const {toast} = useToast();
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     setLoading(true);
-    const unsubOperators = DataService.subscribeToCollection<Operator>(
-      'operators',
-      setOperators,
-      initialOperators
-    );
-    const unsubMachines = DataService.subscribeToCollection<Machine>(
-      'machines',
-      setMachines,
-      initialMachines
-    );
-    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>(
-      'shifts',
-      data => {
-        setAllShifts(data);
-        if (data.length > 0 && !shift) {
-          setShift(data[0]);
-        }
-      },
-      shifts
-    );
+    try {
+      const [ops, machs, allShiftsData] = await Promise.all([
+        actions.getOperators(),
+        actions.getMachines(),
+        actions.getShifts(),
+      ]);
+      setOperators(ops);
+      setMachines(machs);
+      setAllShifts(allShiftsData);
+      if (allShiftsData.length > 0 && !shift) {
+        setShift(allShiftsData[0]);
+      }
+    } catch (error) {
+      console.error('Failed to load data', error);
+      toast({variant: 'destructive', title: 'Error loading data'});
+    } finally {
+      setLoading(false);
+    }
+  }, [shift, toast]);
 
-    setLoading(false);
-
-    return () => {
-      unsubOperators();
-      unsubMachines();
-      unsubShifts();
-    };
-  }, [shift]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleOptimize = async () => {
     if (!shift) {
@@ -130,7 +123,7 @@ export default function OptimizePage() {
     setIsLoading(false);
   };
 
-  const handleOperatorChange = async (
+  const handleOperatorChange = (
     cardNo: string,
     field: keyof Operator,
     value: any
@@ -139,19 +132,21 @@ export default function OptimizePage() {
       op.cardNo === cardNo ? {...op, [field]: value} : op
     );
     setOperators(updatedOperators);
-    await DataService.updateOperator(cardNo, {[field]: value});
   };
 
-  const handleMachineChange = async (
-    id: string,
-    field: keyof Machine,
-    value: any
-  ) => {
+  const handleSaveOperatorChange = async (cardNo: string) => {
+    const operator = operators.find(op => op.cardNo === cardNo);
+    if (operator) {
+      await actions.updateOperator(cardNo, operator);
+    }
+  };
+
+  const handleMachineChange = async (id: string, isAvailable: boolean) => {
     const updatedMachines = machines.map(m =>
-      m.id === id ? {...m, [field]: value} : m
+      m.id === id ? {...m, isAvailable} : m
     );
     setMachines(updatedMachines);
-    await DataService.updateMachines(updatedMachines);
+    await actions.updateMachines(updatedMachines);
   };
 
   const handleShiftChange = (name: string) => {
@@ -162,17 +157,20 @@ export default function OptimizePage() {
   };
 
   const addOperator = async () => {
-    await DataService.addOperator({
-      cardNo: `OP-${Math.floor(Math.random() * 1000)}`,
+    const newOperator = {
+      cardNo: `OP-${Date.now()}`,
       name: 'New Hire',
       builderNo: `B-${Math.floor(Math.random() * 100)}`,
       skillRating: 1,
       isAbsent: false,
-    });
+    };
+    await actions.addOperator(newOperator);
+    setOperators(prev => [...prev, newOperator]);
   };
 
   const removeOperator = async (cardNo: string) => {
-    await DataService.deleteOperator(cardNo);
+    await actions.deleteOperator(cardNo);
+    setOperators(prev => prev.filter(op => op.cardNo !== cardNo));
   };
 
   if (loading) {
@@ -227,7 +225,7 @@ export default function OptimizePage() {
                     <Switch
                       checked={m.isAvailable}
                       onCheckedChange={checked =>
-                        handleMachineChange(m.id, 'isAvailable', checked)
+                        handleMachineChange(m.id, checked)
                       }
                     />
                   </div>
@@ -253,6 +251,7 @@ export default function OptimizePage() {
                     onChange={e =>
                       handleOperatorChange(op.cardNo, 'name', e.target.value)
                     }
+                    onBlur={() => handleSaveOperatorChange(op.cardNo)}
                     className="text-sm font-semibold border-none p-0 h-auto focus-visible:ring-0"
                   />
                   <Button
@@ -275,6 +274,7 @@ export default function OptimizePage() {
                         e.target.value
                       )
                     }
+                    onBlur={() => handleSaveOperatorChange(op.cardNo)}
                     className="text-sm border-none p-0 h-auto focus-visible:ring-0"
                   />
                 </div>
@@ -285,6 +285,7 @@ export default function OptimizePage() {
                     onValueChange={([val]) =>
                       handleOperatorChange(op.cardNo, 'skillRating', val)
                     }
+                    onValueCommit={() => handleSaveOperatorChange(op.cardNo)}
                     min={1}
                     max={5}
                     step={1}
@@ -294,9 +295,11 @@ export default function OptimizePage() {
                   <Label>Absent</Label>
                   <Switch
                     checked={op.isAbsent}
-                    onCheckedChange={checked =>
-                      handleOperatorChange(op.cardNo, 'isAbsent', checked)
-                    }
+                    onCheckedChange={checked => {
+                      handleOperatorChange(op.cardNo, 'isAbsent', checked);
+                      // Save immediately on toggle
+                      handleSaveOperatorChange(op.cardNo);
+                    }}
                   />
                 </div>
               </div>

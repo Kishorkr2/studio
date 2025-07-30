@@ -52,17 +52,10 @@ import type {
   Operator,
   ProductionLog,
   ProductionPlanItem,
-  SkuPlan,
 } from '@/lib/types';
-import {
-  initialOperators,
-  initialMachines,
-  initialProductionPlan,
-  shifts,
-} from '@/lib/data';
 import {cn} from '@/lib/utils';
-import * as DataService from '@/lib/data-service';
 import {Skeleton} from '@/components/ui/skeleton';
+import * as actions from './actions';
 
 const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
   if (!shifts.length) return undefined;
@@ -120,45 +113,34 @@ export default function DashboardPage() {
     remark: true,
   });
 
-  useEffect(() => {
+  const loadInitialData = useCallback(async () => {
     setLoading(true);
-    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>(
-      'shifts',
-      data => {
-        setAllShifts(data);
-        if (data.length > 0) {
-          const currentShift = getCurrentShift(data);
-          setSelectedShift(currentShift);
-        }
-      },
-      shifts
-    );
-    const unsubMachines = DataService.subscribeToCollection<Machine>(
-      'machines',
-      setAllMachines,
-      initialMachines
-    );
-    const unsubOperators = DataService.subscribeToCollection<Operator>(
-      'operators',
-      setAllOperators,
-      initialOperators
-    );
-    const unsubProductionPlan =
-      DataService.subscribeToCollection<ProductionPlanItem>(
-        'productionPlan',
-        setAllProductionPlan,
-        initialProductionPlan
-      );
+    try {
+      const [shiftsData, machinesData, operatorsData, planData] =
+        await Promise.all([
+          actions.getShifts(),
+          actions.getMachines(),
+          actions.getOperators(),
+          actions.getProductionPlan(),
+        ]);
+      setAllShifts(shiftsData);
+      if (shiftsData.length > 0) {
+        setSelectedShift(getCurrentShift(shiftsData));
+      }
+      setAllMachines(machinesData);
+      setAllOperators(operatorsData);
+      setAllProductionPlan(planData);
+    } catch (error) {
+      console.error('Failed to load initial data:', error);
+      toast({variant: 'destructive', title: 'Error loading data'});
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
 
-    setLoading(false);
-
-    return () => {
-      unsubShifts();
-      unsubMachines();
-      unsubOperators();
-      unsubProductionPlan();
-    };
-  }, []);
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
 
   useEffect(() => {
     setAvailableOperators(allOperators.filter(op => !op.isAbsent));
@@ -167,23 +149,21 @@ export default function DashboardPage() {
   const generateRoundTimes = useCallback(
     (shift: ShiftInfo | undefined): string[] => {
       if (!shift) return [];
-
       const times: string[] = [];
       let startHour: number;
       let endHour: number;
 
       if (shift.name === 'Day Shift') {
-        startHour = 9; // 9:00 AM
-        endHour = 19; // 7:00 PM
+        startHour = 9;
+        endHour = 19;
       } else if (shift.name === 'Night Shift') {
-        startHour = 21; // 9:00 PM
-        endHour = 7; // 7:00 AM
+        startHour = 21;
+        endHour = 7;
       } else {
         return [];
       }
 
       if (endHour < startHour) {
-        // Night shift crosses midnight
         let currentHour = startHour;
         while (currentHour !== (endHour + 1) % 24) {
           const ampm = currentHour >= 12 ? 'PM' : 'AM';
@@ -193,7 +173,6 @@ export default function DashboardPage() {
           currentHour = (currentHour + 1) % 24;
         }
       } else {
-        // Day shift
         for (let i = startHour; i <= endHour; i++) {
           const hour = i;
           const ampm = hour >= 12 ? 'PM' : 'AM';
@@ -202,7 +181,6 @@ export default function DashboardPage() {
           times.push(`${displayHour}:00 ${ampm}`);
         }
       }
-
       return times;
     },
     []
@@ -213,21 +191,26 @@ export default function DashboardPage() {
 
     const newRoundTimes = generateRoundTimes(selectedShift);
     setRoundTimes(newRoundTimes);
-
     if (!newRoundTimes.includes(selectedRound) || !selectedRound) {
       setSelectedRound(newRoundTimes[0] || '');
     }
 
-    const unsub = DataService.subscribeToProductionLog(
-      selectedDate,
-      selectedShift,
-      setProductionLog
-    );
-    return () => unsub();
+    const fetchLog = async () => {
+      const log = await actions.getProductionLogForShift(
+        selectedDate,
+        selectedShift
+      );
+      setProductionLog(log);
+    };
+    fetchLog();
   }, [selectedDate, selectedShift, generateRoundTimes, selectedRound]);
 
   useEffect(() => {
-    if (!allProductionPlan.length || !allMachines.length) {
+    if (
+      !allProductionPlan.length ||
+      !allMachines.length ||
+      !selectedRound
+    ) {
       setEntries([]);
       return;
     }
@@ -239,27 +222,20 @@ export default function DashboardPage() {
     const newEntries = allProductionPlan
       .map(planItem => {
         const machine = machineMap.get(planItem.machineId);
-
-        if (!machine || !machine.isAvailable) {
-          return null;
-        }
+        if (!machine || !machine.isAvailable) return null;
 
         const loggedEntry = logMap.get(planItem.machineId);
-
         const currentSkuString = loggedEntry?.sku || planItem.skus[0]?.sku;
         const skuPlan =
           planItem.skus.find(s => s.sku === currentSkuString) ||
           planItem.skus[0];
 
-        const sku = skuPlan?.sku || '';
-        const sapCode = skuPlan?.sapCode || '';
-
         return {
           machineId: machine.id,
           name: machine.name,
           status: 'Online' as const,
-          sku: sku,
-          sapCode: sapCode,
+          sku: skuPlan?.sku || '',
+          sapCode: skuPlan?.sapCode || '',
           quantity: loggedEntry?.quantity || 0,
           operatorId: loggedEntry?.operatorId || '',
           remark: loggedEntry?.remark || '',
@@ -274,17 +250,13 @@ export default function DashboardPage() {
   const handleEntryChange = useCallback(
     (
       machineId: string,
-      field: 'operatorId' | 'quantity' | 'remark' | 'sku' | 'trolleyNo',
+      field: keyof MachineProductionData,
       value: string | number
     ) => {
       setEntries(prevEntries =>
         prevEntries.map(entry => {
           if (entry.machineId === machineId) {
-            const newEntry = {
-              ...entry,
-              [field]: value,
-            };
-
+            const newEntry = {...entry, [field]: value};
             if (field === 'sku') {
               const planItem = allProductionPlan.find(
                 p => p.machineId === machineId
@@ -292,7 +264,6 @@ export default function DashboardPage() {
               const newSkuPlan = planItem?.skus.find(s => s.sku === value);
               newEntry.sapCode = newSkuPlan?.sapCode || '';
             }
-
             return newEntry;
           }
           return entry;
@@ -312,23 +283,30 @@ export default function DashboardPage() {
       return;
     }
 
-    await DataService.saveProductionRound(
+    await actions.saveProductionRound(
       selectedDate,
       selectedShift,
       selectedRound,
       entries
     );
 
+    // Refresh log for the saved round
+    setProductionLog(prev => ({
+      ...prev,
+      [selectedRound]: {entries: entries, status: 'synced'},
+    }));
+
     toast({
       title: 'Round Data Saved',
-      description: `Data for round ${selectedRound} has been saved. It will sync to the cloud when online.`,
+      description: `Data for round ${selectedRound} has been saved.`,
       action: <Save className="text-green-500" />,
     });
   }, [selectedDate, selectedShift, selectedRound, entries, toast]);
 
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
-    await DataService.clearShiftData(selectedDate, selectedShift);
+    await actions.clearShiftData(selectedDate, selectedShift);
+    setProductionLog({});
     toast({
       title: 'Shift Data Cleared',
       description: `All production entries for ${
@@ -339,8 +317,7 @@ export default function DashboardPage() {
 
   const handleShiftChange = useCallback(
     (name: string) => {
-      const newShift = allShifts.find(s => s.name === name);
-      if (newShift) setSelectedShift(newShift);
+      setSelectedShift(allShifts.find(s => s.name === name));
     },
     [allShifts]
   );
@@ -380,14 +357,6 @@ export default function DashboardPage() {
   const RoundStatusIndicator = ({status}: {status?: 'synced' | 'pending'}) => {
     if (status === 'synced') {
       return <CheckCircle className="h-4 w-4 text-green-500" title="Synced" />;
-    }
-    if (status === 'pending') {
-      return (
-        <Loader2
-          className="h-4 w-4 animate-spin text-yellow-500"
-          title="Syncing..."
-        />
-      );
     }
     return <Clock className="h-4 w-4 text-muted-foreground" />;
   };
@@ -459,17 +428,14 @@ export default function DashboardPage() {
                 </div>
               </SelectTrigger>
               <SelectContent>
-                {roundTimes.map(time => {
-                  const logEntry = productionLog[time];
-                  return (
-                    <SelectItem key={time} value={time}>
-                      <div className="flex items-center justify-between w-full">
-                        <span>{time}</span>
-                        <RoundStatusIndicator status={logEntry?.status} />
-                      </div>
-                    </SelectItem>
-                  );
-                })}
+                {roundTimes.map(time => (
+                  <SelectItem key={time} value={time}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{time}</span>
+                      <RoundStatusIndicator status={productionLog[time]?.status} />
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -657,7 +623,7 @@ export default function DashboardPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {machineSkus.map(skuPlan => (
-                          <SelectItem key={skuPlan.sku} value={skuPlan.sku}>
+                          <SelectItem key={skuPlan.sapCode} value={skuPlan.sku}>
                             {skuPlan.sku}
                           </SelectItem>
                         ))}

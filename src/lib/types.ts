@@ -56,3 +56,8 @@ export interface TreadStock {
   openingStock: number;
   production: number;
 }
+
+export interface DailyProductionEntry {
+  quantity: number;
+  trolleyNo: string;
+}

@@ -37,7 +37,6 @@ import type {
   SkuPlan,
 } from '@/lib/types';
 import {
-  Edit,
   PlusCircle,
   Trash,
   UploadCloud,
@@ -62,15 +61,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import {Switch} from '@/components/ui/switch';
 import {Skeleton} from '@/components/ui/skeleton';
-import {
-  initialOperators,
-  shifts as initialShifts,
-  initialProductionPlan,
-  initialMachines,
-} from '@/lib/data';
-import * as DataService from '@/lib/data-service';
-import {clearFirestoreCache} from '@/lib/firebase';
 import {Slider} from '@/components/ui/slider';
+import * as actions from '../actions';
 
 export default function AdminPage() {
   const [loading, setLoading] = useState(true);
@@ -89,39 +81,40 @@ export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [isRenaming, setIsRenaming] = useState<string | null>(null);
 
+  const [uploadedPlan, setUploadedPlan] = useState<
+    ProductionPlanItem[] | null
+  >(null);
+
   const {toast} = useToast();
 
+  const loadInitialData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [ops, shifts, machs, plan] = await Promise.all([
+        actions.getOperators(),
+        actions.getShifts(),
+        actions.getMachines(),
+        actions.getProductionPlan(),
+      ]);
+      setOperators(ops);
+      setManagedShifts(shifts);
+      setMachines(machs);
+      setProductionPlan(plan);
+    } catch (error) {
+      console.error('Failed to load initial data', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load data from the server.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
-    const unsubOperators = DataService.subscribeToCollection<Operator>(
-      'operators',
-      setOperators,
-      initialOperators
-    );
-    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>(
-      'shifts',
-      setManagedShifts,
-      initialShifts
-    );
-    const unsubMachines = DataService.subscribeToCollection<Machine>(
-      'machines',
-      setMachines,
-      initialMachines
-    );
-    const unsubPlan = DataService.subscribeToCollection<ProductionPlanItem>(
-      'productionPlan',
-      setProductionPlan,
-      initialProductionPlan
-    );
-
-    setLoading(false);
-
-    return () => {
-      unsubOperators();
-      unsubShifts();
-      unsubMachines();
-      unsubPlan();
-    };
-  }, []);
+    loadInitialData();
+  }, [loadInitialData]);
 
   const handleAddOperator = async () => {
     const newOperator = {
@@ -131,7 +124,8 @@ export default function AdminPage() {
       skillRating: 3,
       isAbsent: false,
     };
-    await DataService.addOperator(newOperator);
+    await actions.addOperator(newOperator);
+    setOperators(prev => [...prev, newOperator]);
     toast({title: 'Operator Added'});
   };
 
@@ -140,31 +134,35 @@ export default function AdminPage() {
     field: keyof Operator,
     value: any
   ) => {
-    // Optimistic update for immediate UI feedback
+    const originalOperators = operators;
     setOperators(currentOps =>
       currentOps.map(op =>
         op.cardNo === originalCardNo ? {...op, [field]: value} : op
       )
     );
-    await DataService.updateOperator(originalCardNo, {[field]: value});
+    try {
+      await actions.updateOperator(originalCardNo, {[field]: value});
+    } catch (error) {
+      setOperators(originalOperators);
+      toast({variant: 'destructive', title: 'Update failed'});
+    }
   };
 
   const handleRenameOperator = async (
     originalCardNo: string,
     newCardNo: string
   ) => {
-    const operatorToUpdate = operators.find(op => op.cardNo === originalCardNo);
-    if (!operatorToUpdate || !newCardNo || originalCardNo === newCardNo) {
-      return; // No change needed
+    if (!newCardNo || originalCardNo === newCardNo) {
+      return;
     }
 
     if (operators.some(op => op.cardNo === newCardNo)) {
       toast({
         variant: 'destructive',
         title: 'Update Failed',
-        description: `Card No "${newCardNo}" already exists. Please use a unique Card No.`,
+        description: `Card No "${newCardNo}" already exists.`,
       });
-      // Revert optimistic update
+      // Revert UI change
       setOperators(currentOps =>
         currentOps.map(op =>
           op.cardNo === newCardNo ? {...op, cardNo: originalCardNo} : op
@@ -173,42 +171,29 @@ export default function AdminPage() {
       return;
     }
 
+    const operatorToUpdate = operators.find(op => op.cardNo === originalCardNo);
+    if (!operatorToUpdate) return;
+
     setIsRenaming(originalCardNo);
     try {
       const newOperatorData = {...operatorToUpdate, cardNo: newCardNo};
-      await DataService.renameOperator(
-        originalCardNo,
-        newCardNo,
-        newOperatorData
-      );
-      toast({
-        title: 'Operator Card No Updated',
-        description: `Card No changed from ${originalCardNo} to ${newCardNo}.`,
-      });
+      await actions.renameOperator(originalCardNo, newCardNo, newOperatorData);
+      // Refresh the list from the server to get the latest state
+      await loadInitialData();
+      toast({title: 'Operator Card No Updated'});
     } catch (error) {
       console.error('Failed to rename operator:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Rename Failed',
-        description: 'Could not save operator changes. Please try again.',
-      });
-      // Revert optimistic update on failure
-      setOperators(currentOps =>
-        currentOps.map(op =>
-          op.cardNo === newCardNo ? {...op, cardNo: originalCardNo} : op
-        )
-      );
+      toast({variant: 'destructive', title: 'Rename Failed'});
+      await loadInitialData(); // Re-sync with server on failure
     } finally {
       setIsRenaming(null);
     }
   };
 
   const handleDeleteOperator = async (cardNo: string) => {
-    await DataService.deleteOperator(cardNo);
-    toast({
-      title: 'Operator Removed',
-      description: `Operator with Card No ${cardNo} has been removed.`,
-    });
+    await actions.deleteOperator(cardNo);
+    setOperators(prev => prev.filter(op => op.cardNo !== cardNo));
+    toast({title: 'Operator Removed'});
   };
 
   const handleShiftChange = (
@@ -224,11 +209,8 @@ export default function AdminPage() {
   };
 
   const handleSaveShifts = async () => {
-    await DataService.updateShifts(managedShifts);
-    toast({
-      title: 'Shifts Updated',
-      description: `All shift times have been saved successfully.`,
-    });
+    await actions.updateShifts(managedShifts);
+    toast({title: 'Shifts Updated'});
   };
 
   const handleAddPlanItem = useCallback(async () => {
@@ -247,78 +229,66 @@ export default function AdminPage() {
       quantity: newPlanQuantity,
     };
 
-    setProductionPlan(currentPlan => {
-      const existingPlanItem = currentPlan.find(
-        p => p.machineId === newPlanMachineId
-      );
-      let newPlan: ProductionPlanItem[];
+    const newPlan = [...productionPlan];
+    const existingPlanItemIndex = newPlan.findIndex(
+      p => p.machineId === newPlanMachineId
+    );
 
-      if (existingPlanItem) {
-        newPlan = currentPlan.map(p =>
-          p.machineId === newPlanMachineId
-            ? {...p, skus: [...p.skus, newSkuPlan]}
-            : p
-        );
-      } else {
-        newPlan = [
-          ...currentPlan,
-          {machineId: newPlanMachineId, skus: [newSkuPlan]},
-        ];
-      }
-      DataService.updateProductionPlan(newPlan);
-      return newPlan;
-    });
+    if (existingPlanItemIndex > -1) {
+      const newSkus = [...newPlan[existingPlanItemIndex].skus, newSkuPlan];
+      newPlan[existingPlanItemIndex] = {
+        ...newPlan[existingPlanItemIndex],
+        skus: newSkus,
+      };
+    } else {
+      newPlan.push({machineId: newPlanMachineId, skus: [newSkuPlan]});
+    }
 
-    toast({
-      title: 'Plan Item Added',
-      description: `SKU ${newPlanSku} added to ${
-        machines.find(m => m.id === newPlanMachineId)?.name
-      }.`,
-    });
+    setProductionPlan(newPlan);
+    await actions.updateProductionPlan(newPlan);
 
-    // Reset form
+    toast({title: 'Plan Item Added'});
     setNewPlanMachineId('');
     setNewPlanSku('');
     setNewPlanSapCode('');
     setNewPlanQuantity(0);
   }, [
-    machines,
     newPlanMachineId,
     newPlanQuantity,
     newPlanSapCode,
     newPlanSku,
+    productionPlan,
     toast,
   ]);
 
   const handleDeletePlanSku = useCallback(
     async (machineId: string, skuIndex: number) => {
-      setProductionPlan(currentPlan => {
-        const planItem = currentPlan.find(p => p.machineId === machineId);
-        if (!planItem) return currentPlan;
+      const newPlan = [...productionPlan];
+      const planItemIndex = newPlan.findIndex(p => p.machineId === machineId);
 
-        const newSkus = planItem.skus.filter((_, index) => index !== skuIndex);
-        let newPlan: ProductionPlanItem[];
+      if (planItemIndex === -1) return;
 
-        if (newSkus.length > 0) {
-          newPlan = currentPlan.map(p =>
-            p.machineId === machineId ? {...p, skus: newSkus} : p
-          );
-        } else {
-          newPlan = currentPlan.filter(p => p.machineId !== machineId);
-        }
-        DataService.updateProductionPlan(newPlan);
-        return newPlan;
-      });
-      toast({
-        title: 'SKU Removed',
-        description: `SKU has been removed from the plan.`,
-      });
+      const newSkus = newPlan[planItemIndex].skus.filter(
+        (_, index) => index !== skuIndex
+      );
+
+      if (newSkus.length > 0) {
+        newPlan[planItemIndex] = {...newPlan[planItemIndex], skus: newSkus};
+      } else {
+        newPlan.splice(planItemIndex, 1);
+      }
+
+      setProductionPlan(newPlan);
+      await actions.updateProductionPlan(newPlan);
+
+      toast({title: 'SKU Removed'});
     },
-    [toast]
+    [productionPlan, toast]
   );
 
   const handleClearDataConfirm = async () => {
-    await DataService.clearAllProductionData();
+    await actions.clearAllProductionData();
+    await loadInitialData();
     toast({
       title: 'Success!',
       description: 'All production logs and tread stock have been cleared.',
@@ -332,37 +302,9 @@ export default function AdminPage() {
     );
   };
 
-  const handleSaveMachineName = async (id: string) => {
-    const machineToSave = machines.find(m => m.id === id);
-    if (machineToSave) {
-      await DataService.updateMachines([machineToSave]);
-      toast({
-        title: 'TBM Name Updated',
-        description: `Successfully saved name for ${machineToSave.name}.`,
-      });
-    }
-  };
-
-  const handleMachineAvailabilityChange = async (
-    id: string,
-    isAvailable: boolean
-  ) => {
-    const machineToUpdate = machines.find(m => m.id === id);
-    if (machineToUpdate) {
-      const updatedMachine = {...machineToUpdate, isAvailable};
-      await DataService.updateMachines([updatedMachine]);
-      setMachines(currentMachines =>
-        currentMachines.map(m => (m.id === id ? updatedMachine : m))
-      );
-    }
-  };
-
   const handleSaveAllMachineChanges = async () => {
-    await DataService.updateMachines(machines);
-    toast({
-      title: 'All TBM Changes Saved',
-      description: 'All TBM numbers and statuses have been saved successfully.',
-    });
+    await actions.updateMachines(machines);
+    toast({title: 'All TBM Changes Saved'});
   };
 
   const handleAddMachine = async () => {
@@ -378,8 +320,8 @@ export default function AdminPage() {
       name: `TBM ${newIdNumber}`,
       isAvailable: true,
     };
-    const newMachines = [...machines, newMachine];
-    await DataService.updateMachines(newMachines);
+    await actions.addMachine(newMachine);
+    setMachines(prev => [...prev, newMachine]);
   };
 
   const handleDeleteMachine = async (id: string) => {
@@ -387,17 +329,13 @@ export default function AdminPage() {
       toast({
         variant: 'destructive',
         title: 'Cannot Delete TBM',
-        description:
-          'This TBM is part of an active production plan. Please remove it from the plan first.',
+        description: 'This TBM is part of an active production plan.',
       });
       return;
     }
-    const newMachines = machines.filter(m => m.id !== id);
-    await DataService.updateMachines(newMachines);
-    toast({
-      title: 'TBM Removed',
-      description: `TBM No ${id} has been removed.`,
-    });
+    await actions.deleteMachine(id);
+    setMachines(prev => prev.filter(m => m.id !== id));
+    toast({title: 'TBM Removed'});
   };
 
   const handlePlanUpload = useCallback(
@@ -414,19 +352,12 @@ export default function AdminPage() {
             const worksheet = workbook.Sheets[sheetName];
             const jsonFromSheet: any[] = utils.sheet_to_json(worksheet);
 
-            if (jsonFromSheet.length === 0) {
-              throw new Error('File is empty.');
-            }
-
-            const header = Object.keys(jsonFromSheet[0]).map(h =>
-              h.trim().toLowerCase()
-            );
+            const header =
+              jsonFromSheet.length > 0
+                ? Object.keys(jsonFromSheet[0]).map(h => h.trim().toLowerCase())
+                : [];
             const requiredHeaders = ['tbm no', 'sap code', 'sku', 'quantity'];
-            const hasAllHeaders = requiredHeaders.every(rh =>
-              header.includes(rh)
-            );
-
-            if (!hasAllHeaders) {
+            if (!requiredHeaders.every(rh => header.includes(rh))) {
               throw new Error(
                 `File headers must contain: ${requiredHeaders.join(', ')}.`
               );
@@ -436,46 +367,32 @@ export default function AdminPage() {
             const machineNameToIdMap = new Map(
               machines.map(m => {
                 const match = m.name.match(/\d+/);
-                const number = match ? match[0] : null;
-                return [number, m.id];
+                return [match ? match[0] : null, m.id];
               })
             );
 
             for (const row of jsonFromSheet) {
-              const cleanedRow = Object.fromEntries(
-                Object.entries(row).map(([key, value]) => [
-                  key.trim().toLowerCase(),
-                  value,
-                ])
-              );
-
-              const tbmNoRaw = String(cleanedRow['tbm no'] || '').trim();
-              const match = tbmNoRaw.match(/\d+/);
-              const tbmNumber = match ? match[0] : null;
-
+              const tbmNoRaw = String(row['TBM No'] || '').trim();
+              const tbmNumber = tbmNoRaw.match(/\d+/)?.[0];
               const machineId = tbmNumber
-                ? machineNameToIdMap.get(String(parseInt(tbmNumber, 10))) ||
-                  machineNameToIdMap.get(tbmNumber)
+                ? machineNameToIdMap.get(tbmNumber)
                 : null;
 
               if (machineId) {
-                const sapCode = String(cleanedRow['sap code'] || '').trim();
-                const sku = String(cleanedRow['sku'] || '').trim();
-                const quantity = Number(cleanedRow['quantity'] || 0);
+                const sapCode = String(row['SAP Code'] || '').trim();
+                const sku = String(row['SKU'] || '').trim();
+                const quantity = Number(row['Quantity'] || 0);
 
-                if (sku && sapCode) {
-                  if (!planMap.has(machineId)) {
-                    planMap.set(machineId, []);
-                  }
-                  planMap.get(machineId)!.push({sku, sapCode, quantity});
+                if (sku && sapCode && quantity > 0) {
+                  const currentSkus = planMap.get(machineId) || [];
+                  currentSkus.push({sku, sapCode, quantity});
+                  planMap.set(machineId, currentSkus);
                 }
               }
             }
 
             if (planMap.size === 0) {
-              throw new Error(
-                'Invalid file format or TBM No did not match. Please check headers: TBM No, SAP Code, SKU, Quantity'
-              );
+              throw new Error('No valid plan data found in the file.');
             }
 
             const parsedPlan: ProductionPlanItem[] = Array.from(
@@ -485,58 +402,43 @@ export default function AdminPage() {
               skus,
             }));
 
-            await DataService.updateProductionPlan(parsedPlan);
-            setProductionPlan(parsedPlan); // Update local state immediately
+            setUploadedPlan(parsedPlan);
             toast({
-              title: 'Production Plan Uploaded',
-              description: `Successfully uploaded and replaced the production plan with ${parsedPlan.length} TBM assignments.`,
+              title: 'Plan Preview Ready',
+              description: 'Review the uploaded plan and click save.',
             });
           } catch (error) {
-            console.error('Error parsing plan file: ', error);
+            console.error('Error parsing plan file:', error);
             toast({
               variant: 'destructive',
               title: 'File Upload Error',
               description:
-                error instanceof Error
-                  ? error.message
-                  : 'Could not parse the uploaded file. Please ensure it follows the template.',
+                error instanceof Error ? error.message : 'An unknown error occurred.',
             });
           }
         };
-        reader.onerror = () => {
-          toast({
-            variant: 'destructive',
-            title: 'File Read Error',
-            description: 'There was an error reading the file.',
-          });
-        };
         reader.readAsArrayBuffer(file);
       }
-      if (event.target) {
-        event.target.value = '';
-      }
+      if (event.target) event.target.value = '';
     },
     [machines, toast]
   );
 
-  const handleClearCache = async () => {
-    try {
-      toast({
-        title: 'Clearing Local Cache...',
-        description: 'The application will reload shortly. Please wait.',
-      });
-      await clearFirestoreCache();
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
-    } catch (error) {
-      console.error('Failed to clear local cache:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error Clearing Cache',
-        description:
-          'Could not clear the local cache. Please try closing all tabs of this app and reopening.',
-      });
+  const handleSaveUploadedPlan = async () => {
+    if (!uploadedPlan) return;
+    await actions.updateProductionPlan(uploadedPlan);
+    setProductionPlan(uploadedPlan);
+    setUploadedPlan(null);
+    toast({
+      title: 'Production Plan Saved',
+      description: 'The new plan has been successfully saved.',
+    });
+  };
+
+  const handleClearCache = () => {
+    // This is a client-side only operation
+    if (typeof window !== 'undefined' && 'indexedDB' in window) {
+      window.location.reload();
     }
   };
 
@@ -593,19 +495,10 @@ export default function AdminPage() {
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : null}
                             <Input
-                              value={op.cardNo || ''}
+                              defaultValue={op.cardNo}
                               disabled={isRenaming === op.cardNo}
                               onBlur={e =>
                                 handleRenameOperator(op.cardNo, e.target.value)
-                              }
-                              onChange={e =>
-                                setOperators(ops =>
-                                  ops.map(o =>
-                                    o.cardNo === op.cardNo
-                                      ? {...o, cardNo: e.target.value}
-                                      : o
-                                  )
-                                )
                               }
                               className="font-mono text-xs w-28"
                             />
@@ -613,43 +506,21 @@ export default function AdminPage() {
                         </TableCell>
                         <TableCell>
                           <Input
-                            value={op.name || ''}
+                            defaultValue={op.name}
                             onBlur={e =>
-                              handleOperatorChange(
-                                op.cardNo,
-                                'name',
-                                e.target.value
-                              )
-                            }
-                            onChange={e =>
-                              setOperators(ops =>
-                                ops.map(o =>
-                                  o.cardNo === op.cardNo
-                                    ? {...o, name: e.target.value}
-                                    : o
-                                )
-                              )
+                              handleOperatorChange(op.cardNo, 'name', e.target.value)
                             }
                             className="w-36"
                           />
                         </TableCell>
                         <TableCell>
                           <Input
-                            value={op.builderNo || ''}
+                            defaultValue={op.builderNo}
                             onBlur={e =>
                               handleOperatorChange(
                                 op.cardNo,
                                 'builderNo',
                                 e.target.value
-                              )
-                            }
-                            onChange={e =>
-                              setOperators(ops =>
-                                ops.map(o =>
-                                  o.cardNo === op.cardNo
-                                    ? {...o, builderNo: e.target.value}
-                                    : o
-                                )
                               )
                             }
                             className="w-24"
@@ -660,11 +531,7 @@ export default function AdminPage() {
                             <Slider
                               value={[op.skillRating]}
                               onValueChange={([val]) =>
-                                handleOperatorChange(
-                                  op.cardNo,
-                                  'skillRating',
-                                  val
-                                )
+                                handleOperatorChange(op.cardNo, 'skillRating', val)
                               }
                               min={1}
                               max={5}
@@ -782,39 +649,66 @@ export default function AdminPage() {
               <div className="space-y-2">
                 <h4 className="text-md font-semibold">File Format Template</h4>
                 <p className="text-sm text-muted-foreground">
-                  Your Excel file should contain four columns:{' '}
-                  <strong>TBM No</strong>, <strong>SAP Code</strong>,{' '}
+                  Your Excel file should contain four columns with these exact
+                  headers: <strong>TBM No</strong>, <strong>SAP Code</strong>,{' '}
                   <strong>SKU</strong>, and <strong>Quantity</strong>.
                 </p>
-                <div className="border rounded-lg overflow-x-auto">
+              </div>
+            </CardContent>
+          </Card>
+
+          {uploadedPlan && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Uploaded Plan Preview</CardTitle>
+                <CardDescription>
+                  Review the data parsed from your file before saving.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="border rounded-lg max-h-60 overflow-y-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>TBM No</TableHead>
-                        <TableHead>SAP Code</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Quantity</TableHead>
+                        <TableHead>Assigned SKUs</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      <TableRow>
-                        <TableCell className="font-mono">TBM 1</TableCell>
-                        <TableCell className="font-mono">S4P-87321</TableCell>
-                        <TableCell className="font-mono">P-215-65R17</TableCell>
-                        <TableCell className="font-mono">100</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className="font-mono">TBM 2</TableCell>
-                        <TableCell className="font-mono">S4P-87322</TableCell>
-                        <TableCell className="font-mono">P-225-60R17</TableCell>
-                        <TableCell className="font-mono">150</TableCell>
-                      </TableRow>
+                      {uploadedPlan.map(item => (
+                        <TableRow key={item.machineId}>
+                          <TableCell>
+                            {machines.find(m => m.id === item.machineId)?.name}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              {item.skus.map((sku, idx) => (
+                                <Badge
+                                  key={idx}
+                                  variant="secondary"
+                                  className="text-left justify-start"
+                                >
+                                  {sku.sku} (SAP: {sku.sapCode}, Qty: {sku.quantity})
+                                </Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+              <CardFooter className="justify-end gap-2">
+                <Button variant="outline" onClick={() => setUploadedPlan(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveUploadedPlan}>
+                  <Save className="mr-2 h-4 w-4" /> Save Uploaded Plan
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
@@ -886,7 +780,6 @@ export default function AdminPage() {
                     <TableRow>
                       <TableHead>TBM No</TableHead>
                       <TableHead>Assigned SKUs</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -899,7 +792,7 @@ export default function AdminPage() {
                           <div className="flex flex-col gap-2 items-start">
                             {item.skus.map((skuPlan, index) => (
                               <div
-                                key={`${item.machineId}-${skuPlan.sku}-${index}`}
+                                key={`${item.machineId}-${skuPlan.sapCode}-${index}`}
                                 className="flex items-center gap-2 w-full"
                               >
                                 <Badge
@@ -922,9 +815,6 @@ export default function AdminPage() {
                               </div>
                             ))}
                           </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {/* The edit/delete can be done per SKU now */}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -959,14 +849,10 @@ export default function AdminPage() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Input
-                              value={machine.name}
-                              onChange={e =>
-                                handleMachineNameChange(
-                                  machine.id,
-                                  e.target.value
-                                )
+                              defaultValue={machine.name}
+                              onBlur={e =>
+                                handleMachineNameChange(machine.id, e.target.value)
                               }
-                              onBlur={() => handleSaveMachineName(machine.id)}
                               className="w-36"
                             />
                           </div>
@@ -974,12 +860,14 @@ export default function AdminPage() {
                         <TableCell>
                           <Switch
                             checked={machine.isAvailable}
-                            onCheckedChange={checked =>
-                              handleMachineAvailabilityChange(
-                                machine.id,
-                                checked
-                              )
-                            }
+                            onCheckedChange={checked => {
+                              const updatedMachines = machines.map(m =>
+                                m.id === machine.id
+                                  ? {...m, isAvailable: checked}
+                                  : m
+                              );
+                              setMachines(updatedMachines);
+                            }}
                           />
                         </TableCell>
                         <TableCell className="text-right">
@@ -1083,13 +971,12 @@ export default function AdminPage() {
                   </h4>
                   <p className="text-sm text-yellow-700/80 dark:text-yellow-300/80 mt-1">
                     If the application is behaving unexpectedly or not loading
-                    data, clearing the local cache can often resolve the issue.
-                    This action is safe and will not delete any data stored in
-                    the cloud.
+                    data, a page reload can often resolve the issue.
+                    This action is safe and will not delete any data.
                   </p>
                 </div>
                 <Button variant="outline" onClick={handleClearCache}>
-                  <DatabaseZap className="mr-2 h-4 w-4" /> Clear Local Cache
+                  <DatabaseZap className="mr-2 h-4 w-4" /> Reload Page
                 </Button>
               </div>
             </CardContent>

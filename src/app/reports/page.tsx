@@ -11,7 +11,6 @@ import {
   Clock,
   Wrench,
   Check,
-  Factory,
 } from 'lucide-react';
 import {addDays, format, parseISO} from 'date-fns';
 import type {DateRange} from 'react-day-picker';
@@ -52,14 +51,13 @@ import {
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {useToast} from '@/hooks/use-toast';
 import {Label} from '@/components/ui/label';
-import * as DataService from '@/lib/data-service';
 import type {
   Machine,
   Operator,
-  ProductionLog,
   ShiftInfo,
   MachineProductionData,
 } from '@/lib/types';
+import * as actions from '../actions';
 
 interface ReportDataRow {
   date: string;
@@ -118,7 +116,6 @@ export default function ReportsPage() {
   const [allOperators, setAllOperators] = React.useState<Operator[]>([]);
   const [allMachines, setAllMachines] = React.useState<Machine[]>([]);
   const [allShifts, setAllShifts] = React.useState<ShiftInfo[]>([]);
-  const [rawProductionLogs, setRawProductionLogs] = React.useState<any[]>([]);
 
   const [allReportData, setAllReportData] = React.useState<ReportDataRow[]>([]);
   const [filteredReportData, setFilteredReportData] = React.useState<
@@ -127,77 +124,58 @@ export default function ReportsPage() {
   const [breakdownData, setBreakdownData] = React.useState<ReportDataRow[]>([]);
 
   React.useEffect(() => {
-    const unsubOperators = DataService.subscribeToCollection<Operator>(
-      'operators',
-      setAllOperators
-    );
-    const unsubMachines = DataService.subscribeToCollection<Machine>(
-      'machines',
-      setAllMachines
-    );
-    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>(
-      'shifts',
-      setAllShifts
-    );
-    const unsubHistory =
-      DataService.subscribeToProductionLogs(setRawProductionLogs);
+    const loadData = async () => {
+      try {
+        const [ops, machs, shifts, logs] = await Promise.all([
+          actions.getOperators(),
+          actions.getMachines(),
+          actions.getShifts(),
+          actions.getProductionLogs(),
+        ]);
+        setAllOperators(ops);
+        setAllMachines(machs);
+        setAllShifts(shifts);
 
-    return () => {
-      unsubOperators();
-      unsubMachines();
-      unsubShifts();
-      unsubHistory();
-    };
-  }, []);
+        const operatorMap = new Map(ops.map(op => [op.cardNo, op.name]));
+        const machineMap = new Map(machs.map(m => [m.id, m.name]));
 
-  React.useEffect(() => {
-    if (
-      rawProductionLogs.length === 0 ||
-      allOperators.length === 0 ||
-      allMachines.length === 0
-    ) {
-      return;
-    }
+        const reportRows: ReportDataRow[] = [];
+        logs.forEach(logDoc => {
+          const logIdParts = logDoc.id.split('::');
+          const logMeta = logIdParts[0].replace('production-log-', '');
+          const metaParts = logMeta.split('-');
+          const date = metaParts.slice(0, 3).join('-');
+          const shift = metaParts.slice(3).join(' ');
+          const round = logIdParts[1] || 'unknown';
+          const entries: MachineProductionData[] = JSON.parse(logDoc.entries);
 
-    const operatorMap = new Map(allOperators.map(op => [op.cardNo, op.name]));
-    const machineMap = new Map(allMachines.map(m => [m.id, m.name]));
-
-    const logs: ReportDataRow[] = [];
-    rawProductionLogs.forEach(logDoc => {
-      const {id, ...logData} = logDoc;
-      const idParts = id.replace('production-log-', '').split('-');
-      if (idParts.length < 4) return;
-
-      const dateStr = idParts.slice(0, 3).join('-');
-      const shiftName = idParts.slice(3).join(' ');
-
-      Object.entries(logData as ProductionLog).forEach(
-        ([round, logEntry]: [string, any]) => {
-          if (logEntry.entries) {
-            logEntry.entries.forEach((entry: MachineProductionData) => {
-              logs.push({
-                date: dateStr,
-                shift: shiftName,
-                round,
-                operatorId: entry.operatorId,
-                operatorName: operatorMap.get(entry.operatorId || '') || 'N/A',
-                machineId: entry.machineId,
-                machineName: machineMap.get(entry.machineId) || 'N/A',
-                sku: entry.sku,
-                quantity: entry.quantity,
-                remark: entry.remark,
-                trolleyNo: entry.trolleyNo,
-              });
+          entries.forEach(entry => {
+            reportRows.push({
+              date,
+              shift,
+              round,
+              operatorId: entry.operatorId,
+              operatorName: operatorMap.get(entry.operatorId || '') || 'N/A',
+              machineId: entry.machineId,
+              machineName: machineMap.get(entry.machineId) || 'N/A',
+              sku: entry.sku,
+              quantity: entry.quantity,
+              remark: entry.remark,
+              trolleyNo: entry.trolleyNo,
             });
-          }
-        }
-      );
-    });
-    setAllReportData(logs);
-    setBreakdownData(
-      logs.filter(item => item.remark && item.remark.trim() !== '')
-    );
-  }, [rawProductionLogs, allOperators, allMachines]);
+          });
+        });
+        setAllReportData(reportRows);
+        setBreakdownData(
+          reportRows.filter(item => item.remark && item.remark.trim() !== '')
+        );
+      } catch (error) {
+        console.error('Failed to load report data', error);
+        toast({variant: 'destructive', title: 'Error loading data'});
+      }
+    };
+    loadData();
+  }, [toast]);
 
   const handleApplyFilters = React.useCallback(() => {
     let data = [...allReportData];
@@ -220,17 +198,14 @@ export default function ReportsPage() {
     if (selectedShift !== 'all') {
       data = data.filter(item => item.shift === selectedShift);
     }
-
     if (selectedOperator !== 'all') {
       data = data.filter(item => item.operatorId === selectedOperator);
     }
-
     if (selectedMachine !== 'all') {
       data = data.filter(item => item.machineId === selectedMachine);
     }
 
     setFilteredReportData(data);
-
     toast({
       title: 'Filters Applied',
       description: `Displaying ${data.length} records.`,
@@ -246,7 +221,7 @@ export default function ReportsPage() {
 
   React.useEffect(() => {
     handleApplyFilters();
-  }, [handleApplyFilters]);
+  }, [allReportData, handleApplyFilters]);
 
   const handleExport = () => {
     if (filteredReportData.length === 0) {
@@ -272,8 +247,6 @@ export default function ReportsPage() {
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'ProductionReport');
-
-    // Set column widths
     worksheet['!cols'] = [
       {wch: 12}, // Date
       {wch: 15}, // Shift
@@ -284,9 +257,7 @@ export default function ReportsPage() {
       {wch: 10}, // Quantity
       {wch: 30}, // Remark
     ];
-
     XLSX.writeFile(workbook, 'TyreTrack_Production_Report.xlsx');
-
     toast({
       title: 'Report Exported',
       description: 'Your report has been downloaded successfully.',
@@ -532,8 +503,7 @@ export default function ReportsPage() {
               <CardTitle>OEE Component Breakdown</CardTitle>
               <CardDescription>
                 This is a visual demonstration. Accurate OEE calculation
-                requires additional data points like ideal cycle times and
-                scrap counts.
+                requires additional data points.
               </CardDescription>
             </CardHeader>
             <CardContent>

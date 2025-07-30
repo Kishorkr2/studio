@@ -1,7 +1,7 @@
 
 'use client';
 
-import {useState, useEffect, useMemo} from 'react';
+import {useState, useEffect, useMemo, useCallback} from 'react';
 import {Button} from '@/components/ui/button';
 import {
   Card,
@@ -20,7 +20,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {useToast} from '@/hooks/use-toast';
-import type {ProductionPlanItem, ShiftInfo, SkuPlan} from '@/lib/types';
+import type {
+  ProductionPlanItem,
+  ShiftInfo,
+  SkuPlan,
+  DailyProductionEntry,
+} from '@/lib/types';
 import {CalendarIcon, Save} from 'lucide-react';
 import {cn} from '@/lib/utils';
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
@@ -33,14 +38,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {shifts as initialShifts} from '@/lib/data';
-import * as DataService from '@/lib/data-service';
 import {Skeleton} from '@/components/ui/skeleton';
-
-interface DailyProductionEntry {
-  quantity: number;
-  trolleyNo: string;
-}
+import * as actions from '../actions';
 
 export default function DailyTreadProductionPage() {
   const {toast} = useToast();
@@ -63,6 +62,36 @@ export default function DailyTreadProductionPage() {
   const [sapCodeFilter, setSapCodeFilter] = useState('');
   const [skuFilter, setSkuFilter] = useState('');
 
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [shifts, plan, log] = await Promise.all([
+        actions.getShifts(),
+        actions.getProductionPlan(),
+        actions.getDailyTreadProductionLog(),
+      ]);
+      setAllShifts(shifts);
+      if (shifts.length > 0 && !selectedShift) {
+        setSelectedShift(shifts[0]);
+      }
+      setProductionPlan(plan);
+      setDailyProductionLog(log);
+    } catch (error) {
+      console.error('Failed to load data', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not load data from the server.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedShift, toast]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   const allSkusFromPlan = useMemo((): SkuPlan[] => {
     const sapCodeMap = new Map<string, SkuPlan>();
     productionPlan.forEach(item => {
@@ -82,44 +111,6 @@ export default function DailyTreadProductionPage() {
     });
     return Array.from(sapCodeMap.values());
   }, [productionPlan]);
-
-  useEffect(() => {
-    setLoading(true);
-    const unsubShifts = DataService.subscribeToCollection<ShiftInfo>(
-      'shifts',
-      data => {
-        setAllShifts(data);
-        if (data.length > 0 && !selectedShift) {
-          setSelectedShift(data[0]);
-        }
-      },
-      initialShifts
-    );
-
-    const unsubPlan =
-      DataService.subscribeToCollection<ProductionPlanItem>(
-        'productionPlan',
-        setProductionPlan
-      );
-
-    const unsubLog = DataService.subscribeToCollection<any>(
-      'dailyTreadProduction',
-      docs => {
-        const log: any = {};
-        docs.forEach(doc => {
-          log[doc.id] = doc;
-        });
-        setDailyProductionLog(log);
-        setLoading(false);
-      }
-    );
-
-    return () => {
-      unsubShifts();
-      unsubPlan();
-      unsubLog();
-    };
-  }, []);
 
   useEffect(() => {
     if (!selectedDate || !selectedShift) return;
@@ -151,8 +142,7 @@ export default function DailyTreadProductionPage() {
       toast({
         variant: 'destructive',
         title: 'Please wait',
-        description:
-          'The date or shift is still loading. Please try again in a moment.',
+        description: 'Select a date and shift before saving.',
       });
       return;
     }
@@ -166,8 +156,8 @@ export default function DailyTreadProductionPage() {
 
     const newLog = {...dailyProductionLog, [dateKey]: updatedLogForDate};
 
-    await DataService.saveDailyProductionLog(newLog);
-    // No need to set state here, the listener will do it.
+    await actions.saveDailyProductionLog(newLog);
+    setDailyProductionLog(newLog);
     toast({
       title: 'Success!',
       description: `Tread production for ${

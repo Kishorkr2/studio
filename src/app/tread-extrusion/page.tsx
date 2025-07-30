@@ -24,7 +24,6 @@ import type {
   ProductionPlanItem,
   ProductionLog,
   TreadStock,
-  ShiftInfo,
   MachineProductionData,
   SkuPlan,
 } from '@/lib/types';
@@ -44,13 +43,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import * as DataService from '@/lib/data-service';
 import {Skeleton} from '@/components/ui/skeleton';
-
-interface DailyProductionEntry {
-  quantity: number;
-  trolleyNo: string;
-}
+import * as actions from '../actions';
 
 export default function TreadExtrusionPage() {
   const {toast} = useToast();
@@ -63,8 +57,8 @@ export default function TreadExtrusionPage() {
   const [tyreProductionData, setTyreProductionData] = useState<
     Record<string, number>
   >({});
-  const [dailyProductionLog, setDailyProductionLog] = useState<
-    Record<string, Record<string, Record<string, DailyProductionEntry>>>
+  const [totalProductionBySapCode, setTotalProductionBySapCode] = useState<
+    Record<string, number>
   >({});
 
   const [columnVisibility, setColumnVisibility] = useState({
@@ -79,6 +73,54 @@ export default function TreadExtrusionPage() {
 
   const [sapCodeFilter, setSapCodeFilter] = useState('');
   const [skuFilter, setSkuFilter] = useState('');
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [plan, stock, dailyLogs, historyLogs] = await Promise.all([
+        actions.getProductionPlan(),
+        actions.getTreadOpeningStock(),
+        actions.getDailyTreadProductionLog(),
+        actions.getProductionLogs(),
+      ]);
+
+      setProductionPlan(plan);
+      setOpeningStockData(stock);
+
+      const dailyTotals: Record<string, number> = {};
+      for (const dateKey in dailyLogs) {
+        for (const shiftName in dailyLogs[dateKey]) {
+          for (const sapCode in dailyLogs[dateKey][shiftName]) {
+            dailyTotals[sapCode] =
+              (dailyTotals[sapCode] || 0) +
+              (dailyLogs[dateKey][shiftName][sapCode].quantity || 0);
+          }
+        }
+      }
+      setTotalProductionBySapCode(dailyTotals);
+
+      const tyreProd: Record<string, number> = {};
+      historyLogs.forEach(logDoc => {
+        const entries: MachineProductionData[] = JSON.parse(logDoc.entries);
+        entries.forEach(entry => {
+          if (entry.sapCode && entry.quantity > 0) {
+            tyreProd[entry.sapCode] =
+              (tyreProd[entry.sapCode] || 0) + entry.quantity;
+          }
+        });
+      });
+      setTyreProductionData(tyreProd);
+    } catch (error) {
+      console.error('Failed to load data', error);
+      toast({variant: 'destructive', title: 'Error loading data'});
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const allSkusFromPlan = useMemo((): SkuPlan[] => {
     const sapCodeMap = new Map<string, SkuPlan>();
@@ -100,120 +142,43 @@ export default function TreadExtrusionPage() {
     return Array.from(sapCodeMap.values());
   }, [productionPlan]);
 
-  useEffect(() => {
-    setLoading(true);
-
-    const unsubPlan =
-      DataService.subscribeToCollection<ProductionPlanItem>(
-        'productionPlan',
-        setProductionPlan
-      );
-    const unsubOpeningStock = DataService.subscribeToCollection<TreadStock>(
-      'treadOpeningStock',
-      setOpeningStockData
-    );
-
-    const unsubDailyProd = DataService.subscribeToCollection<any>(
-      'dailyTreadProduction',
-      docs => {
-        const log: any = {};
-        docs.forEach(doc => {
-          log[doc.id] = doc;
-        });
-        setDailyProductionLog(log);
-      }
-    );
-
-    const unsubHistory = DataService.subscribeToProductionLogs(history => {
-      const tyreProduction: Record<string, number> = {};
-      history.forEach(logDoc => {
-        const logContent = logDoc as Omit<typeof logDoc, 'id'>;
-        Object.values(logContent as ProductionLog).forEach((logEntry: any) => {
-          if (logEntry.entries) {
-            logEntry.entries.forEach((entry: MachineProductionData) => {
-              if (entry.sapCode && entry.quantity > 0) {
-                tyreProduction[entry.sapCode] =
-                  (tyreProduction[entry.sapCode] || 0) + entry.quantity;
-              }
-            });
-          }
-        });
-      });
-      setTyreProductionData(tyreProduction);
-    });
-
-    setLoading(false);
-
-    return () => {
-      unsubPlan();
-      unsubOpeningStock();
-      unsubDailyProd();
-      unsubHistory();
-    };
-  }, []);
-
   const handleOpeningStockChange = useCallback(
     (sapCode: string, value: string) => {
       const numericValue = parseInt(value, 10) || 0;
-
       setOpeningStockData(currentData => {
         const existingIndex = currentData.findIndex(
           item => item.sapCode === sapCode
         );
         if (existingIndex > -1) {
-          return currentData.map(item =>
-            item.sapCode === sapCode
+          return currentData.map((item, index) =>
+            index === existingIndex
               ? {...item, openingStock: numericValue}
               : item
           );
-        } else {
-          // Find the SKU from the plan to associate with the new stock entry
-          const planSku = allSkusFromPlan.find(s => s.sapCode === sapCode);
-          return [
-            ...currentData,
-            {
-              sku: planSku?.sku || '',
-              sapCode: sapCode,
-              openingStock: numericValue,
-              production: 0,
-            },
-          ];
         }
+        const planSku = allSkusFromPlan.find(s => s.sapCode === sapCode);
+        return [
+          ...currentData,
+          {
+            sku: planSku?.sku || '',
+            sapCode: sapCode,
+            openingStock: numericValue,
+            production: 0,
+          },
+        ];
       });
     },
     [allSkusFromPlan]
   );
 
   const handleSaveOpeningStock = useCallback(async () => {
-    await DataService.saveTreadOpeningStock(openingStockData);
+    await actions.saveTreadOpeningStock(openingStockData);
     toast({
       title: 'Success!',
       description: 'Opening stock data has been saved.',
       action: <Save className="text-green-500" />,
     });
   }, [openingStockData, toast]);
-
-  const totalProductionBySapCode = useMemo(() => {
-    const totals: Record<string, number> = {};
-    for (const dateKey in dailyProductionLog) {
-      const dateData = dailyProductionLog[dateKey];
-      if (!dateData || typeof dateData !== 'object') continue;
-
-      for (const shiftName in dateData) {
-        const shiftEntries = dateData[shiftName] as Record<
-          string,
-          DailyProductionEntry
-        >;
-        if (shiftEntries && typeof shiftEntries === 'object') {
-          for (const sapCode in shiftEntries) {
-            const entry = shiftEntries[sapCode];
-            totals[sapCode] = (totals[sapCode] || 0) + (entry.quantity || 0);
-          }
-        }
-      }
-    }
-    return totals;
-  }, [dailyProductionLog]);
 
   const filteredSkus = useMemo(() => {
     return allSkusFromPlan.filter(
@@ -228,9 +193,7 @@ export default function TreadExtrusionPage() {
     return filteredSkus.map(req => {
       const openingStockInfo = openingStockData.find(
         t => t.sapCode === req.sapCode
-      ) || {
-        openingStock: 0,
-      };
+      ) || {openingStock: 0};
       const totalProduction = totalProductionBySapCode[req.sapCode] || 0;
       const tyreProduction = tyreProductionData[req.sapCode] || 0;
       const currentTreadStock =
@@ -239,7 +202,6 @@ export default function TreadExtrusionPage() {
         0,
         (req.quantity || 0) - currentTreadStock
       );
-
       return {
         ...req,
         openingStock: openingStockInfo.openingStock,
@@ -260,9 +222,6 @@ export default function TreadExtrusionPage() {
     1 + Object.values(columnVisibility).filter(Boolean).length;
 
   const summary = useMemo(() => {
-    if (!combinedData?.length) {
-      return {totalRequirement: 0, totalProduction: 0, totalCurrentStock: 0};
-    }
     const totalRequirement = combinedData.reduce(
       (acc, item) => acc + (item.quantity || 0),
       0
