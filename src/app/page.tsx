@@ -415,7 +415,7 @@ export default function DashboardPage() {
     shareText += `*Time:* ${selectedRound}\n\n`;
     shareText += `*Round Production:* ${roundProduction}\n`;
     shareText += `*Shift Cumulative:* ${cumulativeTotal}\n\n`;
-    shareText += `*Machine-wise Breakdown:*\n`;
+    shareText += `*TBM wise production:*\n`;
 
     const operatorMap = new Map(allOperators.map(op => [op.cardNo, op.name]));
 
