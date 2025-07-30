@@ -401,14 +401,12 @@ export default function DashboardPage() {
       0
     );
 
-    const shiftCumulativeProduction = cumulativeTotal;
-
     let shareText = `*Hourly Production Report*\n\n`;
     shareText += `*Date:* ${format(selectedDate, 'PPP')}\n`;
     shareText += `*Shift:* ${selectedShift.name}\n`;
     shareText += `*Time:* ${selectedRound}\n\n`;
     shareText += `*Round Production:* ${roundProduction}\n`;
-    shareText += `*Shift Cumulative:* ${shiftCumulativeProduction}\n\n`;
+    shareText += `*Shift Cumulative:* ${cumulativeTotal}\n\n`;
     shareText += `*Machine-wise Breakdown:*\n`;
 
     const operatorMap = new Map(allOperators.map(op => [op.cardNo, op.name]));
@@ -705,59 +703,67 @@ export default function DashboardPage() {
                     <Label className="font-bold text-lg">{entry.name}</Label>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 md:col-span-5 gap-4">
-                    <div className="space-y-1">
-                      <Label htmlFor={`operator-${entry.machineId}`}>
-                        Operator
-                      </Label>
-                      <Select
-                        value={entry.operatorId || ''}
-                        onValueChange={val =>
-                          handleEntryChange(entry.machineId, 'operatorId', val)
-                        }
-                      >
-                        <SelectTrigger id={`operator-${entry.machineId}`}>
-                          <SelectValue placeholder="Select Operator" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableOperators.map(op => (
-                            <SelectItem key={op.cardNo} value={op.cardNo}>
-                              {op.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {columnVisibility.operator && (
+                      <div className="space-y-1">
+                        <Label htmlFor={`operator-${entry.machineId}`}>
+                          Operator
+                        </Label>
+                        <Select
+                          value={entry.operatorId || ''}
+                          onValueChange={val =>
+                            handleEntryChange(
+                              entry.machineId,
+                              'operatorId',
+                              val
+                            )
+                          }
+                        >
+                          <SelectTrigger id={`operator-${entry.machineId}`}>
+                            <SelectValue placeholder="Select Operator" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableOperators.map(op => (
+                              <SelectItem key={op.cardNo} value={op.cardNo}>
+                                {op.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
-                    <div className="space-y-1">
-                      <Label htmlFor={`sku-${entry.machineId}`}>SKU</Label>
-                      <Select
-                        value={entry.sku}
-                        onValueChange={val =>
-                          handleEntryChange(entry.machineId, 'sku', val)
-                        }
-                        disabled={machineSkus.length === 0}
-                      >
-                        <SelectTrigger id={`sku-${entry.machineId}`}>
-                          <SelectValue
-                            placeholder={
-                              machineSkus.length > 0
-                                ? 'Select SKU'
-                                : 'No SKUs'
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {machineSkus.map(skuPlan => (
-                            <SelectItem
-                              key={`${skuPlan.sku}-${skuPlan.sapCode}`}
-                              value={skuPlan.sku}
-                            >
-                              {skuPlan.sku}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {columnVisibility.sku && (
+                      <div className="space-y-1">
+                        <Label htmlFor={`sku-${entry.machineId}`}>SKU</Label>
+                        <Select
+                          value={entry.sku}
+                          onValueChange={val =>
+                            handleEntryChange(entry.machineId, 'sku', val)
+                          }
+                          disabled={machineSkus.length === 0}
+                        >
+                          <SelectTrigger id={`sku-${entry.machineId}`}>
+                            <SelectValue
+                              placeholder={
+                                machineSkus.length > 0
+                                  ? 'Select SKU'
+                                  : 'No SKUs'
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {machineSkus.map(skuPlan => (
+                              <SelectItem
+                                key={`${skuPlan.sku}-${skuPlan.sapCode}`}
+                                value={skuPlan.sku}
+                              >
+                                {skuPlan.sku}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
                     <div className="space-y-1">
                       <Label htmlFor={`quantity-${entry.machineId}`}>
@@ -778,39 +784,45 @@ export default function DashboardPage() {
                       />
                     </div>
 
-                    <div className="space-y-1">
-                      <Label htmlFor={`trolley-${entry.machineId}`}>
-                        Trolley
-                      </Label>
-                      <Input
-                        id={`trolley-${entry.machineId}`}
-                        placeholder="e.g., T-123"
-                        value={entry.trolleyNo || ''}
-                        onChange={e =>
-                          handleEntryChange(
-                            entry.machineId,
-                            'trolleyNo',
-                            e.target.value
-                          )
-                        }
-                      />
-                    </div>
+                    {columnVisibility.trolleyNo && (
+                      <div className="space-y-1">
+                        <Label htmlFor={`trolley-${entry.machineId}`}>
+                          Trolley
+                        </Label>
+                        <Input
+                          id={`trolley-${entry.machineId}`}
+                          placeholder="e.g., T-123"
+                          value={entry.trolleyNo || ''}
+                          onChange={e =>
+                            handleEntryChange(
+                              entry.machineId,
+                              'trolleyNo',
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                    )}
 
-                    <div className="space-y-1">
-                      <Label htmlFor={`remark-${entry.machineId}`}>Remark</Label>
-                      <Input
-                        id={`remark-${entry.machineId}`}
-                        placeholder="Add remark..."
-                        value={entry.remark || ''}
-                        onChange={e =>
-                          handleEntryChange(
-                            entry.machineId,
-                            'remark',
-                            e.target.value
-                          )
-                        }
-                      />
-                    </div>
+                    {columnVisibility.remark && (
+                      <div className="space-y-1">
+                        <Label htmlFor={`remark-${entry.machineId}`}>
+                          Remark
+                        </Label>
+                        <Input
+                          id={`remark-${entry.machineId}`}
+                          placeholder="Add remark..."
+                          value={entry.remark || ''}
+                          onChange={e =>
+                            handleEntryChange(
+                              entry.machineId,
+                              'remark',
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
