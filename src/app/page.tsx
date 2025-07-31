@@ -562,7 +562,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
-          <div className="w-48">
+          <div className="w-40">
             <Select
               value={selectedRound}
               onValueChange={handleSelectedRoundChange}
@@ -591,15 +591,13 @@ export default function DashboardPage() {
           </div>
           <Button
             onClick={handleSaveRound}
-            size="lg"
-            className="w-1/2 bg-green-600 hover:bg-green-700 text-white"
+            className="bg-green-600 hover:bg-green-700 text-white"
           >
             <Save className="mr-2 h-4 w-4" />
             Save Round
           </Button>
           <Button
             onClick={handleShare}
-            size="lg"
             variant="outline"
           >
             <Share2 className="mr-2 h-4 w-4" />
@@ -608,9 +606,9 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden">
+      <div className="flex flex-1 flex-col lg:flex-row gap-4 p-4 overflow-y-auto">
         {/* Left Slicer Panel */}
-        <div className="lg:w-1/4 lg:flex-shrink-0 space-y-4 overflow-y-auto">
+        <div className="lg:w-1/4 lg:flex-shrink-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Controls</CardTitle>
