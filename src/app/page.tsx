@@ -659,7 +659,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
         </div>
         <div className="w-1/4 flex justify-end">
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+          <div className="flex items-center gap-2">
             <div className="w-32">
               <Select
                 value={selectedRound}
@@ -702,7 +702,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col lg:flex-row">
+      <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
         {/* Left Slicer Panel */}
         <div className="w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto">
           <Card>
@@ -942,3 +942,5 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
+
+    
