@@ -73,11 +73,10 @@ const setLocalStorageItem = (key: string, value: any) => {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
-  } catch (error)
-    {console.warn(`Error setting localStorage key "${key}":`, error);
+  } catch (error) {
+    console.warn(`Error setting localStorage key "${key}":`, error);
   }
 };
-
 
 const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
   if (!shifts.length) return undefined;
@@ -235,9 +234,15 @@ export default function DashboardPage() {
       );
       setProductionLog(log);
 
-      const newOperatorMap: Record<string, string> = getLocalStorageItem('machineOperatorMap', {});
-      const newSkuMap: Record<string, string> = getLocalStorageItem('machineSkuMap', {});
-      
+      const newOperatorMap: Record<string, string> = getLocalStorageItem(
+        'machineOperatorMap',
+        {}
+      );
+      const newSkuMap: Record<string, string> = getLocalStorageItem(
+        'machineSkuMap',
+        {}
+      );
+
       const allRounds = generateRoundTimes(selectedShift);
       // Iterate through rounds in order to find the latest assignment from the log
       allRounds.forEach(round => {
@@ -260,11 +265,7 @@ export default function DashboardPage() {
   }, [selectedDate, selectedShift, generateRoundTimes, selectedRound]);
 
   useEffect(() => {
-    if (
-      !allProductionPlan.length ||
-      !allMachines.length ||
-      !selectedRound
-    ) {
+    if (!allProductionPlan.length || !allMachines.length || !selectedRound) {
       setEntries([]);
       return;
     }
@@ -279,7 +280,7 @@ export default function DashboardPage() {
         if (!machine || !machine.isAvailable) return null;
 
         const loggedEntry = logMap.get(planItem.machineId);
-        
+
         const operatorId =
           loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
         const sku =
@@ -314,11 +315,11 @@ export default function DashboardPage() {
     machineOperatorMap,
     machineSkuMap,
   ]);
-  
+
   const handleSelectedRoundChange = (round: string) => {
     setSelectedRound(round);
     setLocalStorageItem('selectedRound', round);
-  }
+  };
 
   const handleEntryChange = useCallback(
     (
@@ -416,7 +417,7 @@ export default function DashboardPage() {
     const total = Object.values(productionLog)
       .flatMap(logEntry => logEntry.entries)
       .reduce((acc, entry) => acc + (entry.quantity || 0), 0);
-    return total
+    return total;
   }, [productionLog]);
 
   const handleShare = useCallback(async () => {
@@ -487,7 +488,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 p-4 md:p-6">
         <header>
           <h1 className="text-3xl font-bold tracking-tight">
             Green Tyre Production Entry
@@ -521,168 +522,133 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex-shrink-0 p-4">
-        <h1 className="text-3xl font-bold tracking-tight">
-          Green Tyre Production Entry
-        </h1>
-        <p className="text-muted-foreground">
-          Select date, shift, and round to enter production quantities.
-        </p>
+      <header className="flex-shrink-0 p-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Green Tyre Production Entry
+          </h1>
+          <p className="text-muted-foreground">
+            Select date, shift, and round to enter production quantities.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+           <Button
+            onClick={handleSaveRound}
+            size="lg"
+            className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Save Round
+          </Button>
+          <Button
+            onClick={handleShare}
+            size="lg"
+            className="w-full sm:w-auto"
+            variant="outline"
+          >
+            <Share2 className="mr-2 h-4 w-4" />
+            Share
+          </Button>
+        </div>
       </header>
 
-      <div className="flex-shrink-0 sticky top-0 z-10 bg-background/95 backdrop-blur-sm p-4">
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-center gap-4">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={'outline'}
-                  className={cn(
-                    'w-full justify-start text-left font-normal',
-                    !selectedDate && 'text-muted-foreground'
-                  )}
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 p-4 overflow-y-auto">
+        {/* Left Slicer Panel */}
+        <div className="md:col-span-1 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Controls</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={'outline'}
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !selectedDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? (
+                        format(selectedDate, 'PPP')
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={date => date && setSelectedDate(date)}
+                      disabled={date =>
+                        date < new Date(new Date().setHours(0, 0, 0, 0))
+                      }
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Shift</Label>
+                <Select
+                  value={selectedShift?.name || ''}
+                  onValueChange={handleShiftChange}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? (
-                    format(selectedDate, 'PPP')
-                  ) : (
-                    <span>Pick a date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={date => date && setSelectedDate(date)}
-                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select shift" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allShifts.map(s => (
+                      <SelectItem key={s.name} value={s.name}>
+                        {s.name} ({s.startTime} - {s.endTime})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <Select
-              value={selectedShift?.name || ''}
-              onValueChange={handleShiftChange}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select shift" />
-              </SelectTrigger>
-              <SelectContent>
-                {allShifts.map(s => (
-                  <SelectItem key={s.name} value={s.name}>
-                    {s.name} ({s.startTime} - {s.endTime})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedRound} onValueChange={handleSelectedRoundChange}>
-              <SelectTrigger className="font-semibold">
-                <div className="flex items-center gap-2">
-                  <RoundStatusIndicator
-                    status={productionLog[selectedRound]?.status}
-                  />
-                  <SelectValue placeholder="Select time" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                {roundTimes.map(time => (
-                  <SelectItem key={time} value={time}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{time}</span>
-                      <RoundStatusIndicator status={productionLog[time]?.status} />
+              <div className="space-y-2">
+                <Label>Round Time</Label>
+                <Select
+                  value={selectedRound}
+                  onValueChange={handleSelectedRoundChange}
+                >
+                  <SelectTrigger className="font-semibold">
+                    <div className="flex items-center gap-2">
+                      <RoundStatusIndicator
+                        status={productionLog[selectedRound]?.status}
+                      />
+                      <SelectValue placeholder="Select time" />
                     </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <SlidersHorizontal className="mr-2 h-4 w-4" />
-                  Menu
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  className="capitalize"
-                  checked={columnVisibility.operator}
-                  onCheckedChange={value =>
-                    setColumnVisibility(prev => ({...prev, operator: !!value}))
-                  }
-                >
-                  Operator Name
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  className="capitalize"
-                  checked={columnVisibility.sku}
-                  onCheckedChange={value =>
-                    setColumnVisibility(prev => ({...prev, sku: !!value}))
-                  }
-                >
-                  SKU (Size)
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  className="capitalize"
-                  checked={columnVisibility.trolleyNo}
-                  onCheckedChange={value =>
-                    setColumnVisibility(prev => ({...prev, trolleyNo: !!value}))
-                  }
-                >
-                  Trolley No
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  className="capitalize"
-                  checked={columnVisibility.remark}
-                  onCheckedChange={value =>
-                    setColumnVisibility(prev => ({...prev, remark: !!value}))
-                  }
-                >
-                  Remark
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Danger Zone</DropdownMenuLabel>
-                 <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <DropdownMenuItem
-                      onSelect={(e) => e.preventDefault()}
-                      className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                      >
-                      <Eraser className="mr-2 h-4 w-4" />
-                      Clear Shift Data
-                    </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        Are you absolutely sure?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete all production data for the
-                        selected shift ({selectedShift?.name} on{' '}
-                        {selectedDate ? format(selectedDate, 'PPP') : ''}). This
-                        action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleClearShiftData}>
-                        Continue
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex gap-6 text-center justify-around w-full sm:w-auto">
-              <div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roundTimes.map(time => (
+                      <SelectItem key={time} value={time}>
+                        <div className="flex items-center justify-between w-full">
+                          <span>{time}</span>
+                          <RoundStatusIndicator
+                            status={productionLog[time]?.status}
+                          />
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Summary</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-center">
+               <div>
                 <p className="text-sm font-medium text-muted-foreground">
                   Round Total
                 </p>
@@ -698,186 +664,261 @@ export default function DashboardPage() {
                   {cumulativeTotal.toLocaleString()}
                 </p>
               </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <Button
-                onClick={handleSaveRound}
-                size="lg"
-                className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Save Round
-              </Button>
-              <Button
-                onClick={handleShare}
-                size="lg"
-                className="w-full sm:w-auto"
-                variant="outline"
-              >
-                <Share2 className="mr-2 h-4 w-4" />
-                Share
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto space-y-4">
-        {entries.length === 0 && !loading && (
-          <Card>
-            <CardContent className="p-10 text-center text-muted-foreground">
-              <p>No machines scheduled for production in the current plan.</p>
-              <p className="text-sm">
-                Please upload a production plan in the Admin panel.
-              </p>
             </CardContent>
           </Card>
-        )}
-        {entries.map(entry => {
-          const planItem = allProductionPlan.find(
-            p => p.machineId === entry.machineId
-          );
-          const machineSkus = planItem?.skus || [];
-          return (
-            <Card key={entry.machineId}>
-              <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-                  <div className="md:col-span-1">
-                    <Label className="font-bold text-lg">{entry.name}</Label>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 md:col-span-5 gap-4">
-                    {columnVisibility.operator && (
-                      <div className="space-y-1">
-                        <Label htmlFor={`operator-${entry.machineId}`}>
-                          Operator
-                        </Label>
-                        <Select
-                          value={entry.operatorId || ''}
-                          onValueChange={val =>
-                            handleEntryChange(
-                              entry.machineId,
-                              'operatorId',
-                              val
-                            )
-                          }
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+                 <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full">
+                      <SlidersHorizontal className="mr-2 h-4 w-4" />
+                      View Options
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                      className="capitalize"
+                      checked={columnVisibility.operator}
+                      onCheckedChange={value =>
+                        setColumnVisibility(prev => ({
+                          ...prev,
+                          operator: !!value,
+                        }))
+                      }
+                    >
+                      Operator Name
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      className="capitalize"
+                      checked={columnVisibility.sku}
+                      onCheckedChange={value =>
+                        setColumnVisibility(prev => ({...prev, sku: !!value}))
+                      }
+                    >
+                      SKU (Size)
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      className="capitalize"
+                      checked={columnVisibility.trolleyNo}
+                      onCheckedChange={value =>
+                        setColumnVisibility(prev => ({
+                          ...prev,
+                          trolleyNo: !!value,
+                        }))
+                      }
+                    >
+                      Trolley No
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      className="capitalize"
+                      checked={columnVisibility.remark}
+                      onCheckedChange={value =>
+                        setColumnVisibility(prev => ({
+                          ...prev,
+                          remark: !!value,
+                        }))
+                      }
+                    >
+                      Remark
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Danger Zone</DropdownMenuLabel>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <DropdownMenuItem
+                          onSelect={e => e.preventDefault()}
+                          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                         >
-                          <SelectTrigger id={`operator-${entry.machineId}`}>
-                            <SelectValue placeholder="Select Operator" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableOperators.map(op => (
-                              <SelectItem key={op.cardNo} value={op.cardNo}>
-                                {op.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+                          <Eraser className="mr-2 h-4 w-4" />
+                          Clear Shift Data
+                        </DropdownMenuItem>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            Are you absolutely sure?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete all production data for
+                            the selected shift ({selectedShift?.name} on{' '}
+                            {selectedDate
+                              ? format(selectedDate, 'PPP')
+                              : ''}). This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleClearShiftData}>
+                            Continue
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+            </CardContent>
+          </Card>
+        </div>
 
-                    {columnVisibility.sku && (
-                      <div className="space-y-1">
-                        <Label htmlFor={`sku-${entry.machineId}`}>SKU</Label>
-                        <Select
-                          value={entry.sku}
-                          onValueChange={val =>
-                            handleEntryChange(entry.machineId, 'sku', val)
-                          }
-                          disabled={machineSkus.length === 0}
-                        >
-                          <SelectTrigger id={`sku-${entry.machineId}`}>
-                            <SelectValue
-                              placeholder={
-                                machineSkus.length > 0
-                                  ? 'Select SKU'
-                                  : 'No SKUs'
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {machineSkus.map(skuPlan => (
-                              <SelectItem
-                                key={`${skuPlan.sku}-${skuPlan.sapCode}`}
-                                value={skuPlan.sku}
-                              >
-                                {skuPlan.sku}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    <div className="space-y-1">
-                      <Label htmlFor={`quantity-${entry.machineId}`}>
-                        Quantity
-                      </Label>
-                      <Input
-                        id={`quantity-${entry.machineId}`}
-                        type="number"
-                        placeholder="0"
-                        value={entry.quantity === 0 ? '' : entry.quantity}
-                        onChange={e =>
-                          handleEntryChange(
-                            entry.machineId,
-                            'quantity',
-                            parseInt(e.target.value, 10) || 0
-                          )
-                        }
-                      />
-                    </div>
-
-                    {columnVisibility.trolleyNo && (
-                      <div className="space-y-1">
-                        <Label htmlFor={`trolley-${entry.machineId}`}>
-                          Trolley
-                        </Label>
-                        <Input
-                          id={`trolley-${entry.machineId}`}
-                          placeholder="e.g., T-123"
-                          value={entry.trolleyNo || ''}
-                          onChange={e =>
-                            handleEntryChange(
-                              entry.machineId,
-                              'trolleyNo',
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                    )}
-
-                    {columnVisibility.remark && (
-                      <div className="space-y-1">
-                        <Label htmlFor={`remark-${entry.machineId}`}>
-                          Remark
-                        </Label>
-                        <Input
-                          id={`remark-${entry.machineId}`}
-                          placeholder="Add remark..."
-                          value={entry.remark || ''}
-                          onChange={e =>
-                            handleEntryChange(
-                              entry.machineId,
-                              'remark',
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
+        {/* Right Content Panel */}
+        <div className="md:col-span-3 space-y-4 overflow-y-auto">
+          {entries.length === 0 && !loading && (
+            <Card>
+              <CardContent className="p-10 text-center text-muted-foreground">
+                <p>No machines scheduled for production in the current plan.</p>
+                <p className="text-sm">
+                  Please upload a production plan in the Admin panel.
+                </p>
               </CardContent>
             </Card>
-          );
-        })}
+          )}
+          {entries.map(entry => {
+            const planItem = allProductionPlan.find(
+              p => p.machineId === entry.machineId
+            );
+            const machineSkus = planItem?.skus || [];
+            return (
+              <Card key={entry.machineId}>
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                    <div className="md:col-span-1">
+                      <Label className="font-bold text-lg">{entry.name}</Label>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 md:col-span-5 gap-4">
+                      {columnVisibility.operator && (
+                        <div className="space-y-1">
+                          <Label htmlFor={`operator-${entry.machineId}`}>
+                            Operator
+                          </Label>
+                          <Select
+                            value={entry.operatorId || ''}
+                            onValueChange={val =>
+                              handleEntryChange(
+                                entry.machineId,
+                                'operatorId',
+                                val
+                              )
+                            }
+                          >
+                            <SelectTrigger id={`operator-${entry.machineId}`}>
+                              <SelectValue placeholder="Select Operator" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableOperators.map(op => (
+                                <SelectItem key={op.cardNo} value={op.cardNo}>
+                                  {op.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {columnVisibility.sku && (
+                        <div className="space-y-1">
+                          <Label htmlFor={`sku-${entry.machineId}`}>SKU</Label>
+                          <Select
+                            value={entry.sku}
+                            onValueChange={val =>
+                              handleEntryChange(entry.machineId, 'sku', val)
+                            }
+                            disabled={machineSkus.length === 0}
+                          >
+                            <SelectTrigger id={`sku-${entry.machineId}`}>
+                              <SelectValue
+                                placeholder={
+                                  machineSkus.length > 0
+                                    ? 'Select SKU'
+                                    : 'No SKUs'
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {machineSkus.map(skuPlan => (
+                                <SelectItem
+                                  key={`${skuPlan.sku}-${skuPlan.sapCode}`}
+                                  value={skuPlan.sku}
+                                >
+                                  {skuPlan.sku}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      <div className="space-y-1">
+                        <Label htmlFor={`quantity-${entry.machineId}`}>
+                          Quantity
+                        </Label>
+                        <Input
+                          id={`quantity-${entry.machineId}`}
+                          type="number"
+                          placeholder="0"
+                          value={entry.quantity === 0 ? '' : entry.quantity}
+                          onChange={e =>
+                            handleEntryChange(
+                              entry.machineId,
+                              'quantity',
+                              parseInt(e.target.value, 10) || 0
+                            )
+                          }
+                        />
+                      </div>
+
+                      {columnVisibility.trolleyNo && (
+                        <div className="space-y-1">
+                          <Label htmlFor={`trolley-${entry.machineId}`}>
+                            Trolley
+                          </Label>
+                          <Input
+                            id={`trolley-${entry.machineId}`}
+                            placeholder="e.g., T-123"
+                            value={entry.trolleyNo || ''}
+                            onChange={e =>
+                              handleEntryChange(
+                                entry.machineId,
+                                'trolleyNo',
+                                e.target.value
+                              )
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {columnVisibility.remark && (
+                        <div className="space-y-1">
+                          <Label htmlFor={`remark-${entry.machineId}`}>
+                            Remark
+                          </Label>
+                          <Input
+                            id={`remark-${entry.machineId}`}
+                            placeholder="Add remark..."
+                            value={entry.remark || ''}
+                            onChange={e =>
+                              handleEntryChange(
+                                entry.machineId,
+                                'remark',
+                                e.target.value
+                              )
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
-
-    
-
-    
