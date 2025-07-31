@@ -456,7 +456,7 @@ export default function AdminPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Admin Panel</h1>
       <Tabs defaultValue="operators">
         <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 lg:grid-cols-5 h-auto">
           <TabsTrigger value="operators">Operator Management</TabsTrigger>
@@ -469,7 +469,7 @@ export default function AdminPage() {
         <TabsContent value="operators">
           <Card>
             <CardHeader>
-              <CardTitle>Operators</CardTitle>
+              <CardTitle className="text-lg">Operators</CardTitle>
               <CardDescription>
                 Manage your list of approved operators.
               </CardDescription>
@@ -572,7 +572,7 @@ export default function AdminPage() {
         <TabsContent value="shifts">
           <Card>
             <CardHeader>
-              <CardTitle>Shift Management</CardTitle>
+              <CardTitle className="text-lg">Shift Management</CardTitle>
               <CardDescription>
                 Set the timings for the day and night shifts.
               </CardDescription>
@@ -617,7 +617,7 @@ export default function AdminPage() {
         <TabsContent value="plan" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Upload Production Plan</CardTitle>
+              <CardTitle className="text-lg">Upload Production Plan</CardTitle>
               <CardDescription>
                 Upload an Excel file to set the production plan. This will
                 replace the existing plan.
@@ -660,7 +660,7 @@ export default function AdminPage() {
           {uploadedPlan && (
             <Card>
               <CardHeader>
-                <CardTitle>Uploaded Plan Preview</CardTitle>
+                <CardTitle className="text-lg">Uploaded Plan Preview</CardTitle>
                 <CardDescription>
                   Review the data parsed from your file before saving.
                 </CardDescription>
@@ -712,7 +712,7 @@ export default function AdminPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Manual Production Plan</CardTitle>
+              <CardTitle className="text-lg">Manual Production Plan</CardTitle>
               <CardDescription>
                 Assign SKUs to TBMs for production manually.
               </CardDescription>
@@ -828,7 +828,7 @@ export default function AdminPage() {
         <TabsContent value="machines">
           <Card>
             <CardHeader>
-              <CardTitle>TBM Management</CardTitle>
+              <CardTitle className="text-lg">TBM Management</CardTitle>
               <CardDescription>
                 View and edit your TBM inventory.
               </CardDescription>
@@ -900,7 +900,7 @@ export default function AdminPage() {
         <TabsContent value="settings">
           <Card>
             <CardHeader>
-              <CardTitle>Advanced Settings</CardTitle>
+              <CardTitle className="text-lg">Advanced Settings</CardTitle>
               <CardDescription>
                 Manage advanced and dangerous application settings.
               </CardDescription>

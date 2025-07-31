@@ -653,7 +653,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   return (
     <div className="flex flex-col h-screen">
-      <header className="flex-shrink-0 p-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b">
+      <header className="flex-shrink-0 p-4 flex items-center justify-between gap-4 border-b">
         <div className="w-1/4"></div>
         <div className="flex-1 text-center">
           <h1 className="text-lg font-bold tracking-tight">GT Prod Entry</h1>
@@ -665,7 +665,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                 value={selectedRound}
                 onValueChange={handleSelectedRoundChange}
               >
-                <SelectTrigger className="font-semibold">
+                <SelectTrigger className="font-semibold text-sm">
                   <div className="flex items-center gap-2">
                     <RoundStatusIndicator
                       status={productionLog[selectedRound]?.status}
@@ -689,7 +689,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
             </div>
             <Button
               onClick={handleSaveRound}
-              className="bg-green-600 hover:bg-green-700 text-white text-xs"
+              className="bg-green-600 hover:bg-green-700 text-white"
               size="sm"
             >
               <Save className="mr-2 h-4 w-4" />
@@ -764,7 +764,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Summary</CardTitle>
+              <CardTitle className="text-lg">Summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-center">
               <div>

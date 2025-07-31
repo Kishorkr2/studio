@@ -247,7 +247,7 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">
+        <h1 className="text-2xl font-bold tracking-tight">
           Advanced Reporting & Analytics
         </h1>
         <p className="text-muted-foreground">
@@ -271,7 +271,7 @@ export default function ReportsPage() {
         <TabsContent value="production">
           <Card>
             <CardHeader>
-              <CardTitle>Production Report Filters</CardTitle>
+              <CardTitle className="text-lg">Production Report Filters</CardTitle>
               <CardDescription>
                 Filter the production data to generate your detailed report.
               </CardDescription>
@@ -350,7 +350,7 @@ export default function ReportsPage() {
           </Card>
           <Card className="mt-6">
             <CardHeader>
-              <CardTitle>Production Summary</CardTitle>
+              <CardTitle className="text-lg">Production Summary</CardTitle>
               <CardDescription>
                 Detailed report based on your filter selection. Total:{' '}
                 {totalProduction.toLocaleString()}
@@ -473,7 +473,7 @@ export default function ReportsPage() {
           </div>
           <Card className="mt-6">
             <CardHeader>
-              <CardTitle>OEE Component Breakdown</CardTitle>
+              <CardTitle className="text-lg">OEE Component Breakdown</CardTitle>
               <CardDescription>
                 This is a visual demonstration. Accurate OEE calculation
                 requires additional data points.
@@ -515,7 +515,7 @@ export default function ReportsPage() {
         <TabsContent value="breakdown">
           <Card>
             <CardHeader>
-              <CardTitle>Machine Breakdown Log</CardTitle>
+              <CardTitle className="text-lg">Machine Breakdown Log</CardTitle>
               <CardDescription>
                 A log of all machine downtime events based on entered remarks.
               </CardDescription>
