@@ -119,7 +119,7 @@ export function AppLayout({children}: {children: React.ReactNode}) {
   const pathname = usePathname();
 
   if (!isAuthenticated || pathname === '/login') {
-    return <main className="flex-1 p-4 md:p-6">{children}</main>;
+    return <main className="flex-1">{children}</main>;
   }
 
   return (
@@ -156,7 +156,7 @@ export function AppLayout({children}: {children: React.ReactNode}) {
               <UserMenu />
             </div>
           </header>
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+          <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
       </SidebarInset>
     </SidebarProvider>
