@@ -232,7 +232,7 @@ export default function DashboardPage() {
   }, [selectedShift, generateRoundTimes]);
 
   useEffect(() => {
-    if (loading || !selectedShift || isInitializing.current) return;
+    if (loading || !selectedShift) return;
 
     const fetchLog = async () => {
       const log = await actions.getProductionLogForShift(
@@ -241,45 +241,40 @@ export default function DashboardPage() {
       );
       setProductionLog(log);
 
-      const newOperatorMap: Record<string, string> = getLocalStorageItem(
-        'machineOperatorMap',
-        {}
-      );
-      const newSkuMap: Record<string, string> = getLocalStorageItem(
-        'machineSkuMap',
-        {}
-      );
+      if (isInitializing.current) {
+        const newOperatorMap: Record<string, string> = getLocalStorageItem(
+          'machineOperatorMap',
+          {}
+        );
+        const newSkuMap: Record<string, string> = getLocalStorageItem(
+          'machineSkuMap',
+          {}
+        );
 
-      const allRounds = generateRoundTimes(selectedShift);
-      allRounds.forEach(round => {
-        const roundEntry = log[round];
-        if (roundEntry) {
-          roundEntry.entries.forEach(entry => {
-            if (entry.machineId && entry.operatorId) {
-              newOperatorMap[entry.machineId] = entry.operatorId;
-            }
-            if (entry.machineId && entry.sku) {
-              newSkuMap[entry.machineId] = entry.sku;
-            }
-          });
-        }
-      });
-      setMachineOperatorMap(newOperatorMap);
-      setMachineSkuMap(newSkuMap);
+        const allRounds = generateRoundTimes(selectedShift);
+        allRounds.forEach(round => {
+          const roundEntry = log[round];
+          if (roundEntry) {
+            roundEntry.entries.forEach(entry => {
+              if (entry.machineId && entry.operatorId) {
+                newOperatorMap[entry.machineId] = entry.operatorId;
+              }
+              if (entry.machineId && entry.sku) {
+                newSkuMap[entry.machineId] = entry.sku;
+              }
+            });
+          }
+        });
+        setMachineOperatorMap(newOperatorMap);
+        setMachineSkuMap(newSkuMap);
+        isInitializing.current = false;
+      }
     };
     fetchLog();
   }, [selectedDate, selectedShift, generateRoundTimes, loading]);
 
   useEffect(() => {
-    if (isInitializing.current && !loading) {
-      isInitializing.current = false;
-      setMachineOperatorMap(getLocalStorageItem('machineOperatorMap', {}));
-      setMachineSkuMap(getLocalStorageItem('machineSkuMap', {}));
-    }
-  }, [loading]);
-
-  useEffect(() => {
-    if (isInitializing.current) return;
+    if (isInitializing.current || !selectedShift) return;
 
     const machineMap = new Map(allMachines.map(m => [m.id, m]));
     const logForRound = productionLog[selectedRound]?.entries || [];
@@ -323,6 +318,7 @@ export default function DashboardPage() {
     allProductionPlan,
     machineOperatorMap,
     machineSkuMap,
+    selectedShift, // Add selectedShift dependency
   ]);
 
   const handleSelectedRoundChange = (round: string) => {
@@ -414,6 +410,7 @@ export default function DashboardPage() {
   const handleShiftChange = useCallback(
     (name: string) => {
       setSelectedShift(allShifts.find(s => s.name === name));
+      isInitializing.current = true;
     },
     [allShifts]
   );
@@ -607,9 +604,9 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 p-4 overflow-y-auto">
+      <div className="flex-1 lg:grid lg:grid-cols-4 lg:gap-4 p-4 overflow-hidden">
         {/* Left Slicer Panel */}
-        <div className="lg:col-span-1 space-y-4">
+        <div className="lg:col-span-1 space-y-4 mb-4 lg:mb-0 lg:overflow-y-auto">
           <Card>
             <CardHeader>
               <CardTitle>Controls</CardTitle>
@@ -812,11 +809,11 @@ export default function DashboardPage() {
             return (
               <Card key={entry.machineId}>
                 <CardContent className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                    <div className="md:col-span-2">
+                  <div className="flex flex-col md:flex-row md:items-center md:gap-4">
+                    <div className="md:w-1/6 mb-4 md:mb-0">
                       <Label className="font-bold text-lg">{entry.name}</Label>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 md:col-span-10 gap-4">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                       {columnVisibility.operator && (
                         <div className="space-y-1">
                           <Label htmlFor={`operator-${entry.machineId}`}>
