@@ -32,6 +32,11 @@ import {
 import {useOnlineStatus} from '@/hooks/use-online-status';
 import {useAuth} from './auth-provider';
 
+export interface AppLayoutProps {
+  children?: React.ReactNode;
+  setPageActions?: (actions: React.ReactNode | null) => void;
+}
+
 const navItems = [
   {href: '/', label: 'Dashboard', icon: LayoutDashboard},
   {href: '/tread-extrusion', label: 'Tread Extrusion', icon: ClipboardList},
@@ -40,7 +45,6 @@ const navItems = [
   {href: '/reports', label: 'Reports', icon: LineChart},
   {href: '/admin', label: 'Admin', icon: Cog},
 ];
-
 
 function OnlineStatusIndicator() {
   const isOnline = useOnlineStatus();
@@ -65,6 +69,17 @@ function OnlineStatusIndicator() {
 export function AppLayout({children}: {children: React.ReactNode}) {
   const {isAuthenticated} = useAuth();
   const pathname = usePathname();
+  const [pageActions, setPageActions] = React.useState<React.ReactNode | null>(null);
+
+  const childrenWithProps = React.Children.map(children, child => {
+    if (React.isValidElement(child)) {
+      // Pass setPageActions only to the DashboardPage
+      if (pathname === '/') {
+        return React.cloneElement(child as React.ReactElement<any>, { setPageActions });
+      }
+    }
+    return child;
+  });
 
   if (!isAuthenticated || pathname === '/login') {
     return <main className="flex-1">{children}</main>;
@@ -74,7 +89,7 @@ export function AppLayout({children}: {children: React.ReactNode}) {
     <div className="flex flex-col h-screen">
       <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background px-4">
         <div className="flex items-center gap-2">
-            <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <Truck className="w-8 h-8 text-primary" />
             <span className="text-xl font-semibold">TyreTrack Pro</span>
           </Link>
@@ -82,17 +97,18 @@ export function AppLayout({children}: {children: React.ReactNode}) {
         <div className="flex items-center gap-4">
           <OnlineStatusIndicator />
           <ThemeToggle />
-          <UserMenu />
+          <UserMenu pageActions={pageActions} />
         </div>
       </header>
-      <main className="flex-1 overflow-y-auto">{children}</main>
+      <main className="flex-1 overflow-y-auto">{childrenWithProps}</main>
     </div>
   );
 }
 
-function UserMenu() {
+function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
   const {logout} = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleLogout = () => {
     logout();
@@ -118,13 +134,14 @@ function UserMenu() {
         <DropdownMenuLabel>Admin</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {navItems.map(item => (
-            <DropdownMenuItem key={item.href} asChild>
-                <Link href={item.href} className="flex items-center gap-2">
-                    <item.icon className="h-4 w-4"/>
-                    <span>{item.label}</span>
-                </Link>
-            </DropdownMenuItem>
+          <DropdownMenuItem key={item.href} asChild>
+            <Link href={item.href} className="flex items-center gap-2">
+              <item.icon className="h-4 w-4" />
+              <span>{item.label}</span>
+            </Link>
+          </DropdownMenuItem>
         ))}
+        {pathname === '/' && pageActions}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />

@@ -57,6 +57,7 @@ import type {
 import {cn} from '@/lib/utils';
 import {Skeleton} from '@/components/ui/skeleton';
 import * as actions from './actions';
+import type {AppLayoutProps} from '@/components/app-layout';
 
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === 'undefined') return defaultValue;
@@ -105,7 +106,7 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
   return shifts[0];
 };
 
-export default function DashboardPage() {
+export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const {toast} = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -237,6 +238,108 @@ export default function DashboardPage() {
     }
   }, [selectedShift, generateRoundTimes]);
 
+  const handleClearShiftData = useCallback(async () => {
+    if (!selectedShift) return;
+    await actions.clearShiftData(selectedDate, selectedShift);
+    setProductionLog({});
+    setMachineOperatorMap({});
+    setMachineSkuMap({});
+    setLocalStorageItem('machineOperatorMap', {});
+    setLocalStorageItem('machineSkuMap', {});
+    toast({
+      title: 'Shift Data Cleared',
+      description: `All production entries for ${
+        selectedShift.name
+      } on ${format(selectedDate, 'PPP')} have been removed.`,
+    });
+  }, [selectedDate, selectedShift, toast]);
+
+  useEffect(() => {
+    if (setPageActions) {
+      const pageActions = (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Page Actions</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem
+            checked={columnVisibility.operator}
+            onCheckedChange={value =>
+              setColumnVisibility(prev => ({...prev, operator: !!value}))
+            }
+          >
+            Toggle Operator
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={columnVisibility.sku}
+            onCheckedChange={value =>
+              setColumnVisibility(prev => ({...prev, sku: !!value}))
+            }
+          >
+            Toggle SKU
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={columnVisibility.trolleyNo}
+            onCheckedChange={value =>
+              setColumnVisibility(prev => ({...prev, trolleyNo: !!value}))
+            }
+          >
+            Toggle Trolley No
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={columnVisibility.remark}
+            onCheckedChange={value =>
+              setColumnVisibility(prev => ({...prev, remark: !!value}))
+            }
+          >
+            Toggle Remark
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <DropdownMenuItem
+                onSelect={e => e.preventDefault()}
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+              >
+                <Eraser className="mr-2 h-4 w-4" />
+                Clear Shift Data
+              </DropdownMenuItem>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete all production data for the
+                  selected shift ({selectedShift?.name} on{' '}
+                  {selectedDate ? format(selectedDate, 'PPP') : ''}). This
+                  action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleClearShiftData}>
+                  Continue
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      );
+      setPageActions(pageActions);
+    }
+
+    // Cleanup function
+    return () => {
+      if (setPageActions) {
+        setPageActions(null);
+      }
+    };
+  }, [
+    columnVisibility,
+    handleClearShiftData,
+    selectedDate,
+    selectedShift,
+    setPageActions,
+  ]);
+  
   // This effect fetches the production log for the selected date and shift
   useEffect(() => {
     if (loading || !selectedShift) return;
@@ -275,7 +378,10 @@ export default function DashboardPage() {
     const key = `${format(selectedDate, 'yyyy-MM-dd')}-${
       selectedShift?.name
     }-${selectedRound}`;
-    if (isInitializing.current || dataLoadedFor.current !== key.substring(0, key.lastIndexOf('-'))) {
+    if (
+      isInitializing.current ||
+      dataLoadedFor.current !== key.substring(0, key.lastIndexOf('-'))
+    ) {
       const machineMap = new Map(allMachines.map(m => [m.id, m]));
       const logForRound = productionLog[selectedRound]?.entries || [];
       const logMap = new Map(logForRound.map(e => [e.machineId, e]));
@@ -312,7 +418,16 @@ export default function DashboardPage() {
         .filter((entry): entry is MachineProductionData => entry !== null);
       setEntries(newEntries);
     }
-  }, [selectedRound, productionLog, allMachines, allProductionPlan, machineOperatorMap, machineSkuMap, selectedDate, selectedShift]);
+  }, [
+    selectedRound,
+    productionLog,
+    allMachines,
+    allProductionPlan,
+    machineOperatorMap,
+    machineSkuMap,
+    selectedDate,
+    selectedShift,
+  ]);
 
   const handleSelectedRoundChange = (round: string) => {
     setSelectedRound(round);
@@ -384,22 +499,6 @@ export default function DashboardPage() {
     });
   }, [selectedDate, selectedShift, selectedRound, entries, toast]);
 
-  const handleClearShiftData = useCallback(async () => {
-    if (!selectedShift) return;
-    await actions.clearShiftData(selectedDate, selectedShift);
-    setProductionLog({});
-    setMachineOperatorMap({});
-    setMachineSkuMap({});
-    setLocalStorageItem('machineOperatorMap', {});
-    setLocalStorageItem('machineSkuMap', {});
-    toast({
-      title: 'Shift Data Cleared',
-      description: `All production entries for ${
-        selectedShift.name
-      } on ${format(selectedDate, 'PPP')} have been removed.`,
-    });
-  }, [selectedDate, selectedShift, toast]);
-
   const handleShiftChange = useCallback(
     (name: string) => {
       const newShift = allShifts.find(s => s.name === name);
@@ -414,7 +513,10 @@ export default function DashboardPage() {
 
   const handleDateChange = useCallback(
     (date: Date | undefined) => {
-      if (date && format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
+      if (
+        date &&
+        format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')
+      ) {
         setSelectedDate(date);
         dataLoadedFor.current = '';
         setProductionLog({});
@@ -513,7 +615,7 @@ export default function DashboardPage() {
     toast,
     cumulativeTotal,
     allOperators,
-    roundTotal
+    roundTotal,
   ]);
 
   if (loading) {
@@ -562,7 +664,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
-          <div className="w-40">
+          <div className="w-32">
             <Select
               value={selectedRound}
               onValueChange={handleSelectedRoundChange}
@@ -596,19 +698,16 @@ export default function DashboardPage() {
             <Save className="mr-2 h-4 w-4" />
             Save Round
           </Button>
-          <Button
-            onClick={handleShare}
-            variant="outline"
-          >
+          <Button onClick={handleShare} variant="outline">
             <Share2 className="mr-2 h-4 w-4" />
             Share
           </Button>
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col lg:flex-row gap-4 p-4 overflow-y-auto">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Slicer Panel */}
-        <div className="lg:w-1/4 lg:flex-shrink-0 space-y-4">
+        <div className="w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto">
           <Card>
             <CardHeader>
               <CardTitle>Controls</CardTitle>
@@ -688,108 +787,10 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full">
-                    <SlidersHorizontal className="mr-2 h-4 w-4" />
-                    Menu
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuCheckboxItem
-                    className="capitalize"
-                    checked={columnVisibility.operator}
-                    onCheckedChange={value =>
-                      setColumnVisibility(prev => ({
-                        ...prev,
-                        operator: !!value,
-                      }))
-                    }
-                  >
-                    Operator Name
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    className="capitalize"
-                    checked={columnVisibility.sku}
-                    onCheckedChange={value =>
-                      setColumnVisibility(prev => ({...prev, sku: !!value}))
-                    }
-                  >
-                    SKU (Size)
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    className="capitalize"
-                    checked={columnVisibility.trolleyNo}
-                    onCheckedChange={value =>
-                      setColumnVisibility(prev => ({
-                        ...prev,
-                        trolleyNo: !!value,
-                      }))
-                    }
-                  >
-                    Trolley No
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    className="capitalize"
-                    checked={columnVisibility.remark}
-                    onCheckedChange={value =>
-                      setColumnVisibility(prev => ({
-                        ...prev,
-                        remark: !!value,
-                      }))
-                    }
-                  >
-                    Remark
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Danger Zone</DropdownMenuLabel>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem
-                        onSelect={e => e.preventDefault()}
-                        className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                      >
-                        <Eraser className="mr-2 h-4 w-4" />
-                        Clear Shift Data
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          Are you absolutely sure?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently delete all production data for
-                          the selected shift ({selectedShift?.name} on{' '}
-                          {selectedDate
-                            ? format(selectedDate, 'PPP')
-                            : ''}). This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleClearShiftData}>
-                          Continue
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Right Content Panel */}
-        <div className="lg:w-3/4 space-y-4 overflow-y-auto">
+        <div className="w-full lg:w-3/4 p-4 space-y-4 overflow-y-auto">
           {entries.length === 0 && !loading && (
             <Card>
               <CardContent className="p-10 text-center text-muted-foreground">
