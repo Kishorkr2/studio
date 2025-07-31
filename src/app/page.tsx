@@ -626,7 +626,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     return (
       <div className="space-y-4 p-4">
         <header>
-          <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
+          <h1 className="text-2xl font-bold tracking-tight">gt prod entry</h1>
         </header>
         <Card>
           <CardContent className="p-4 space-y-4">
@@ -655,7 +655,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     <div className="flex flex-col h-screen">
       <header className="flex-shrink-0 p-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b">
         <div className="w-full md:w-auto">
-          <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
+          <h1 className="text-2xl font-bold tracking-tight">gt prod entry</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
           <div className="w-32">
@@ -939,5 +939,3 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
-
-    
