@@ -520,7 +520,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex-shrink-0 p-4 md:p-6">
+      <header className="flex-shrink-0 p-4">
         <h1 className="text-3xl font-bold tracking-tight">
           Green Tyre Production Entry
         </h1>
@@ -529,7 +529,7 @@ export default function DashboardPage() {
         </p>
       </header>
 
-      <div className="flex-shrink-0 sticky top-0 z-10 bg-background/95 backdrop-blur-sm p-4 md:p-6">
+      <div className="flex-shrink-0 sticky top-0 z-10 bg-background/95 backdrop-blur-sm p-4">
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-center gap-4">
             <Popover>
@@ -722,7 +722,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 px-4 md:px-6 pb-4">
+      <div className="flex-1 overflow-y-auto space-y-4 px-4 pb-4">
         {entries.length === 0 && !loading && (
           <Card className="mt-4">
             <CardContent className="p-10 text-center text-muted-foreground">

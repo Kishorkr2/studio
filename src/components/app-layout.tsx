@@ -142,7 +142,7 @@ export function AppLayout({children}: {children: React.ReactNode}) {
       </Sidebar>
       <SidebarInset>
         <div className="flex flex-col h-screen">
-          <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
+          <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background px-4">
             <div className="flex items-center gap-4">
               <SidebarTrigger className="md:hidden" />
               <h1 className="text-xl font-semibold">
@@ -201,3 +201,5 @@ function UserMenu() {
     </DropdownMenu>
   );
 }
+
+    
