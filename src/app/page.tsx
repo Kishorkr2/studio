@@ -627,9 +627,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       <div className="space-y-4 p-4">
         <header>
           <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
-          <p className="text-muted-foreground">
-            Select date, shift, and round to enter production quantities.
-          </p>
         </header>
         <Card>
           <CardContent className="p-4 space-y-4">
@@ -659,9 +656,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       <header className="flex-shrink-0 p-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b">
         <div className="w-full md:w-auto">
           <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
-          <p className="text-muted-foreground text-sm">
-            Select date, shift, and round to enter production quantities.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
           <div className="w-32">
@@ -705,7 +699,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row">
+      <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
         {/* Left Slicer Panel */}
         <div className="w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto">
           <Card>
@@ -945,3 +939,5 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
+
+    
