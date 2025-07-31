@@ -1,7 +1,7 @@
 
 'use client';
 
-import {useState, useEffect, useMemo, useCallback} from 'react';
+import {useState, useEffect, useMemo, useCallback, useRef} from 'react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {useToast} from '@/hooks/use-toast';
@@ -142,6 +142,8 @@ export default function DashboardPage() {
     trolleyNo: true,
     remark: true,
   });
+  
+  const isInitializing = useRef(true);
 
   const loadInitialData = useCallback(async () => {
     setLoading(true);
@@ -215,17 +217,10 @@ export default function DashboardPage() {
     },
     []
   );
-
+  
+  // This effect handles fetching data when the shift or date changes
   useEffect(() => {
-    if (!selectedShift) return;
-
-    const newRoundTimes = generateRoundTimes(selectedShift);
-    setRoundTimes(newRoundTimes);
-    if (!newRoundTimes.includes(selectedRound) || !selectedRound) {
-      const newSelectedRound = newRoundTimes[0] || '';
-      setSelectedRound(newSelectedRound);
-      setLocalStorageItem('selectedRound', newSelectedRound);
-    }
+    if (!selectedShift || isInitializing.current) return;
 
     const fetchLog = async () => {
       const log = await actions.getProductionLogForShift(
@@ -244,7 +239,6 @@ export default function DashboardPage() {
       );
 
       const allRounds = generateRoundTimes(selectedShift);
-      // Iterate through rounds in order to find the latest assignment from the log
       allRounds.forEach(round => {
         const roundEntry = log[round];
         if (roundEntry) {
@@ -262,9 +256,32 @@ export default function DashboardPage() {
       setMachineSkuMap(newSkuMap);
     };
     fetchLog();
-  }, [selectedDate, selectedShift, generateRoundTimes, selectedRound]);
-
+  }, [selectedDate, selectedShift, generateRoundTimes]);
+  
+  // This effect handles setting up the round times and selected round
   useEffect(() => {
+    if (!selectedShift) return;
+
+    const newRoundTimes = generateRoundTimes(selectedShift);
+    setRoundTimes(newRoundTimes);
+    const savedRound = getLocalStorageItem('selectedRound', '');
+    if (!newRoundTimes.includes(savedRound) || !savedRound) {
+      const newSelectedRound = newRoundTimes[0] || '';
+      setSelectedRound(newSelectedRound);
+      setLocalStorageItem('selectedRound', newSelectedRound);
+    }
+  }, [selectedShift, generateRoundTimes]);
+
+  // This effect initializes or updates the 'entries' state when dependencies change
+  useEffect(() => {
+    // Prevent initialization until all data is loaded
+    if (loading || !selectedShift) return;
+    
+    // Set flag to false after first successful run
+    if (isInitializing.current) {
+        isInitializing.current = false;
+    }
+
     if (!allProductionPlan.length || !allMachines.length || !selectedRound) {
       setEntries([]);
       return;
@@ -312,8 +329,9 @@ export default function DashboardPage() {
     productionLog,
     allMachines,
     allProductionPlan,
-    machineOperatorMap,
-    machineSkuMap,
+    loading,
+    selectedShift
+    // machineOperatorMap and machineSkuMap are removed to prevent re-render on selection
   ]);
 
   const handleSelectedRoundChange = (round: string) => {
@@ -488,8 +506,8 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 p-4 md:p-6">
-        <header>
+      <div className="space-y-4">
+        <header className="px-4 pt-4">
           <h1 className="text-2xl font-bold tracking-tight">
             Green Tyre Production Entry
           </h1>
@@ -920,3 +938,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
