@@ -656,10 +656,10 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       <header className="flex-shrink-0 p-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b">
         <div className="w-1/4"></div>
         <div className="flex-1 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
+          <h1 className="text-lg font-bold tracking-tight">GT Prod Entry</h1>
         </div>
         <div className="w-1/4 flex justify-end">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-nowrap">
             <div className="w-32">
               <Select
                 value={selectedRound}
@@ -942,5 +942,3 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
-
-    
