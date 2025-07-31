@@ -279,7 +279,7 @@ export default function DashboardPage() {
   }, [loading]);
 
   useEffect(() => {
-    if (loading || !selectedShift || !selectedRound) return;
+    if (isInitializing.current) return;
 
     const machineMap = new Map(allMachines.map(m => [m.id, m]));
     const logForRound = productionLog[selectedRound]?.entries || [];
@@ -291,7 +291,6 @@ export default function DashboardPage() {
         if (!machine || !machine.isAvailable) return null;
 
         const loggedEntry = logMap.get(planItem.machineId);
-
         const operatorId =
           loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
         const sku =
@@ -316,15 +315,12 @@ export default function DashboardPage() {
         };
       })
       .filter((entry): entry is MachineProductionData => entry !== null);
-
     setEntries(newEntries);
   }, [
     selectedRound,
     productionLog,
     allMachines,
     allProductionPlan,
-    loading,
-    selectedShift,
     machineOperatorMap,
     machineSkuMap,
   ]);
@@ -478,10 +474,15 @@ export default function DashboardPage() {
         await navigator.clipboard.writeText(shareText);
         toast({
           title: 'Report Copied!',
-          description: 'The production report has been copied to your clipboard.',
+          description:
+            'The production report has been copied to your clipboard.',
         });
       } else {
-        // Fallback for older browsers
+        throw new Error('Clipboard API not available');
+      }
+    } catch (error) {
+      console.error('Share/Copy failed:', error);
+      try {
         const textArea = document.createElement('textarea');
         textArea.value = shareText;
         document.body.appendChild(textArea);
@@ -491,16 +492,17 @@ export default function DashboardPage() {
         document.body.removeChild(textArea);
         toast({
           title: 'Report Copied!',
-          description: 'The production report has been copied to your clipboard.',
+          description:
+            'The production report has been copied to your clipboard.',
+        });
+      } catch (copyError) {
+        console.error('Fallback copy failed:', copyError);
+        toast({
+          variant: 'destructive',
+          title: 'Share Failed',
+          description: 'Could not share or copy the report.',
         });
       }
-    } catch (error) {
-      console.error('Share/Copy failed:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Share Failed',
-        description: 'Could not share or copy the report.',
-      });
     }
   }, [
     entries,
@@ -514,8 +516,8 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <header className="px-4 pt-4">
+      <div className="space-y-4 p-4">
+        <header>
           <h1 className="text-2xl font-bold tracking-tight">
             Green Tyre Production Entry
           </h1>
@@ -548,7 +550,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex-shrink-0 p-4 flex items-center justify-between">
+      <header className="flex-shrink-0 p-4 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
             Green Tyre Production Entry
@@ -605,9 +607,9 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 p-4 overflow-y-auto">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 p-4 overflow-y-auto">
         {/* Left Slicer Panel */}
-        <div className="md:col-span-1 space-y-4">
+        <div className="lg:col-span-1 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Controls</CardTitle>
@@ -791,7 +793,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Content Panel */}
-        <div className="md:col-span-3 space-y-4 overflow-y-auto">
+        <div className="lg:col-span-3 space-y-4 overflow-y-auto">
           {entries.length === 0 && !loading && (
             <Card>
               <CardContent className="p-10 text-center text-muted-foreground">
@@ -810,11 +812,11 @@ export default function DashboardPage() {
             return (
               <Card key={entry.machineId}>
                 <CardContent className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-                    <div className="md:col-span-1">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                    <div className="md:col-span-2">
                       <Label className="font-bold text-lg">{entry.name}</Label>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 md:col-span-5 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 md:col-span-10 gap-4">
                       {columnVisibility.operator && (
                         <div className="space-y-1">
                           <Label htmlFor={`operator-${entry.machineId}`}>
