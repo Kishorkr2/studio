@@ -546,17 +546,17 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <header className="flex-shrink-0 p-4 flex flex-wrap items-center justify-between gap-4">
-        <div>
+    <div className="flex flex-col h-screen">
+      <header className="flex-shrink-0 p-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b">
+        <div className="w-full md:w-auto">
           <h1 className="text-2xl font-bold tracking-tight">
             Green Tyre Production Entry
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Select date, shift, and round to enter production quantities.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
           <div className="w-48">
             <Select
               value={selectedRound}
@@ -604,9 +604,9 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div className="flex-1 lg:grid lg:grid-cols-4 lg:gap-4 p-4 overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-y-auto">
         {/* Left Slicer Panel */}
-        <div className="lg:col-span-1 space-y-4 mb-4 lg:mb-0 lg:overflow-y-auto">
+        <div className="lg:w-1/4 lg:flex-shrink-0 space-y-4 lg:overflow-y-auto">
           <Card>
             <CardHeader>
               <CardTitle>Controls</CardTitle>
@@ -790,7 +790,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Content Panel */}
-        <div className="lg:col-span-3 space-y-4 overflow-y-auto">
+        <div className="lg:w-3/4 space-y-4 overflow-y-auto">
           {entries.length === 0 && !loading && (
             <Card>
               <CardContent className="p-10 text-center text-muted-foreground">
