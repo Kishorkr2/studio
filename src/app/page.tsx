@@ -11,7 +11,6 @@ import {
   Clock,
   Eraser,
   Save,
-  SlidersHorizontal,
   Share2,
 } from 'lucide-react';
 import {
@@ -23,13 +22,10 @@ import {
 } from '@/components/ui/select';
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
 import {
-  DropdownMenu,
   DropdownMenuCheckboxItem,
-  DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -135,15 +131,21 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     {}
   );
 
-  const [columnVisibility, setColumnVisibility] = useState({
-    operator: true,
-    sku: true,
-    trolleyNo: true,
-    remark: true,
-  });
+  const [columnVisibility, setColumnVisibility] = useState(() =>
+    getLocalStorageItem('columnVisibility', {
+      operator: true,
+      sku: true,
+      trolleyNo: true,
+      remark: true,
+    })
+  );
 
   const isInitializing = useRef(true);
   const dataLoadedFor = useRef('');
+
+  useEffect(() => {
+    setLocalStorageItem('columnVisibility', columnVisibility);
+  }, [columnVisibility]);
 
   const loadInitialData = useCallback(async () => {
     setLoading(true);
@@ -339,7 +341,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     selectedShift,
     setPageActions,
   ]);
-  
+
   // This effect fetches the production log for the selected date and shift
   useEffect(() => {
     if (loading || !selectedShift) return;
@@ -379,45 +381,47 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       selectedShift?.name
     }-${selectedRound}`;
     if (
-      isInitializing.current ||
+      isInitializing.current &&
       dataLoadedFor.current !== key.substring(0, key.lastIndexOf('-'))
     ) {
-      const machineMap = new Map(allMachines.map(m => [m.id, m]));
-      const logForRound = productionLog[selectedRound]?.entries || [];
-      const logMap = new Map(logForRound.map(e => [e.machineId, e]));
-
-      const newEntries = allProductionPlan
-        .map(planItem => {
-          const machine = machineMap.get(planItem.machineId);
-          if (!machine || !machine.isAvailable) return null;
-
-          const loggedEntry = logMap.get(planItem.machineId);
-          const operatorId =
-            loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
-          const sku =
-            loggedEntry?.sku ||
-            machineSkuMap[machine.id] ||
-            planItem.skus[0]?.sku ||
-            '';
-
-          const skuPlan =
-            planItem.skus.find(s => s.sku === sku) || planItem.skus[0];
-
-          return {
-            machineId: machine.id,
-            name: machine.name,
-            status: 'Online' as const,
-            sku: sku,
-            sapCode: skuPlan?.sapCode || '',
-            quantity: loggedEntry?.quantity || 0,
-            operatorId,
-            remark: loggedEntry?.remark || '',
-            trolleyNo: loggedEntry?.trolleyNo || '',
-          };
-        })
-        .filter((entry): entry is MachineProductionData => entry !== null);
-      setEntries(newEntries);
+      return;
     }
+
+    const machineMap = new Map(allMachines.map(m => [m.id, m]));
+    const logForRound = productionLog[selectedRound]?.entries || [];
+    const logMap = new Map(logForRound.map(e => [e.machineId, e]));
+
+    const newEntries = allProductionPlan
+      .map(planItem => {
+        const machine = machineMap.get(planItem.machineId);
+        if (!machine || !machine.isAvailable) return null;
+
+        const loggedEntry = logMap.get(planItem.machineId);
+        const operatorId =
+          loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
+        const sku =
+          loggedEntry?.sku ||
+          machineSkuMap[machine.id] ||
+          planItem.skus[0]?.sku ||
+          '';
+
+        const skuPlan =
+          planItem.skus.find(s => s.sku === sku) || planItem.skus[0];
+
+        return {
+          machineId: machine.id,
+          name: machine.name,
+          status: 'Online' as const,
+          sku: sku,
+          sapCode: skuPlan?.sapCode || '',
+          quantity: loggedEntry?.quantity || 0,
+          operatorId,
+          remark: loggedEntry?.remark || '',
+          trolleyNo: loggedEntry?.trolleyNo || '',
+        };
+      })
+      .filter((entry): entry is MachineProductionData => entry !== null);
+    setEntries(newEntries);
   }, [
     selectedRound,
     productionLog,
@@ -622,9 +626,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     return (
       <div className="space-y-4 p-4">
         <header>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Green Tyre Production Entry
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
           <p className="text-muted-foreground">
             Select date, shift, and round to enter production quantities.
           </p>
@@ -656,9 +658,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     <div className="flex flex-col h-screen">
       <header className="flex-shrink-0 p-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b">
         <div className="w-full md:w-auto">
-          <h1 className="text-2xl font-bold tracking-tight">
-            Green Tyre Production Entry
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
           <p className="text-muted-foreground text-sm">
             Select date, shift, and round to enter production quantities.
           </p>
@@ -705,7 +705,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row">
         {/* Left Slicer Panel */}
         <div className="w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto">
           <Card>
