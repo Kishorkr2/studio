@@ -626,7 +626,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     return (
       <div className="space-y-4 p-4">
         <header>
-          <h1 className="text-2xl font-bold tracking-tight">gt prod entry</h1>
+          <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
         </header>
         <Card>
           <CardContent className="p-4 space-y-4">
@@ -654,52 +654,55 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   return (
     <div className="flex flex-col h-screen">
       <header className="flex-shrink-0 p-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b">
-        <div className="w-full md:w-auto">
-          <h1 className="text-2xl font-bold tracking-tight">gt prod entry</h1>
+        <div className="w-1/4"></div>
+        <div className="flex-1 text-center">
+          <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
-          <div className="w-32">
-            <Select
-              value={selectedRound}
-              onValueChange={handleSelectedRoundChange}
+        <div className="w-1/4 flex justify-end">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+            <div className="w-32">
+              <Select
+                value={selectedRound}
+                onValueChange={handleSelectedRoundChange}
+              >
+                <SelectTrigger className="font-semibold">
+                  <div className="flex items-center gap-2">
+                    <RoundStatusIndicator
+                      status={productionLog[selectedRound]?.status}
+                    />
+                    <SelectValue placeholder="Select time" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {roundTimes.map(time => (
+                    <SelectItem key={time} value={time}>
+                      <div className="flex items-center justify-between w-full">
+                        <span>{time}</span>
+                        <RoundStatusIndicator
+                          status={productionLog[time]?.status}
+                        />
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleSaveRound}
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
-              <SelectTrigger className="font-semibold">
-                <div className="flex items-center gap-2">
-                  <RoundStatusIndicator
-                    status={productionLog[selectedRound]?.status}
-                  />
-                  <SelectValue placeholder="Select time" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                {roundTimes.map(time => (
-                  <SelectItem key={time} value={time}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{time}</span>
-                      <RoundStatusIndicator
-                        status={productionLog[time]?.status}
-                      />
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Save className="mr-2 h-4 w-4" />
+              Save Round
+            </Button>
+            <Button onClick={handleShare} variant="outline">
+              <Share2 className="mr-2 h-4 w-4" />
+              Share
+            </Button>
           </div>
-          <Button
-            onClick={handleSaveRound}
-            className="bg-green-600 hover:bg-green-700 text-white"
-          >
-            <Save className="mr-2 h-4 w-4" />
-            Save Round
-          </Button>
-          <Button onClick={handleShare} variant="outline">
-            <Share2 className="mr-2 h-4 w-4" />
-            Share
-          </Button>
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
+      <div className="flex flex-1 flex-col lg:flex-row">
         {/* Left Slicer Panel */}
         <div className="w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto">
           <Card>
