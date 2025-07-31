@@ -73,8 +73,8 @@ const setLocalStorageItem = (key: string, value: any) => {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.warn(`Error setting localStorage key "${key}":`, error);
+  } catch (error)
+    {console.warn(`Error setting localStorage key "${key}":`, error);
   }
 };
 
@@ -413,9 +413,10 @@ export default function DashboardPage() {
   }, [entries]);
 
   const cumulativeTotal = useMemo(() => {
-    return Object.values(productionLog)
+    const total = Object.values(productionLog)
       .flatMap(logEntry => logEntry.entries)
       .reduce((acc, entry) => acc + (entry.quantity || 0), 0);
+    return total
   }, [productionLog]);
 
   const handleShare = useCallback(async () => {
@@ -486,7 +487,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 p-4 md:p-6">
+      <div className="space-y-4">
         <header>
           <h1 className="text-3xl font-bold tracking-tight">
             Green Tyre Production Entry
@@ -601,7 +602,7 @@ export default function DashboardPage() {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
                   <SlidersHorizontal className="mr-2 h-4 w-4" />
-                  Columns & Actions
+                  Menu
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -722,9 +723,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 px-4 pb-4">
+      <div className="flex-1 overflow-y-auto space-y-4">
         {entries.length === 0 && !loading && (
-          <Card className="mt-4">
+          <Card>
             <CardContent className="p-10 text-center text-muted-foreground">
               <p>No machines scheduled for production in the current plan.</p>
               <p className="text-sm">
@@ -876,5 +877,7 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
 
     

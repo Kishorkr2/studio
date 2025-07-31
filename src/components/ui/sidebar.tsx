@@ -166,7 +166,7 @@ export const SidebarTrigger = React.forwardRef<
         variant="ghost"
         size="icon"
         onClick={onToggle}
-        className={cn(className)}
+        className={cn("-ml-2", className)}
         {...props}
       >
         {children}
@@ -217,3 +217,5 @@ export const SidebarMenuButton = React.forwardRef<
   return buttonContent
 })
 SidebarMenuButton.displayName = "SidebarMenuButton"
+
+    

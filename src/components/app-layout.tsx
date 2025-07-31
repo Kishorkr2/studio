@@ -40,6 +40,7 @@ import {
   ClipboardList,
   ListPlus,
   LogOut,
+  Menu,
 } from 'lucide-react';
 import {useOnlineStatus} from '@/hooks/use-online-status';
 import {useAuth} from './auth-provider';
@@ -144,11 +145,9 @@ export function AppLayout({children}: {children: React.ReactNode}) {
         <div className="flex flex-col h-screen">
           <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background px-4">
             <div className="flex items-center gap-4">
-              <SidebarTrigger className="md:hidden" />
-              <h1 className="text-xl font-semibold">
-                {navItems.find(item => item.href === pathname)?.label ||
-                  'Dashboard'}
-              </h1>
+              <SidebarTrigger className="md:hidden">
+                 <Menu />
+              </SidebarTrigger>
             </div>
             <div className="flex items-center gap-4">
               <OnlineStatusIndicator />
