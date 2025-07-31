@@ -120,9 +120,7 @@ export default function DashboardPage() {
   >([]);
 
   const [roundTimes, setRoundTimes] = useState<string[]>([]);
-  const [selectedRound, setSelectedRound] = useState<string>(() =>
-    getLocalStorageItem('selectedRound', '')
-  );
+  const [selectedRound, setSelectedRound] = useState<string>('');
 
   const [entries, setEntries] = useState<MachineProductionData[]>([]);
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
@@ -131,9 +129,9 @@ export default function DashboardPage() {
 
   const [machineOperatorMap, setMachineOperatorMap] = useState<
     Record<string, string>
-  >(() => getLocalStorageItem('machineOperatorMap', {}));
+  >({});
   const [machineSkuMap, setMachineSkuMap] = useState<Record<string, string>>(
-    () => getLocalStorageItem('machineSkuMap', {})
+    {}
   );
 
   const [columnVisibility, setColumnVisibility] = useState({
@@ -218,7 +216,6 @@ export default function DashboardPage() {
     []
   );
 
-  // This effect handles setting up the round times and selected round
   useEffect(() => {
     if (!selectedShift) return;
 
@@ -229,12 +226,13 @@ export default function DashboardPage() {
       const newSelectedRound = newRoundTimes[0] || '';
       setSelectedRound(newSelectedRound);
       setLocalStorageItem('selectedRound', newSelectedRound);
+    } else {
+      setSelectedRound(savedRound);
     }
   }, [selectedShift, generateRoundTimes]);
 
-  // This effect handles fetching data when the shift or date changes
   useEffect(() => {
-    if (!selectedShift || isInitializing.current) return;
+    if (loading || !selectedShift || isInitializing.current) return;
 
     const fetchLog = async () => {
       const log = await actions.getProductionLogForShift(
@@ -270,22 +268,18 @@ export default function DashboardPage() {
       setMachineSkuMap(newSkuMap);
     };
     fetchLog();
-  }, [selectedDate, selectedShift, generateRoundTimes]);
+  }, [selectedDate, selectedShift, generateRoundTimes, loading]);
 
-  // This effect initializes or updates the 'entries' state when dependencies change
   useEffect(() => {
-    // Prevent initialization until all data is loaded
-    if (loading || !selectedShift) return;
-
-    // Set flag to false after first successful run
-    if (isInitializing.current) {
+    if (isInitializing.current && !loading) {
       isInitializing.current = false;
+      setMachineOperatorMap(getLocalStorageItem('machineOperatorMap', {}));
+      setMachineSkuMap(getLocalStorageItem('machineSkuMap', {}));
     }
+  }, [loading]);
 
-    if (!allProductionPlan.length || !allMachines.length || !selectedRound) {
-      setEntries([]);
-      return;
-    }
+  useEffect(() => {
+    if (loading || !selectedShift || !selectedRound) return;
 
     const machineMap = new Map(allMachines.map(m => [m.id, m]));
     const logForRound = productionLog[selectedRound]?.entries || [];
@@ -480,8 +474,21 @@ export default function DashboardPage() {
           title: 'Hourly Production Report',
           text: shareText,
         });
-      } else {
+      } else if (navigator.clipboard) {
         await navigator.clipboard.writeText(shareText);
+        toast({
+          title: 'Report Copied!',
+          description: 'The production report has been copied to your clipboard.',
+        });
+      } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = shareText;
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
         toast({
           title: 'Report Copied!',
           description: 'The production report has been copied to your clipboard.',
