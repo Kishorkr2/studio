@@ -471,7 +471,7 @@ export default function DashboardPage() {
           title: 'Hourly Production Report',
           text: shareText,
         });
-      } else if (navigator.clipboard) {
+      } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareText);
         toast({
           title: 'Report Copied!',
@@ -561,7 +561,7 @@ export default function DashboardPage() {
             Select date, shift, and round to enter production quantities.
           </p>
         </div>
-        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
           <div className="w-48">
             <Select
               value={selectedRound}
@@ -592,7 +592,7 @@ export default function DashboardPage() {
           <Button
             onClick={handleSaveRound}
             size="lg"
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="w-1/2 bg-green-600 hover:bg-green-700 text-white"
           >
             <Save className="mr-2 h-4 w-4" />
             Save Round
