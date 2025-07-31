@@ -142,6 +142,7 @@ export default function DashboardPage() {
   });
 
   const isInitializing = useRef(true);
+  const dataLoadedFor = useRef('');
 
   const loadInitialData = useCallback(async () => {
     setLoading(true);
@@ -183,34 +184,34 @@ export default function DashboardPage() {
       let startHour: number;
       let endHour: number;
 
-      if (shift.name === 'Day Shift') {
-        startHour = 9;
-        endHour = 19;
-      } else if (shift.name === 'Night Shift') {
-        startHour = 21;
-        endHour = 7;
-      } else {
+      try {
+        const [startH] = shift.startTime.split(':').map(Number);
+        const [endH] = shift.endTime.split(':').map(Number);
+        startHour = startH;
+        endHour = endH;
+      } catch {
+        // Fallback for invalid time format
         return [];
       }
 
-      if (endHour < startHour) {
-        let currentHour = startHour;
-        while (currentHour !== (endHour + 1) % 24) {
-          const ampm = currentHour >= 12 ? 'PM' : 'AM';
-          let displayHour = currentHour % 12;
-          if (displayHour === 0) displayHour = 12;
-          times.push(`${displayHour}:00 ${ampm}`);
-          currentHour = (currentHour + 1) % 24;
-        }
-      } else {
-        for (let i = startHour; i <= endHour; i++) {
-          const hour = i;
-          const ampm = hour >= 12 ? 'PM' : 'AM';
-          let displayHour = hour % 12;
-          if (displayHour === 0) displayHour = 12;
-          times.push(`${displayHour}:00 ${ampm}`);
-        }
+      if (isNaN(startHour) || isNaN(endHour)) return [];
+
+      let currentHour = startHour;
+      let loopDetector = 24; // Prevent infinite loops
+
+      while (loopDetector > 0) {
+        const ampm = currentHour >= 12 ? 'PM' : 'AM';
+        let displayHour = currentHour % 12;
+        if (displayHour === 0) displayHour = 12; // 12 AM or 12 PM
+        times.push(`${displayHour}:00 ${ampm}`);
+
+        // Break if we have reached the end hour
+        if (currentHour === endHour) break;
+
+        currentHour = (currentHour + 1) % 24;
+        loopDetector--;
       }
+
       return times;
     },
     []
@@ -221,23 +222,30 @@ export default function DashboardPage() {
 
     const newRoundTimes = generateRoundTimes(selectedShift);
     setRoundTimes(newRoundTimes);
+
     const savedRound = getLocalStorageItem('selectedRound', '');
-    if (!newRoundTimes.includes(savedRound) || !savedRound) {
-      const newSelectedRound = newRoundTimes[0] || '';
-      setSelectedRound(newSelectedRound);
-      setLocalStorageItem('selectedRound', newSelectedRound);
+    if (newRoundTimes.length > 0) {
+      if (!newRoundTimes.includes(savedRound)) {
+        const newSelectedRound = newRoundTimes[0];
+        setSelectedRound(newSelectedRound);
+        setLocalStorageItem('selectedRound', newSelectedRound);
+      } else {
+        setSelectedRound(savedRound);
+      }
     } else {
-      setSelectedRound(savedRound);
+      setSelectedRound('');
     }
   }, [selectedShift, generateRoundTimes]);
 
   useEffect(() => {
     if (loading || !selectedShift) return;
+    const key = `${format(selectedDate, 'yyyy-MM-dd')}-${selectedShift.name}`;
+    if (dataLoadedFor.current === key) return;
 
     const fetchLog = async () => {
       const log = await actions.getProductionLogForShift(
         selectedDate,
-        selectedShift
+        selectedShift!
       );
       setProductionLog(log);
 
@@ -250,31 +258,17 @@ export default function DashboardPage() {
           'machineSkuMap',
           {}
         );
-
-        const allRounds = generateRoundTimes(selectedShift);
-        allRounds.forEach(round => {
-          const roundEntry = log[round];
-          if (roundEntry) {
-            roundEntry.entries.forEach(entry => {
-              if (entry.machineId && entry.operatorId) {
-                newOperatorMap[entry.machineId] = entry.operatorId;
-              }
-              if (entry.machineId && entry.sku) {
-                newSkuMap[entry.machineId] = entry.sku;
-              }
-            });
-          }
-        });
         setMachineOperatorMap(newOperatorMap);
         setMachineSkuMap(newSkuMap);
         isInitializing.current = false;
       }
+      dataLoadedFor.current = key;
     };
     fetchLog();
-  }, [selectedDate, selectedShift, generateRoundTimes, loading]);
+  }, [selectedDate, selectedShift, loading]);
 
   useEffect(() => {
-    if (isInitializing.current || !selectedShift) return;
+    if (isInitializing.current) return;
 
     const machineMap = new Map(allMachines.map(m => [m.id, m]));
     const logForRound = productionLog[selectedRound]?.entries || [];
@@ -310,6 +304,7 @@ export default function DashboardPage() {
         };
       })
       .filter((entry): entry is MachineProductionData => entry !== null);
+
     setEntries(newEntries);
   }, [
     selectedRound,
@@ -318,7 +313,6 @@ export default function DashboardPage() {
     allProductionPlan,
     machineOperatorMap,
     machineSkuMap,
-    selectedShift, // Add selectedShift dependency
   ]);
 
   const handleSelectedRoundChange = (round: string) => {
@@ -409,10 +403,25 @@ export default function DashboardPage() {
 
   const handleShiftChange = useCallback(
     (name: string) => {
-      setSelectedShift(allShifts.find(s => s.name === name));
-      isInitializing.current = true;
+      const newShift = allShifts.find(s => s.name === name);
+      if (newShift?.name !== selectedShift?.name) {
+        setSelectedShift(newShift);
+        dataLoadedFor.current = '';
+        setProductionLog({});
+      }
     },
-    [allShifts]
+    [allShifts, selectedShift]
+  );
+
+  const handleDateChange = useCallback(
+    (date: Date | undefined) => {
+      if (date && format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
+        setSelectedDate(date);
+        dataLoadedFor.current = '';
+        setProductionLog({});
+      }
+    },
+    [selectedDate]
   );
 
   const roundTotal = useMemo(() => {
@@ -436,17 +445,13 @@ export default function DashboardPage() {
       return;
     }
 
-    const roundProduction = entries.reduce(
-      (acc, entry) => acc + (entry.quantity || 0),
-      0
-    );
     const operatorMap = new Map(allOperators.map(op => [op.cardNo, op.name]));
 
     let shareText = `*Hourly Production Report*\n\n`;
     shareText += `*Date:* ${format(selectedDate, 'PPP')}\n`;
     shareText += `*Shift:* ${selectedShift.name}\n`;
     shareText += `*Time:* ${selectedRound}\n\n`;
-    shareText += `*Round Production:* ${roundProduction}\n`;
+    shareText += `*Round Production:* ${roundTotal}\n`;
     shareText += `*Shift Cumulative:* ${cumulativeTotal}\n\n`;
 
     const producedEntries = entries.filter(entry => entry.quantity > 0);
@@ -509,6 +514,7 @@ export default function DashboardPage() {
     toast,
     cumulativeTotal,
     allOperators,
+    roundTotal
   ]);
 
   if (loading) {
@@ -542,7 +548,7 @@ export default function DashboardPage() {
     if (status === 'synced') {
       return <CheckCircle className="h-4 w-4 text-green-500" title="Synced" />;
     }
-    return <Clock className="h-4 w-4 text-muted-foreground" />;
+    return <Clock className="h-4 w-4 text-muted-foreground" title="Not Synced" />;
   };
 
   return (
@@ -606,7 +612,7 @@ export default function DashboardPage() {
 
       <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-y-auto">
         {/* Left Slicer Panel */}
-        <div className="lg:w-1/4 lg:flex-shrink-0 space-y-4 lg:overflow-y-auto">
+        <div className="lg:w-1/4 lg:flex-shrink-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Controls</CardTitle>
@@ -635,10 +641,7 @@ export default function DashboardPage() {
                     <Calendar
                       mode="single"
                       selected={selectedDate}
-                      onSelect={date => date && setSelectedDate(date)}
-                      disabled={date =>
-                        date < new Date(new Date().setHours(0, 0, 0, 0))
-                      }
+                      onSelect={handleDateChange}
                       initialFocus
                     />
                   </PopoverContent>
@@ -699,7 +702,7 @@ export default function DashboardPage() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="w-full">
                     <SlidersHorizontal className="mr-2 h-4 w-4" />
-                    View Options
+                    Menu
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -790,7 +793,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Content Panel */}
-        <div className="lg:w-3/4 space-y-4 overflow-y-auto">
+        <div className="lg:w-3/4 space-y-4">
           {entries.length === 0 && !loading && (
             <Card>
               <CardContent className="p-10 text-center text-muted-foreground">
