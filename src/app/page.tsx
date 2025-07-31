@@ -490,7 +490,7 @@ export default function DashboardPage() {
     return (
       <div className="space-y-4 p-4 md:p-6">
         <header>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight">
             Green Tyre Production Entry
           </h1>
           <p className="text-muted-foreground">
@@ -524,7 +524,7 @@ export default function DashboardPage() {
     <div className="flex flex-col h-full">
       <header className="flex-shrink-0 p-4 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight">
             Green Tyre Production Entry
           </h1>
           <p className="text-muted-foreground">
@@ -532,6 +532,33 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="w-48">
+            <Select
+              value={selectedRound}
+              onValueChange={handleSelectedRoundChange}
+            >
+              <SelectTrigger className="font-semibold">
+                <div className="flex items-center gap-2">
+                  <RoundStatusIndicator
+                    status={productionLog[selectedRound]?.status}
+                  />
+                  <SelectValue placeholder="Select time" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {roundTimes.map(time => (
+                  <SelectItem key={time} value={time}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{time}</span>
+                      <RoundStatusIndicator
+                        status={productionLog[time]?.status}
+                      />
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
            <Button
             onClick={handleSaveRound}
             size="lg"
@@ -606,35 +633,6 @@ export default function DashboardPage() {
                     {allShifts.map(s => (
                       <SelectItem key={s.name} value={s.name}>
                         {s.name} ({s.startTime} - {s.endTime})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Round Time</Label>
-                <Select
-                  value={selectedRound}
-                  onValueChange={handleSelectedRoundChange}
-                >
-                  <SelectTrigger className="font-semibold">
-                    <div className="flex items-center gap-2">
-                      <RoundStatusIndicator
-                        status={productionLog[selectedRound]?.status}
-                      />
-                      <SelectValue placeholder="Select time" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roundTimes.map(time => (
-                      <SelectItem key={time} value={time}>
-                        <div className="flex items-center justify-between w-full">
-                          <span>{time}</span>
-                          <RoundStatusIndicator
-                            status={productionLog[time]?.status}
-                          />
-                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
