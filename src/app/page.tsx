@@ -237,12 +237,14 @@ export default function DashboardPage() {
     }
   }, [selectedShift, generateRoundTimes]);
 
+  // This effect fetches the production log for the selected date and shift
   useEffect(() => {
     if (loading || !selectedShift) return;
+
     const key = `${format(selectedDate, 'yyyy-MM-dd')}-${selectedShift.name}`;
     if (dataLoadedFor.current === key) return;
 
-    const fetchLog = async () => {
+    const fetchLogAndInitialize = async () => {
       const log = await actions.getProductionLogForShift(
         selectedDate,
         selectedShift!
@@ -264,56 +266,53 @@ export default function DashboardPage() {
       }
       dataLoadedFor.current = key;
     };
-    fetchLog();
+
+    fetchLogAndInitialize();
   }, [selectedDate, selectedShift, loading]);
 
+  // This effect builds the `entries` array for the UI
   useEffect(() => {
-    if (isInitializing.current) return;
+    const key = `${format(selectedDate, 'yyyy-MM-dd')}-${
+      selectedShift?.name
+    }-${selectedRound}`;
+    if (isInitializing.current || dataLoadedFor.current !== key.substring(0, key.lastIndexOf('-'))) {
+      const machineMap = new Map(allMachines.map(m => [m.id, m]));
+      const logForRound = productionLog[selectedRound]?.entries || [];
+      const logMap = new Map(logForRound.map(e => [e.machineId, e]));
 
-    const machineMap = new Map(allMachines.map(m => [m.id, m]));
-    const logForRound = productionLog[selectedRound]?.entries || [];
-    const logMap = new Map(logForRound.map(e => [e.machineId, e]));
+      const newEntries = allProductionPlan
+        .map(planItem => {
+          const machine = machineMap.get(planItem.machineId);
+          if (!machine || !machine.isAvailable) return null;
 
-    const newEntries = allProductionPlan
-      .map(planItem => {
-        const machine = machineMap.get(planItem.machineId);
-        if (!machine || !machine.isAvailable) return null;
+          const loggedEntry = logMap.get(planItem.machineId);
+          const operatorId =
+            loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
+          const sku =
+            loggedEntry?.sku ||
+            machineSkuMap[machine.id] ||
+            planItem.skus[0]?.sku ||
+            '';
 
-        const loggedEntry = logMap.get(planItem.machineId);
-        const operatorId =
-          loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
-        const sku =
-          loggedEntry?.sku ||
-          machineSkuMap[machine.id] ||
-          planItem.skus[0]?.sku ||
-          '';
+          const skuPlan =
+            planItem.skus.find(s => s.sku === sku) || planItem.skus[0];
 
-        const skuPlan =
-          planItem.skus.find(s => s.sku === sku) || planItem.skus[0];
-
-        return {
-          machineId: machine.id,
-          name: machine.name,
-          status: 'Online' as const,
-          sku: sku,
-          sapCode: skuPlan?.sapCode || '',
-          quantity: loggedEntry?.quantity || 0,
-          operatorId,
-          remark: loggedEntry?.remark || '',
-          trolleyNo: loggedEntry?.trolleyNo || '',
-        };
-      })
-      .filter((entry): entry is MachineProductionData => entry !== null);
-
-    setEntries(newEntries);
-  }, [
-    selectedRound,
-    productionLog,
-    allMachines,
-    allProductionPlan,
-    machineOperatorMap,
-    machineSkuMap,
-  ]);
+          return {
+            machineId: machine.id,
+            name: machine.name,
+            status: 'Online' as const,
+            sku: sku,
+            sapCode: skuPlan?.sapCode || '',
+            quantity: loggedEntry?.quantity || 0,
+            operatorId,
+            remark: loggedEntry?.remark || '',
+            trolleyNo: loggedEntry?.trolleyNo || '',
+          };
+        })
+        .filter((entry): entry is MachineProductionData => entry !== null);
+      setEntries(newEntries);
+    }
+  }, [selectedRound, productionLog, allMachines, allProductionPlan, machineOperatorMap, machineSkuMap, selectedDate, selectedShift]);
 
   const handleSelectedRoundChange = (round: string) => {
     setSelectedRound(round);
@@ -593,7 +592,7 @@ export default function DashboardPage() {
           <Button
             onClick={handleSaveRound}
             size="lg"
-            className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
+            className="bg-green-600 hover:bg-green-700 text-white"
           >
             <Save className="mr-2 h-4 w-4" />
             Save Round
@@ -601,7 +600,6 @@ export default function DashboardPage() {
           <Button
             onClick={handleShare}
             size="lg"
-            className="w-full sm:w-auto"
             variant="outline"
           >
             <Share2 className="mr-2 h-4 w-4" />
@@ -610,9 +608,9 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-y-auto">
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden">
         {/* Left Slicer Panel */}
-        <div className="lg:w-1/4 lg:flex-shrink-0 space-y-4">
+        <div className="lg:w-1/4 lg:flex-shrink-0 space-y-4 overflow-y-auto">
           <Card>
             <CardHeader>
               <CardTitle>Controls</CardTitle>
@@ -793,7 +791,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Content Panel */}
-        <div className="lg:w-3/4 space-y-4">
+        <div className="lg:w-3/4 space-y-4 overflow-y-auto">
           {entries.length === 0 && !loading && (
             <Card>
               <CardContent className="p-10 text-center text-muted-foreground">
