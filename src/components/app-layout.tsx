@@ -14,19 +14,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarFooter,
-  SidebarTrigger,
-  SidebarInset,
-  useSidebar,
-} from '@/components/ui/sidebar';
 import {ThemeToggle} from '@/components/theme-toggle';
 import {cn} from '@/lib/utils';
 import {
@@ -54,46 +41,6 @@ const navItems = [
   {href: '/admin', label: 'Admin', icon: Cog},
 ];
 
-function NavLinks() {
-  const pathname = usePathname();
-  const {isExpanded} = useSidebar();
-  const {logout} = useAuth();
-  const router = useRouter();
-
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
-  };
-
-  return (
-    <SidebarMenu>
-      {navItems.map(item => (
-        <SidebarMenuItem key={item.href}>
-          <SidebarMenuButton
-            isActive={pathname === item.href}
-            tooltip={item.label}
-            asChild
-          >
-            <Link href={item.href}>
-              <item.icon />
-              {isExpanded && <span>{item.label}</span>}
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      ))}
-       <SidebarMenuItem>
-          <SidebarMenuButton
-            onClick={handleLogout}
-            tooltip="Logout"
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
-          >
-            <LogOut />
-            {isExpanded && <span>Logout</span>}
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-    </SidebarMenu>
-  );
-}
 
 function OnlineStatusIndicator() {
   const isOnline = useOnlineStatus();
@@ -124,41 +71,22 @@ export function AppLayout({children}: {children: React.ReactNode}) {
   }
 
   return (
-    <SidebarProvider>
-      <Sidebar>
-        <SidebarHeader className="p-4">
-          <Link href="/" className="flex items-center gap-2">
+    <div className="flex flex-col h-screen">
+      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background px-4">
+        <div className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
             <Truck className="w-8 h-8 text-primary" />
             <span className="text-xl font-semibold">TyreTrack Pro</span>
           </Link>
-        </SidebarHeader>
-        <SidebarContent>
-          <NavLinks />
-        </SidebarContent>
-        <SidebarFooter>
-          <div className="flex items-center justify-between p-2">
-            <span className="text-sm text-muted-foreground">© 2024</span>
-          </div>
-        </SidebarFooter>
-      </Sidebar>
-      <SidebarInset>
-        <div className="flex flex-col h-screen">
-          <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background px-4">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger className="md:hidden">
-                 <Menu />
-              </SidebarTrigger>
-            </div>
-            <div className="flex items-center gap-4">
-              <OnlineStatusIndicator />
-              <ThemeToggle />
-              <UserMenu />
-            </div>
-          </header>
-          <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+        <div className="flex items-center gap-4">
+          <OnlineStatusIndicator />
+          <ThemeToggle />
+          <UserMenu />
+        </div>
+      </header>
+      <main className="flex-1 overflow-y-auto">{children}</main>
+    </div>
   );
 }
 
@@ -189,8 +117,14 @@ function UserMenu() {
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Admin</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>Profile</DropdownMenuItem>
-        <DropdownMenuItem>Settings</DropdownMenuItem>
+        {navItems.map(item => (
+            <DropdownMenuItem key={item.href} asChild>
+                <Link href={item.href} className="flex items-center gap-2">
+                    <item.icon className="h-4 w-4"/>
+                    <span>{item.label}</span>
+                </Link>
+            </DropdownMenuItem>
+        ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
@@ -200,5 +134,3 @@ function UserMenu() {
     </DropdownMenu>
   );
 }
-
-    
