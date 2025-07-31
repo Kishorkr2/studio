@@ -689,12 +689,13 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
             </div>
             <Button
               onClick={handleSaveRound}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="bg-green-600 hover:bg-green-700 text-white text-xs"
+              size="sm"
             >
               <Save className="mr-2 h-4 w-4" />
               Save Round
             </Button>
-            <Button onClick={handleShare} variant="outline">
+            <Button onClick={handleShare} variant="outline" size="sm">
               <Share2 className="mr-2 h-4 w-4" />
               Share
             </Button>
@@ -707,7 +708,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         <div className="w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto">
           <Card>
             <CardHeader>
-              <CardTitle>Controls</CardTitle>
+              <CardTitle className="text-lg">Controls</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -808,7 +809,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                 <CardContent className="p-4">
                   <div className="flex flex-col md:flex-row md:items-center md:gap-4">
                     <div className="md:w-1/6 mb-4 md:mb-0">
-                      <Label className="font-bold text-lg">{entry.name}</Label>
+                      <Label className="font-bold text-base">{entry.name}</Label>
                     </div>
                     <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                       {columnVisibility.operator && (
