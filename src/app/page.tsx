@@ -205,30 +205,39 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const generateRoundTimes = useCallback(
     (shift: ShiftInfo | undefined): string[] => {
       if (!shift) return [];
+      
       const times: string[] = [];
       let startHour: number;
       let endHour: number;
+      let isNightShift = false;
 
       try {
         const [startH] = shift.startTime.split(':').map(Number);
         const [endH] = shift.endTime.split(':').map(Number);
-        startHour = startH;
-        endHour = endH;
+        if (startH > endH) {
+            isNightShift = true;
+        }
       } catch {
         return [];
       }
 
-      if (isNaN(startHour) || isNaN(endHour)) return [];
+      if (isNightShift) {
+        startHour = 21; // 9 PM
+        endHour = 7;    // 7 AM
+      } else {
+        startHour = 9;  // 9 AM
+        endHour = 19;   // 7 PM
+      }
 
       let currentHour = startHour;
-      let loopDetector = 24;
+      let loopDetector = 24; 
 
       while (loopDetector > 0) {
         const ampm = currentHour >= 12 ? 'PM' : 'AM';
         let displayHour = currentHour % 12;
         if (displayHour === 0) displayHour = 12;
         times.push(`${displayHour}:00 ${ampm}`);
-
+        
         if (currentHour === endHour) break;
 
         currentHour = (currentHour + 1) % 24;
