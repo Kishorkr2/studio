@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -15,7 +14,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {ThemeToggle} from '@/components/theme-toggle';
-import {cn} from '@/lib/utils';
 import {
   BotMessageSquare,
   Cog,
@@ -27,7 +25,6 @@ import {
   ClipboardList,
   ListPlus,
   LogOut,
-  Menu,
 } from 'lucide-react';
 import {useOnlineStatus} from '@/hooks/use-online-status';
 import {useAuth} from './auth-provider';
@@ -81,7 +78,7 @@ export function AppLayout({children}: {children: React.ReactNode}) {
     return child;
   });
 
-  if (!isAuthenticated || pathname === '/login') {
+  if (!isAuthenticated || pathname === '/login' || pathname === '/signup') {
     return <main className="flex-1">{children}</main>;
   }
 
