@@ -1,3 +1,13 @@
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  mobile: string;
+  password?: string;
+  isApproved: boolean;
+  isAdmin: boolean;
+}
+
 export interface Operator {
   cardNo: string;
   name: string;

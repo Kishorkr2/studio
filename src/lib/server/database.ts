@@ -6,6 +6,8 @@ import {
   shifts,
   initialProductionPlan,
 } from '../data';
+import bcrypt from 'bcryptjs';
+
 
 // This is a top-level await, which is supported in modern TypeScript and Node.js.
 // It ensures that the database is connected before any other module that imports this file can use it.
@@ -16,6 +18,15 @@ export const db = await open({
 
 async function setup() {
   await db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      mobile TEXT NOT NULL,
+      password TEXT NOT NULL,
+      isApproved BOOLEAN DEFAULT FALSE,
+      isAdmin BOOLEAN DEFAULT FALSE
+    );
     CREATE TABLE IF NOT EXISTS operators (
       cardNo TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -52,8 +63,6 @@ async function setup() {
       sapCode TEXT,
       quantity INTEGER,
       operatorId TEXT,
-      remark TEXT,
-      trolleyNo TEXT,
       UNIQUE(date, shiftName, round, machineId)
     );
     CREATE TABLE IF NOT EXISTS dailyTreadProduction (
@@ -68,34 +77,18 @@ async function setup() {
     );
   `);
 
-  // Check if the old remark and trolleyNo columns exist and drop them if they do
-  // to avoid issues with schema changes during development.
-  const columns = await db.all("PRAGMA table_info(productionLogEntries);");
-  const columnNames = columns.map(c => c.name);
-  if (columnNames.includes('remark') || columnNames.includes('trolleyNo')) {
-     // To simplify, we'll just recreate the table without them.
-     await db.exec('DROP TABLE IF EXISTS productionLogEntries;');
-     await db.exec(`
-      CREATE TABLE IF NOT EXISTS productionLogEntries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT NOT NULL,
-        shiftName TEXT NOT NULL,
-        round TEXT NOT NULL,
-        machineId TEXT NOT NULL,
-        name TEXT,
-        status TEXT,
-        sku TEXT,
-        sapCode TEXT,
-        quantity INTEGER,
-        operatorId TEXT,
-        UNIQUE(date, shiftName, round, machineId)
-      );
-     `);
-  }
-
-
-  // Drop the old problematic table if it exists
+  // Drop old problematic tables if they exist
   await db.exec('DROP TABLE IF EXISTS productionLogs;');
+
+  // Seed Admin user
+  const adminUser = await db.get('SELECT * FROM users WHERE email = ?', 'ralson@ralson.com');
+  if (!adminUser) {
+    const hashedPassword = await bcrypt.hash('ralson@123', 10);
+    await db.run(
+      'INSERT INTO users (name, email, mobile, password, isApproved, isAdmin) VALUES (?, ?, ?, ?, ?, ?)',
+      'Ralson Admin', 'ralson@ralson.com', '1234567890', hashedPassword, true, true
+    );
+  }
 
   const operatorCount = await db.get('SELECT COUNT(*) as count FROM operators');
   if (operatorCount.count === 0) {

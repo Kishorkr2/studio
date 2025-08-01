@@ -10,7 +10,9 @@ import type {
   TreadStock,
   MachineProductionData,
   DailyProductionEntry,
+  User,
 } from '@/lib/types';
+import {SignUpInput} from './signup/page';
 
 export const getOperators = async () => dbActions.getOperators();
 export const getMachines = async () => dbActions.getMachines();
@@ -54,3 +56,11 @@ export const saveDailyProductionLog = async (
 ) => dbActions.saveDailyProductionLog(log);
 export const saveTreadOpeningStock = async (stock: TreadStock[]) =>
   dbActions.saveTreadOpeningStock(stock);
+
+// User actions
+export const signUpUser = async (data: SignUpInput) =>
+  dbActions.signUpUser(data);
+export const getUsers = async () => dbActions.getUsers();
+export const approveUser = async (userId: number) =>
+  dbActions.approveUser(userId);
+export const deleteUser = async (userId: number) => dbActions.deleteUser(userId);

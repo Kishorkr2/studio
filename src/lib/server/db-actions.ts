@@ -1,4 +1,3 @@
-
 'use server';
 
 import {db} from './database';
@@ -12,8 +11,11 @@ import type {
   MachineProductionData,
   DailyProductionEntry,
   SkuPlan,
+  User,
 } from '../types';
 import {format} from 'date-fns';
+import bcrypt from 'bcryptjs';
+import type {SignUpInput} from '@/app/signup/page';
 
 export async function getOperators(): Promise<Operator[]> {
   return db.all('SELECT * FROM operators ORDER BY name');
@@ -53,8 +55,6 @@ export async function getProductionPlan(): Promise<ProductionPlanItem[]> {
 }
 
 export async function getProductionLogs() {
-  // This function now needs to return a flat list of all entries
-  // for the reports page. The reports page will handle aggregation.
   const operatorMap = new Map(
     (await getOperators()).map(op => [op.cardNo, op.name])
   );
@@ -72,8 +72,6 @@ export async function getProductionLogs() {
     machineName: machineMap.get(log.machineId) || 'N/A',
     sku: log.sku,
     quantity: log.quantity,
-    remark: log.remark,
-    trolleyNo: log.trolleyNo,
   }));
 }
 
@@ -116,7 +114,6 @@ export async function getDailyTreadProductionLog() {
       log[row.id] = JSON.parse(row.data);
     } catch (e) {
       console.error(`Failed to parse daily tread production for ${row.id}:`, e);
-      // Skip corrupted entry to prevent crash
     }
   });
   return log;
@@ -145,13 +142,10 @@ export async function renameOperator(
   newCardNo: string,
   newOperatorData: Operator
 ) {
-  // Use a transaction to ensure both operations succeed or fail together
   await db.exec('BEGIN TRANSACTION');
   try {
     const {name, builderNo, skillRating, isAbsent} = newOperatorData;
-    // Delete the old operator record
     await db.run('DELETE FROM operators WHERE cardNo = ?', originalCardNo);
-    // Insert the new operator record
     await db.run(
       'INSERT INTO operators (cardNo, name, builderNo, skillRating, isAbsent) VALUES (?, ?, ?, ?, ?)',
       newCardNo,
@@ -215,7 +209,6 @@ export async function clearAllProductionData() {
 }
 
 export async function updateMachines(machines: Machine[]) {
-  // Use a transaction for bulk updates
   await db.exec('BEGIN TRANSACTION');
   try {
     for (const machine of machines) {
@@ -305,7 +298,6 @@ export async function saveDailyProductionLog(
 }
 
 export async function saveTreadOpeningStock(stock: TreadStock[]) {
-  // Use a transaction for bulk inserts/updates
   await db.exec('BEGIN TRANSACTION');
   try {
     for (const item of stock) {
@@ -323,4 +315,61 @@ export async function saveTreadOpeningStock(stock: TreadStock[]) {
     await db.exec('ROLLBACK');
     throw error;
   }
+}
+
+// User Actions
+
+export async function signUpUser(data: SignUpInput): Promise<{success: boolean; message?: string}> {
+  const {name, email, mobile, password} = data;
+  try {
+    const existingUser = await db.get('SELECT * FROM users WHERE email = ?', email);
+    if (existingUser) {
+      return {success: false, message: 'An account with this email already exists.'};
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await db.run(
+      'INSERT INTO users (name, email, mobile, password) VALUES (?, ?, ?, ?)',
+      name,
+      email,
+      mobile,
+      hashedPassword
+    );
+    return {success: true};
+  } catch (error) {
+    console.error('Sign up error:', error);
+    return {success: false, message: 'A database error occurred.'};
+  }
+}
+
+export async function verifyUserLogin(email: string, pass: string): Promise<{success: boolean; message?: string; user?: User}> {
+  const user = await db.get<User>('SELECT * FROM users WHERE email = ?', email.toLowerCase());
+  
+  if (!user) {
+    return {success: false, message: 'Invalid email or password.'};
+  }
+  
+  const isPasswordValid = await bcrypt.compare(pass, user.password);
+  
+  if (!isPasswordValid) {
+    return {success: false, message: 'Invalid email or password.'};
+  }
+  
+  if (!user.isApproved) {
+    return {success: false, message: 'Your account has not been approved by an administrator yet.'};
+  }
+  
+  return {success: true, user};
+}
+
+
+export async function getUsers(): Promise<User[]> {
+  return db.all('SELECT id, name, email, mobile, isApproved, isAdmin FROM users ORDER BY name');
+}
+
+export async function approveUser(userId: number) {
+  await db.run('UPDATE users SET isApproved = TRUE WHERE id = ?', userId);
+}
+
+export async function deleteUser(userId: number) {
+  await db.run('DELETE FROM users WHERE id = ?', userId);
 }

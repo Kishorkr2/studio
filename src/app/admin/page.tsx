@@ -1,4 +1,3 @@
-
 'use client';
 
 import {useState, useEffect, useCallback} from 'react';
@@ -35,6 +34,7 @@ import type {
   Machine,
   ShiftInfo,
   SkuPlan,
+  User,
 } from '@/lib/types';
 import {
   PlusCircle,
@@ -45,6 +45,7 @@ import {
   Save,
   DatabaseZap,
   Loader2,
+  CheckCircle,
 } from 'lucide-react';
 import {useToast} from '@/hooks/use-toast';
 import {Badge} from '@/components/ui/badge';
@@ -64,6 +65,61 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {Slider} from '@/components/ui/slider';
 import * as actions from '../actions';
 
+function UserManagement({users, onApprove, onDelete}: {users: User[], onApprove: (id: number) => void, onDelete: (id: number) => void}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">User Management</CardTitle>
+        <CardDescription>
+          Approve or remove registered users.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Mobile</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map(user => (
+                <TableRow key={user.id}>
+                  <TableCell>{user.name}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.mobile}</TableCell>
+                  <TableCell>
+                    {user.isApproved ? (
+                       <Badge variant="secondary" className="text-green-600">Approved</Badge>
+                    ) : (
+                      <Badge variant="outline">Pending</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right space-x-2">
+                    {!user.isApproved && (
+                      <Button size="sm" variant="outline" onClick={() => onApprove(user.id)}>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Approve
+                      </Button>
+                    )}
+                     <Button variant="ghost" size="icon" onClick={() => onDelete(user.id)}>
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [operators, setOperators] = useState<Operator[]>([]);
@@ -72,6 +128,7 @@ export default function AdminPage() {
     []
   );
   const [machines, setMachines] = useState<Machine[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
 
   const [newPlanMachineId, setNewPlanMachineId] = useState('');
   const [newPlanSku, setNewPlanSku] = useState('');
@@ -90,16 +147,18 @@ export default function AdminPage() {
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [ops, shifts, machs, plan] = await Promise.all([
+      const [ops, shifts, machs, plan, usersData] = await Promise.all([
         actions.getOperators(),
         actions.getShifts(),
         actions.getMachines(),
         actions.getProductionPlan(),
+        actions.getUsers(),
       ]);
       setOperators(ops);
       setManagedShifts(shifts);
       setMachines(machs);
       setProductionPlan(plan);
+      setUsers(usersData);
     } catch (error) {
       console.error('Failed to load initial data', error);
       toast({
@@ -156,35 +215,34 @@ export default function AdminPage() {
       return;
     }
 
-    // Check against the current list of operators (excluding the one being renamed)
-    if (operators.some(op => op.cardNo === newCardNo && op.cardNo !== originalCardNo)) {
-      toast({
-        variant: 'destructive',
-        title: 'Update Failed',
-        description: `Card No "${newCardNo}" already exists.`,
-      });
-      // Re-fetch to revert any optimistic UI changes.
-      await loadInitialData();
-      return;
-    }
-
     const operatorToUpdate = operators.find(op => op.cardNo === originalCardNo);
     if (!operatorToUpdate) return;
 
     setIsRenaming(originalCardNo);
     try {
+      // First, try to perform the update on the server.
       const newOperatorData = {...operatorToUpdate, cardNo: newCardNo};
       await actions.renameOperator(originalCardNo, newCardNo, newOperatorData);
       toast({title: 'Operator Card No Updated'});
     } catch (error) {
+      // If the server update fails (e.g., due to a unique constraint), show an error.
       console.error('Failed to rename operator:', error);
-      toast({variant: 'destructive', title: 'Rename Failed', description: error instanceof Error ? error.message : 'An unknown error occurred.'});
+      toast({
+        variant: 'destructive',
+        title: 'Rename Failed',
+        description:
+          error instanceof Error
+            ? error.message
+            : `Card No "${newCardNo}" might already exist.`,
+      });
     } finally {
-      // ALWAYS re-fetch data from the server to ensure UI is in sync with the database.
+      // ALWAYS re-fetch data from the server to ensure the UI is in sync with the database.
+      // This will revert the input field if the update failed or show the new value if it succeeded.
       await loadInitialData();
       setIsRenaming(null);
     }
   };
+
 
   const handleDeleteOperator = async (cardNo: string) => {
     await actions.deleteOperator(cardNo);
@@ -437,6 +495,26 @@ export default function AdminPage() {
     }
   };
 
+  const handleApproveUser = async (userId: number) => {
+    try {
+      await actions.approveUser(userId);
+      setUsers(prev => prev.map(u => u.id === userId ? {...u, isApproved: true} : u));
+      toast({title: "User Approved"});
+    } catch (error) {
+      toast({variant: 'destructive', title: "Approval Failed"});
+    }
+  };
+
+  const handleDeleteUser = async (userId: number) => {
+    try {
+      await actions.deleteUser(userId);
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      toast({title: "User Deleted"});
+    } catch (error) {
+      toast({variant: 'destructive', title: "Deletion Failed"});
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -452,14 +530,19 @@ export default function AdminPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold tracking-tight">Admin Panel</h1>
-      <Tabs defaultValue="operators">
-        <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 lg:grid-cols-5 h-auto">
+      <Tabs defaultValue="users">
+        <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 lg:grid-cols-6 h-auto">
+          <TabsTrigger value="users">User Management</TabsTrigger>
           <TabsTrigger value="operators">Operator Management</TabsTrigger>
           <TabsTrigger value="shifts">Shift Management</TabsTrigger>
           <TabsTrigger value="plan">Production Plan</TabsTrigger>
           <TabsTrigger value="machines">TBM Management</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="users">
+          <UserManagement users={users} onApprove={handleApproveUser} onDelete={handleDeleteUser} />
+        </TabsContent>
 
         <TabsContent value="operators">
           <Card>
