@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -28,14 +29,23 @@ export function AuthProvider({children}: {children: ReactNode}) {
   const pathname = usePathname();
 
   useEffect(() => {
-    // Check session storage for auth status
+    // Check local storage for auth status and expiry
     try {
-      const storedAuth = sessionStorage.getItem('isAuthenticated');
-      const authStatus = storedAuth === 'true';
-      setIsAuthenticated(authStatus);
+      const authDataString = localStorage.getItem('authData');
+      if (authDataString) {
+        const authData = JSON.parse(authDataString);
+        if (new Date().getTime() < authData.expiry) {
+          setIsAuthenticated(true);
+        } else {
+          // If expired, clear the storage
+          localStorage.removeItem('authData');
+          setIsAuthenticated(false);
+        }
+      } else {
+        setIsAuthenticated(false);
+      }
     } catch (error) {
-      // If sessionStorage is not available, default to not authenticated
-      console.warn('Session storage is not available.');
+      console.warn('Could not read auth status from localStorage.', error);
       setIsAuthenticated(false);
     } finally {
       setLoading(false);
@@ -43,7 +53,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
   }, []);
 
   useEffect(() => {
-    if (loading) return; // Wait until we've checked session storage
+    if (loading) return; // Wait until we've checked local storage
 
     if (!isAuthenticated && pathname !== '/login') {
       router.push('/login');
@@ -57,7 +67,9 @@ export function AuthProvider({children}: {children: ReactNode}) {
       user.toLowerCase() === validUsername.toLowerCase() &&
       pass === validPassword
     ) {
-      sessionStorage.setItem('isAuthenticated', 'true');
+      const expiry = new Date().getTime() + 24 * 60 * 60 * 1000; // 24 hours
+      const authData = {isAuthenticated: true, expiry};
+      localStorage.setItem('authData', JSON.stringify(authData));
       setIsAuthenticated(true);
       return true;
     }
@@ -65,7 +77,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
   };
 
   const logout = () => {
-    sessionStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('authData');
     setIsAuthenticated(false);
   };
 
