@@ -135,8 +135,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     getLocalStorageItem('columnVisibility', {
       operator: true,
       sku: true,
-      trolleyNo: true,
-      remark: true,
     })
   );
 
@@ -278,22 +276,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           >
             Toggle SKU
           </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
-            checked={columnVisibility.trolleyNo}
-            onCheckedChange={value =>
-              setColumnVisibility(prev => ({...prev, trolleyNo: !!value}))
-            }
-          >
-            Toggle Trolley No
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
-            checked={columnVisibility.remark}
-            onCheckedChange={value =>
-              setColumnVisibility(prev => ({...prev, remark: !!value}))
-            }
-          >
-            Toggle Remark
-          </DropdownMenuCheckboxItem>
           <DropdownMenuSeparator />
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -416,8 +398,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           sapCode: skuPlan?.sapCode || '',
           quantity: loggedEntry?.quantity || 0,
           operatorId,
-          remark: loggedEntry?.remark || '',
-          trolleyNo: loggedEntry?.trolleyNo || '',
         };
       })
       .filter((entry): entry is MachineProductionData => entry !== null);
@@ -656,7 +636,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       <header className="flex-shrink-0 p-4 flex items-center justify-between gap-4 border-b">
         <div className="w-1/4"></div>
         <div className="flex-1 text-center">
-          <h1 className="text-lg font-bold tracking-tight">GT Prod Entry</h1>
+          <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
         </div>
         <div className="w-1/4 flex justify-end">
           <div className="flex items-center gap-2 flex-nowrap">
@@ -690,12 +670,11 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
             <Button
               onClick={handleSaveRound}
               className="bg-green-600 hover:bg-green-700 text-white"
-              size="sm"
             >
               <Save className="mr-2 h-4 w-4" />
               Save Round
             </Button>
-            <Button onClick={handleShare} variant="outline" size="sm">
+            <Button onClick={handleShare} variant="outline">
               <Share2 className="mr-2 h-4 w-4" />
               Share
             </Button>
@@ -811,7 +790,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                     <div className="md:w-1/6 mb-4 md:mb-0">
                       <Label className="font-bold text-base">{entry.name}</Label>
                     </div>
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {columnVisibility.operator && (
                         <div className="space-y-1">
                           <Label htmlFor={`operator-${entry.machineId}`}>
@@ -892,46 +871,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                           }
                         />
                       </div>
-
-                      {columnVisibility.trolleyNo && (
-                        <div className="space-y-1">
-                          <Label htmlFor={`trolley-${entry.machineId}`}>
-                            Trolley
-                          </Label>
-                          <Input
-                            id={`trolley-${entry.machineId}`}
-                            placeholder="e.g., T-123"
-                            value={entry.trolleyNo || ''}
-                            onChange={e =>
-                              handleEntryChange(
-                                entry.machineId,
-                                'trolleyNo',
-                                e.target.value
-                              )
-                            }
-                          />
-                        </div>
-                      )}
-
-                      {columnVisibility.remark && (
-                        <div className="space-y-1">
-                          <Label htmlFor={`remark-${entry.machineId}`}>
-                            Remark
-                          </Label>
-                          <Input
-                            id={`remark-${entry.machineId}`}
-                            placeholder="Add remark..."
-                            value={entry.remark || ''}
-                            onChange={e =>
-                              handleEntryChange(
-                                entry.machineId,
-                                'remark',
-                                e.target.value
-                              )
-                            }
-                          />
-                        </div>
-                      )}
                     </div>
                   </div>
                 </CardContent>

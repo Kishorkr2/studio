@@ -100,8 +100,6 @@ export async function getProductionLogForShift(
       sapCode: row.sapCode,
       quantity: row.quantity,
       operatorId: row.operatorId,
-      remark: row.remark,
-      trolleyNo: row.trolleyNo,
     });
   }
   return log;
@@ -262,8 +260,8 @@ export async function saveProductionRound(
     for (const entry of entries) {
       await db.run(
         `INSERT OR REPLACE INTO productionLogEntries 
-        (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, remark, trolleyNo) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         dateKey,
         shiftName,
         round,
@@ -273,9 +271,7 @@ export async function saveProductionRound(
         entry.sku,
         entry.sapCode,
         entry.quantity,
-        entry.operatorId,
-        entry.remark,
-        entry.trolleyNo
+        entry.operatorId
       );
     }
     await db.exec('COMMIT');

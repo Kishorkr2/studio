@@ -68,6 +68,32 @@ async function setup() {
     );
   `);
 
+  // Check if the old remark and trolleyNo columns exist and drop them if they do
+  // to avoid issues with schema changes during development.
+  const columns = await db.all("PRAGMA table_info(productionLogEntries);");
+  const columnNames = columns.map(c => c.name);
+  if (columnNames.includes('remark') || columnNames.includes('trolleyNo')) {
+     // To simplify, we'll just recreate the table without them.
+     await db.exec('DROP TABLE IF EXISTS productionLogEntries;');
+     await db.exec(`
+      CREATE TABLE IF NOT EXISTS productionLogEntries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        shiftName TEXT NOT NULL,
+        round TEXT NOT NULL,
+        machineId TEXT NOT NULL,
+        name TEXT,
+        status TEXT,
+        sku TEXT,
+        sapCode TEXT,
+        quantity INTEGER,
+        operatorId TEXT,
+        UNIQUE(date, shiftName, round, machineId)
+      );
+     `);
+  }
+
+
   // Drop the old problematic table if it exists
   await db.exec('DROP TABLE IF EXISTS productionLogs;');
 
