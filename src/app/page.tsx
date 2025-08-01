@@ -549,36 +549,24 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       shareText += `*No production was recorded for this round.*\n`;
     }
 
-    try {
-      if (navigator.share) {
+    // Use the Web Share API if available, which provides a native sharing dialog
+    if (navigator.share) {
+      try {
         await navigator.share({
           title: 'Hourly Production Report',
           text: shareText,
         });
-      } else if (navigator.clipboard?.writeText) {
+      } catch (error) {
+        // The user might have cancelled the share action, so we don't show an error.
+        console.log('Share was cancelled or failed', error);
+      }
+    } else {
+      // Fallback to copying to clipboard if Web Share API is not supported
+      try {
         await navigator.clipboard.writeText(shareText);
         toast({
           title: 'Report Copied!',
-          description:
-            'The production report has been copied to your clipboard.',
-        });
-      } else {
-        throw new Error('Clipboard API not available');
-      }
-    } catch (error) {
-      console.error('Share/Copy failed:', error);
-      try {
-        const textArea = document.createElement('textarea');
-        textArea.value = shareText;
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        toast({
-          title: 'Report Copied!',
-          description:
-            'The production report has been copied to your clipboard.',
+          description: 'The production report has been copied to your clipboard.',
         });
       } catch (copyError) {
         console.error('Fallback copy failed:', copyError);
@@ -933,4 +921,3 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
-
