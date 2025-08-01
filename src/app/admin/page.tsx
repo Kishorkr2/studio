@@ -156,18 +156,15 @@ export default function AdminPage() {
       return;
     }
 
-    if (operators.some(op => op.cardNo === newCardNo)) {
+    // Check against the current list of operators (excluding the one being renamed)
+    if (operators.some(op => op.cardNo === newCardNo && op.cardNo !== originalCardNo)) {
       toast({
         variant: 'destructive',
         title: 'Update Failed',
         description: `Card No "${newCardNo}" already exists.`,
       });
-      // Revert UI change
-      setOperators(currentOps =>
-        currentOps.map(op =>
-          op.cardNo === newCardNo ? {...op, cardNo: originalCardNo} : op
-        )
-      );
+      // Re-fetch to revert any optimistic UI changes.
+      await loadInitialData();
       return;
     }
 
@@ -178,14 +175,13 @@ export default function AdminPage() {
     try {
       const newOperatorData = {...operatorToUpdate, cardNo: newCardNo};
       await actions.renameOperator(originalCardNo, newCardNo, newOperatorData);
-      // Refresh the list from the server to get the latest state
-      await loadInitialData();
       toast({title: 'Operator Card No Updated'});
     } catch (error) {
       console.error('Failed to rename operator:', error);
-      toast({variant: 'destructive', title: 'Rename Failed'});
-      await loadInitialData(); // Re-sync with server on failure
+      toast({variant: 'destructive', title: 'Rename Failed', description: error instanceof Error ? error.message : 'An unknown error occurred.'});
     } finally {
+      // ALWAYS re-fetch data from the server to ensure UI is in sync with the database.
+      await loadInitialData();
       setIsRenaming(null);
     }
   };
@@ -436,7 +432,6 @@ export default function AdminPage() {
   };
 
   const handleClearCache = () => {
-    // This is a client-side only operation
     if (typeof window !== 'undefined' && 'indexedDB' in window) {
       window.location.reload();
     }
@@ -445,7 +440,7 @@ export default function AdminPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Admin Panel</h1>
         <div className="space-y-4">
           <Skeleton className="h-10 w-full md:w-1/2" />
           <Skeleton className="h-96 w-full" />
