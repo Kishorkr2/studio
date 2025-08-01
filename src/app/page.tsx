@@ -10,8 +10,10 @@ import {
   CheckCircle,
   Clock,
   Eraser,
+  Filter,
   Save,
   Share2,
+  Sigma,
 } from 'lucide-react';
 import {
   Select,
@@ -54,6 +56,7 @@ import {cn} from '@/lib/utils';
 import {Skeleton} from '@/components/ui/skeleton';
 import * as actions from './actions';
 import type {AppLayoutProps} from '@/components/app-layout';
+import {Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger} from '@/components/ui/sheet';
 
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === 'undefined') return defaultValue;
@@ -191,22 +194,20 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         startHour = startH;
         endHour = endH;
       } catch {
-        // Fallback for invalid time format
         return [];
       }
 
       if (isNaN(startHour) || isNaN(endHour)) return [];
 
       let currentHour = startHour;
-      let loopDetector = 24; // Prevent infinite loops
+      let loopDetector = 24; 
 
       while (loopDetector > 0) {
         const ampm = currentHour >= 12 ? 'PM' : 'AM';
         let displayHour = currentHour % 12;
-        if (displayHour === 0) displayHour = 12; // 12 AM or 12 PM
+        if (displayHour === 0) displayHour = 12;
         times.push(`${displayHour}:00 ${ampm}`);
 
-        // Break if we have reached the end hour
         if (currentHour === endHour) break;
 
         currentHour = (currentHour + 1) % 24;
@@ -310,7 +311,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       setPageActions(pageActions);
     }
 
-    // Cleanup function
     return () => {
       if (setPageActions) {
         setPageActions(null);
@@ -324,7 +324,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     setPageActions,
   ]);
 
-  // This effect fetches the production log for the selected date and shift
   useEffect(() => {
     if (loading || !selectedShift) return;
 
@@ -357,7 +356,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     fetchLogAndInitialize();
   }, [selectedDate, selectedShift, loading]);
 
-  // This effect builds the `entries` array for the UI
   useEffect(() => {
     const key = `${format(selectedDate, 'yyyy-MM-dd')}-${
       selectedShift?.name
@@ -631,15 +629,87 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     return <Clock className="h-4 w-4 text-muted-foreground" title="Not Synced" />;
   };
 
+  const ControlsContent = () => (
+    <div className="space-y-4 p-4">
+      <div className="space-y-2">
+        <Label>Date</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={'outline'}
+              className={cn(
+                'w-full justify-start text-left font-normal',
+                !selectedDate && 'text-muted-foreground'
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {selectedDate ? (
+                format(selectedDate, 'PPP')
+              ) : (
+                <span>Pick a date</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={handleDateChange}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Shift</Label>
+        <Select
+          value={selectedShift?.name || ''}
+          onValueChange={handleShiftChange}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select shift" />
+          </SelectTrigger>
+          <SelectContent>
+            {allShifts.map(s => (
+              <SelectItem key={s.name} value={s.name}>
+                {s.name} ({s.startTime} - {s.endTime})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+
+  const SummaryContent = () => (
+    <div className="space-y-4 p-4 text-center">
+      <div>
+        <p className="text-sm font-medium text-muted-foreground">
+          Round Total
+        </p>
+        <p className="text-2xl font-bold text-primary">
+          {roundTotal.toLocaleString()}
+        </p>
+      </div>
+      <div>
+        <p className="text-sm font-medium text-muted-foreground">
+          Shift Total (Saved)
+        </p>
+        <p className="text-2xl font-bold text-accent">
+          {cumulativeTotal.toLocaleString()}
+        </p>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col h-screen">
       <header className="flex-shrink-0 p-4 flex items-center justify-between gap-4 border-b">
-        <div className="w-1/4"></div>
-        <div className="flex-1 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
+        <div className="flex-1">
+          <h1 className="text-lg font-bold tracking-tight">GT Prod Entry</h1>
         </div>
-        <div className="w-1/4 flex justify-end">
-          <div className="flex items-center gap-2 flex-nowrap">
+        <div className="flex-1 flex justify-center">
             <div className="w-32">
               <Select
                 value={selectedRound}
@@ -667,77 +737,33 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              onClick={handleSaveRound}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Save Round
-            </Button>
-            <Button onClick={handleShare} variant="outline">
-              <Share2 className="mr-2 h-4 w-4" />
-              Share
-            </Button>
-          </div>
+        </div>
+        <div className="flex-1 flex justify-end items-center gap-2">
+           <div className="hidden lg:flex items-center gap-2">
+             <Button
+                onClick={handleSaveRound}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save Round
+              </Button>
+              <Button onClick={handleShare} variant="outline">
+                <Share2 className="mr-2 h-4 w-4" />
+                Share
+              </Button>
+           </div>
         </div>
       </header>
 
       <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
-        {/* Left Slicer Panel */}
-        <div className="w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto">
+        {/* Left Slicer Panel (Desktop only) */}
+        <div className="hidden lg:block w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto border-r">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Controls</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={'outline'}
-                      className={cn(
-                        'w-full justify-start text-left font-normal',
-                        !selectedDate && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? (
-                        format(selectedDate, 'PPP')
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={handleDateChange}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Shift</Label>
-                <Select
-                  value={selectedShift?.name || ''}
-                  onValueChange={handleShiftChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select shift" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allShifts.map(s => (
-                      <SelectItem key={s.name} value={s.name}>
-                        {s.name} ({s.startTime} - {s.endTime})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <CardContent>
+              <ControlsContent />
             </CardContent>
           </Card>
 
@@ -745,29 +771,14 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
             <CardHeader>
               <CardTitle className="text-lg">Summary</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-center">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Round Total
-                </p>
-                <p className="text-2xl font-bold text-primary">
-                  {roundTotal.toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Shift Total (Saved)
-                </p>
-                <p className="text-2xl font-bold text-accent">
-                  {cumulativeTotal.toLocaleString()}
-                </p>
-              </div>
+            <CardContent>
+              <SummaryContent />
             </CardContent>
           </Card>
         </div>
 
         {/* Right Content Panel */}
-        <div className="w-full lg:w-3/4 p-4 space-y-4 overflow-y-auto">
+        <div className="w-full lg:w-3/4 p-4 space-y-4 overflow-y-auto pb-20 lg:pb-4">
           {entries.length === 0 && !loading && (
             <Card>
               <CardContent className="p-10 text-center text-muted-foreground">
@@ -879,6 +890,47 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           })}
         </div>
       </div>
+      
+      {/* Mobile Bottom Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t flex items-center justify-around z-50">
+          <Sheet>
+            <SheetTrigger asChild>
+                <Button variant="ghost" className="flex flex-col h-auto p-2">
+                    <Filter className="h-5 w-5"/>
+                    <span className="text-xs">Filters</span>
+                </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom">
+                <SheetHeader><SheetTitle>Filters</SheetTitle></SheetHeader>
+                <ControlsContent />
+            </SheetContent>
+          </Sheet>
+          
+          <Sheet>
+             <SheetTrigger asChild>
+                <Button variant="ghost" className="flex flex-col h-auto p-2">
+                    <Sigma className="h-5 w-5"/>
+                    <span className="text-xs">Summary</span>
+                </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom">
+                <SheetHeader><SheetTitle>Summary</SheetTitle></SheetHeader>
+                <SummaryContent />
+            </SheetContent>
+          </Sheet>
+
+          <Button onClick={handleSaveRound} className="flex flex-col h-auto p-2 bg-green-600 hover:bg-green-700 text-white">
+            <Save className="h-5 w-5" />
+            <span className="text-xs">Save</span>
+          </Button>
+
+          <Button onClick={handleShare} variant="ghost" className="flex flex-col h-auto p-2">
+            <Share2 className="h-5 w-5" />
+            <span className="text-xs">Share</span>
+          </Button>
+      </div>
+
     </div>
   );
 }
+
