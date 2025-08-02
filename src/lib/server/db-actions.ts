@@ -14,6 +14,7 @@ import type {
   SkuPlan,
   User,
   FlatProductionLogEntry,
+  ReportDataRow,
 } from '../types';
 import {format} from 'date-fns';
 import bcrypt from 'bcryptjs';
@@ -56,7 +57,7 @@ export async function getProductionPlan(): Promise<ProductionPlanItem[]> {
   return result;
 }
 
-export async function getProductionLogs() {
+export async function getProductionLogs(): Promise<ReportDataRow[]> {
   const operatorMap = new Map(
     (await getOperators()).map(op => [op.cardNo, op.name])
   );
@@ -73,9 +74,11 @@ export async function getProductionLogs() {
     machineId: log.machineId,
     machineName: machineMap.get(log.machineId) || 'N/A',
     sku: log.sku,
+    sapCode: log.sapCode,
     quantity: log.quantity,
     userId: log.userId,
     userName: log.userName,
+    remark: log.remark,
   }));
 }
 

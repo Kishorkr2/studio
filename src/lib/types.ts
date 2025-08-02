@@ -92,3 +92,20 @@ export interface DailyProductionEntry {
   quantity: number;
   trolleyNo: string;
 }
+
+export interface ReportDataRow {
+  date: string;
+  shift: string;
+  round: string;
+  operatorId?: string;
+  operatorName?: string;
+  machineId: string;
+  machineName: string;
+  sku: string;
+  sapCode: string;
+  quantity: number;
+  remark?: string;
+  trolleyNo?: string;
+  userId?: number;
+  userName?: string;
+}

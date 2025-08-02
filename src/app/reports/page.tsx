@@ -56,26 +56,10 @@ import type {
   Machine,
   Operator,
   ShiftInfo,
-  MachineProductionData,
   User,
+  ReportDataRow,
 } from '@/lib/types';
 import * as actions from '../actions';
-
-interface ReportDataRow {
-  date: string;
-  shift: string;
-  round: string;
-  operatorId?: string;
-  operatorName?: string;
-  machineId: string;
-  machineName: string;
-  sku: string;
-  quantity: number;
-  remark?: string;
-  trolleyNo?: string;
-  userId?: number;
-  userName?: string;
-}
 
 const mockOeeData = {
   overall: 75.8,
@@ -224,6 +208,7 @@ export default function ReportsPage() {
       Operator: row.operatorName,
       'TBM No': row.machineName,
       SKU: row.sku,
+      'SAP Code': row.sapCode,
       'Entered By': row.userName || 'N/A',
       Quantity: row.quantity,
       Remark: row.remark || '-',
@@ -238,6 +223,7 @@ export default function ReportsPage() {
       {wch: 20}, // Operator
       {wch: 12}, // TBM No
       {wch: 20}, // SKU
+      {wch: 15}, // SAP Code
       {wch: 20}, // Entered By
       {wch: 10}, // Quantity
       {wch: 30}, // Remark
@@ -394,6 +380,7 @@ export default function ReportsPage() {
                       <TableHead>Operator</TableHead>
                       <TableHead>TBM No</TableHead>
                       <TableHead>SKU</TableHead>
+                      <TableHead>SAP Code</TableHead>
                       <TableHead>Entered By</TableHead>
                       <TableHead className="text-right">Quantity</TableHead>
                     </TableRow>
@@ -413,6 +400,7 @@ export default function ReportsPage() {
                           </TableCell>
                           <TableCell>{row.machineName}</TableCell>
                           <TableCell>{row.sku}</TableCell>
+                          <TableCell>{row.sapCode}</TableCell>
                           <TableCell>{row.userName || 'N/A'}</TableCell>
                           <TableCell className="text-right">
                             {row.quantity}
@@ -422,7 +410,7 @@ export default function ReportsPage() {
                     ) : (
                       <TableRow>
                         <TableCell
-                          colSpan={7}
+                          colSpan={8}
                           className="text-center h-24 text-muted-foreground"
                         >
                           No data available for the selected filters.
