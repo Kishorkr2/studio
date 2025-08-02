@@ -279,21 +279,24 @@ export async function saveProductionRound(
 
   await db.exec('BEGIN TRANSACTION');
   try {
-    // Get all machine IDs from the payload to clear their previous entries for this round
-    const machineIdsInPayload = entries.map(entry => entry.machineId);
+    const machineIdsToUpdate = entries
+      .map(e => e.machineId)
+      .filter((value, index, self) => self.indexOf(value) === index);
 
-    if (machineIdsInPayload.length > 0) {
-      const placeholders = machineIdsInPayload.map(() => '?').join(',');
+    if (machineIdsToUpdate.length > 0) {
+      const placeholders = machineIdsToUpdate.map(() => '?').join(',');
       await db.run(
-        `DELETE FROM productionLogEntries WHERE date = ? AND shiftName = ? AND round = ? AND machineId IN (${placeholders})`,
-        [dateKey, shiftName, round, ...machineIdsInPayload]
+        `DELETE FROM productionLogEntries 
+         WHERE date = ? AND shiftName = ? AND round = ? AND machineId IN (${placeholders})`,
+        dateKey,
+        shiftName,
+        round,
+        ...machineIdsToUpdate
       );
     }
 
-    // Insert the new entries
     for (const entry of entries) {
       for (const sku of entry.skus) {
-        // Only save entries that have a SKU and a quantity
         if (sku.sku && sku.sapCode && sku.quantity > 0) {
           await db.run(
             `INSERT INTO productionLogEntries 
