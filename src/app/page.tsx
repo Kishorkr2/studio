@@ -163,9 +163,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     })
   );
 
-  const isInitializing = useRef(true);
-  const dataLoadedFor = useRef('');
-
   useEffect(() => {
     setLocalStorageItem('columnVisibility', columnVisibility);
   }, [columnVisibility]);
@@ -181,12 +178,21 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           actions.getProductionPlan(),
         ]);
       setAllShifts(shiftsData);
-      if (shiftsData.length > 0) {
-        setSelectedShift(getCurrentShift(shiftsData));
-      }
       setAllMachines(machinesData);
       setAllOperators(operatorsData);
       setAllProductionPlan(planData);
+      
+      const currentShift = getCurrentShift(shiftsData);
+      setSelectedShift(currentShift);
+      
+      if (currentShift) {
+        const newRoundTimes = generateRoundTimes(currentShift);
+        setRoundTimes(newRoundTimes);
+        const savedRound = getLocalStorageItem('selectedRound', '');
+        const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || '';
+        setSelectedRound(currentRound);
+      }
+
     } catch (error) {
       console.error('Failed to load initial data:', error);
       toast({variant: 'destructive', title: 'Error loading data'});
@@ -221,58 +227,64 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       const isNightShift = startHour >= 21;
 
       if(isNightShift) {
-        // Night Shift: 9 PM to 7 AM
-        for (let h = 21; h <= 23; h++) {
-            const ampm = h >= 12 ? 'PM' : 'AM';
-            let displayHour = h % 12;
-            if (displayHour === 0) displayHour = 12;
-            times.push(`${displayHour}:00 ${ampm}`);
-        }
-        for (let h = 0; h <= 7; h++) {
-            const ampm = h >= 12 ? 'PM' : 'AM';
-            let displayHour = h % 12;
-            if (displayHour === 0) displayHour = 12;
-            times.push(`${displayHour}:00 ${ampm}`);
-        }
+        for (let h = 21; h <= 23; h++) times.push(`${h}:00`);
+        for (let h = 0; h <= 7; h++) times.push(`0${h}:00`);
       } else {
-        // Day Shift: 9 AM to 7 PM (19:00)
-        for (let h = 9; h <= 19; h++) {
-             const ampm = h >= 12 ? 'PM' : 'AM';
-            let displayHour = h % 12;
-            if (displayHour === 0) displayHour = 12;
-            times.push(`${displayHour}:00 ${ampm}`);
-        }
+        for (let h = 9; h <= 19; h++) times.push(`${h}:00`);
       }
-
-      return times;
+      
+      return times.map(t => {
+          const [h] = t.split(':').map(Number);
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          let displayHour = h % 12;
+          if (displayHour === 0) displayHour = 12;
+          return `${displayHour}:00 ${ampm}`;
+      });
     },
     []
   );
 
+  const loadEntriesForRound = useCallback((round: string, log: ProductionLog) => {
+    const logForRound = log[round]?.entries || [];
+    const newEntries = allMachines
+      .filter(machine => machine.isAvailable)
+      .map(machine => {
+        const loggedEntry = logForRound.find(e => e.machineId === machine.id);
+        const skus = loggedEntry ? loggedEntry.skus : [];
+        const operatorId = loggedEntry ? loggedEntry.operatorId : machineOperatorMapRef.current[machine.id];
+        
+        return {
+          machineId: machine.id,
+          name: machine.name,
+          operatorId: operatorId || '',
+          skus: skus.length > 0 ? skus : [],
+        };
+      });
+    setEntries(newEntries);
+  }, [allMachines]);
+
   useEffect(() => {
-    if (!selectedShift) return;
+    if (loading || !selectedShift) return;
 
-    const newRoundTimes = generateRoundTimes(selectedShift);
-    setRoundTimes(newRoundTimes);
+    const fetchLogAndInitialize = async () => {
+      const log = await actions.getProductionLogForShift(
+        selectedDate,
+        selectedShift
+      );
+      setProductionLog(log);
+      machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
+      loadEntriesForRound(selectedRound, log);
+    };
 
-    const savedRound = getLocalStorageItem('selectedRound', '');
-    if (newRoundTimes.length > 0) {
-      if (!newRoundTimes.includes(savedRound)) {
-        const newSelectedRound = newRoundTimes[0];
-        setSelectedRound(newSelectedRound);
-        setLocalStorageItem('selectedRound', newSelectedRound);
-      } else {
-        setSelectedRound(savedRound);
-      }
-    } else {
-      setSelectedRound('');
-    }
-  }, [selectedShift, generateRoundTimes]);
+    fetchLogAndInitialize();
+}, [selectedDate, selectedShift, loading, selectedRound, loadEntriesForRound]);
+
 
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
     await actions.clearShiftData(selectedDate, selectedShift);
     setProductionLog({});
+    loadEntriesForRound(selectedRound, {});
     machineOperatorMapRef.current = {};
     setLocalStorageItem('machineOperatorMap', {});
     toast({
@@ -281,7 +293,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         selectedShift.name
       } on ${format(selectedDate, 'PPP')} have been removed.`,
     });
-  }, [selectedDate, selectedShift, toast]);
+  }, [selectedDate, selectedShift, toast, selectedRound, loadEntriesForRound]);
 
   useEffect(() => {
     if (setPageActions) {
@@ -352,68 +364,10 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     setPageActions,
   ]);
 
-useEffect(() => {
-    if (loading || !selectedShift) return;
-
-    const key = `${format(selectedDate, 'yyyy-MM-dd')}-${selectedShift.name}`;
-    if (dataLoadedFor.current === key) return;
-
-    const fetchLogAndInitialize = async () => {
-      // If only the shift changes, clear the log. If the date changes,
-      // we wait for new data before replacing to avoid flicker.
-      if (isInitializing.current || key.split('-')[3] !== dataLoadedFor.current.split('-')[3]) {
-        setProductionLog({});
-      }
-        
-      const log = await actions.getProductionLogForShift(
-        selectedDate,
-        selectedShift
-      );
-      setProductionLog(log);
-
-      if (isInitializing.current) {
-        machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
-        isInitializing.current = false;
-      }
-      dataLoadedFor.current = key;
-    };
-
-    fetchLogAndInitialize();
-}, [selectedDate, selectedShift, loading]);
-
-  useEffect(() => {
-    if (isInitializing.current || !selectedShift) return;
-    
-    const logForRound = productionLog[selectedRound]?.entries || [];
-    
-    const newEntries = allMachines
-      .filter(machine => machine.isAvailable)
-      .map(machine => {
-        const loggedEntriesForMachine = logForRound.filter(e => e.machineId === machine.id);
-
-        let skus: SkuProduction[] = [];
-        if (loggedEntriesForMachine.length > 0) {
-            skus = loggedEntriesForMachine[0].skus;
-        }
-        
-        const operatorId = loggedEntriesForMachine.length > 0
-            ? loggedEntriesForMachine[0].operatorId
-            : machineOperatorMapRef.current[machine.id];
-        
-        return {
-          machineId: machine.id,
-          name: machine.name,
-          operatorId: operatorId || '',
-          skus: skus,
-        };
-      });
-
-    setEntries(newEntries);
-  }, [selectedRound, productionLog, allMachines, selectedShift]);
-
   const handleSelectedRoundChange = (round: string) => {
     setSelectedRound(round);
     setLocalStorageItem('selectedRound', round);
+    loadEntriesForRound(round, productionLog);
   };
 
   const handleOperatorChange = (machineId: string, operatorId: string) => {
@@ -520,10 +474,14 @@ useEffect(() => {
       const newShift = allShifts.find(s => s.name === name);
       if (newShift?.name !== selectedShift?.name) {
         setSelectedShift(newShift);
-        dataLoadedFor.current = ''; 
+        if (newShift) {
+            const newRoundTimes = generateRoundTimes(newShift);
+            setRoundTimes(newRoundTimes);
+            setSelectedRound(newRoundTimes[0] || '');
+        }
       }
     },
-    [allShifts, selectedShift]
+    [allShifts, selectedShift, generateRoundTimes]
   );
 
   const handleDateChange = useCallback(
@@ -533,7 +491,6 @@ useEffect(() => {
         format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')
       ) {
         setSelectedDate(date);
-        dataLoadedFor.current = '';
       }
     },
     [selectedDate]
