@@ -22,16 +22,34 @@ export interface Machine {
   isAvailable: boolean;
 }
 
-export interface MachineProductionData {
-  machineId: string;
-  name: string;
-  status: 'Online' | 'Offline';
+// Represents a single SKU's production for a given machine in a round
+export interface SkuProduction {
   sku: string;
   sapCode: string;
   quantity: number;
+}
+
+// Represents the data for a single machine card in a given round
+export interface MachineProductionData {
+  machineId: string;
+  name: string;
   operatorId?: string;
+  skus: SkuProduction[];
   userId?: number;
   userName?: string;
+}
+
+// This is the raw row from the DB
+export interface FlatProductionLogEntry {
+    machineId: string;
+    name: string;
+    status: 'Online' | 'Offline';
+    sku: string;
+    sapCode: string;
+    quantity: number;
+    operatorId?: string;
+    userId?: number;
+    userName?: string;
 }
 
 export interface ShiftInfo {
@@ -52,7 +70,7 @@ export interface ProductionPlanItem {
 }
 
 export interface ProductionLogEntry {
-  entries: MachineProductionData[];
+  entries: FlatProductionLogEntry[];
   status: 'synced' | 'pending';
 }
 

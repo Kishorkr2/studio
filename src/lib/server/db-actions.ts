@@ -12,6 +12,7 @@ import type {
   DailyProductionEntry,
   SkuPlan,
   User,
+  FlatProductionLogEntry,
 } from '../types';
 import {format} from 'date-fns';
 import bcrypt from 'bcryptjs';
@@ -83,7 +84,7 @@ export async function getProductionLogForShift(
 ): Promise<ProductionLog> {
   const dateKey = format(date, 'yyyy-MM-dd');
   const shiftName = shift.name.replace(/\s+/g, '-');
-  const rows = await db.all(
+  const rows = await db.all<FlatProductionLogEntry[]>(
     'SELECT * FROM productionLogEntries WHERE date = ? AND shiftName = ?',
     [dateKey, shiftName]
   );
@@ -92,17 +93,7 @@ export async function getProductionLogForShift(
     if (!log[row.round]) {
       log[row.round] = {entries: [], status: 'synced'};
     }
-    log[row.round].entries.push({
-      machineId: row.machineId,
-      name: row.name,
-      status: row.status as 'Online' | 'Offline',
-      sku: row.sku,
-      sapCode: row.sapCode,
-      quantity: row.quantity,
-      operatorId: row.operatorId,
-      userId: row.userId,
-      userName: row.userName,
-    });
+    log[row.round].entries.push(row);
   }
   return log;
 }
@@ -258,24 +249,42 @@ export async function saveProductionRound(
 
   await db.exec('BEGIN TRANSACTION');
   try {
-    for (const entry of entries) {
+    // Clear existing entries for this machine/round first
+    const machineIds = entries.map(e => e.machineId);
+    if(machineIds.length > 0) {
+      const placeholders = machineIds.map(() => '?').join(',');
       await db.run(
-        `INSERT OR REPLACE INTO productionLogEntries 
-        (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `DELETE FROM productionLogEntries WHERE date = ? AND shiftName = ? AND round = ? AND machineId IN (${placeholders})`,
         dateKey,
         shiftName,
         round,
-        entry.machineId,
-        entry.name,
-        entry.status,
-        entry.sku,
-        entry.sapCode,
-        entry.quantity,
-        entry.operatorId,
-        entry.userId,
-        entry.userName,
+        ...machineIds
       );
+    }
+
+    // Insert new/updated entries
+    for (const entry of entries) {
+      for (const sku of entry.skus) {
+        if (sku.sku && sku.quantity > 0) {
+            await db.run(
+                `INSERT OR REPLACE INTO productionLogEntries 
+                (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                dateKey,
+                shiftName,
+                round,
+                entry.machineId,
+                entry.name,
+                'Online',
+                sku.sku,
+                sku.sapCode,
+                sku.quantity,
+                entry.operatorId,
+                entry.userId,
+                entry.userName
+            );
+        }
+      }
     }
     await db.exec('COMMIT');
   } catch (error) {

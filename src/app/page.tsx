@@ -17,6 +17,8 @@ import {
   MessageSquare,
   Mail,
   Clipboard,
+  PlusCircle,
+  Trash2,
 } from 'lucide-react';
 import {
   Select,
@@ -58,6 +60,7 @@ import type {
   ProductionLog,
   ProductionPlanItem,
   User,
+  SkuProduction,
 } from '@/lib/types';
 import {cn} from '@/lib/utils';
 import {Skeleton} from '@/components/ui/skeleton';
@@ -152,7 +155,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
 
   const machineOperatorMapRef = useRef<Record<string, string>>({});
-  const machineSkuMapRef = useRef<Record<string, string>>({});
 
   const [columnVisibility, setColumnVisibility] = useState(() =>
     getLocalStorageItem('columnVisibility', {
@@ -272,9 +274,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     await actions.clearShiftData(selectedDate, selectedShift);
     setProductionLog({});
     machineOperatorMapRef.current = {};
-    machineSkuMapRef.current = {};
     setLocalStorageItem('machineOperatorMap', {});
-    setLocalStorageItem('machineSkuMap', {});
     toast({
       title: 'Shift Data Cleared',
       description: `All production entries for ${
@@ -367,7 +367,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
       if (isInitializing.current) {
         machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
-        machineSkuMapRef.current = getLocalStorageItem('machineSkuMap', {});
         isInitializing.current = false;
       }
       dataLoadedFor.current = key;
@@ -379,76 +378,99 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   useEffect(() => {
     if (isInitializing.current || !selectedShift) return;
     
-    const planMap = new Map(allProductionPlan.map(p => [p.machineId, p]));
     const logForRound = productionLog[selectedRound]?.entries || [];
-    const logMap = new Map(logForRound.map(e => [e.machineId, e]));
-
+    
     const newEntries = allMachines
       .filter(machine => machine.isAvailable)
       .map(machine => {
-        const loggedEntry = logMap.get(machine.id);
-        if (loggedEntry) {
-          return loggedEntry; // Prioritize saved log data
+        const loggedEntriesForMachine = logForRound.filter(e => e.machineId === machine.id);
+
+        if (loggedEntriesForMachine.length > 0) {
+            return {
+                machineId: machine.id,
+                name: machine.name,
+                operatorId: loggedEntriesForMachine[0].operatorId,
+                skus: loggedEntriesForMachine.map(e => ({
+                    sku: e.sku,
+                    sapCode: e.sapCode,
+                    quantity: e.quantity,
+                })),
+            };
         }
 
-        const planItem = planMap.get(machine.id);
         const sessionOperatorId = machineOperatorMapRef.current[machine.id];
-        const sessionSku = machineSkuMapRef.current[machine.id];
-
-        const defaultSku = planItem?.skus?.[0]?.sku || '';
-        const selectedSku = sessionSku || defaultSku;
-        const foundSkuPlan = planItem?.skus.find(s => s.sku === selectedSku);
-        const sapCode = foundSkuPlan?.sapCode || '';
         
         return {
           machineId: machine.id,
           name: machine.name,
-          status: 'Online' as const,
-          sku: selectedSku,
-          sapCode: sapCode,
-          quantity: 0,
           operatorId: sessionOperatorId || '',
+          skus: [], // Start with no SKUs for new entries
         };
       });
 
     setEntries(newEntries);
-  }, [selectedRound, productionLog, allMachines, allProductionPlan, selectedShift]);
+  }, [selectedRound, productionLog, allMachines, selectedShift]);
 
   const handleSelectedRoundChange = (round: string) => {
     setSelectedRound(round);
     setLocalStorageItem('selectedRound', round);
   };
 
-  const handleEntryChange = useCallback(
-    (
-      machineId: string,
-      field: keyof MachineProductionData,
-      value: string | number
-    ) => {
-      setEntries(prevEntries =>
-        prevEntries.map(entry => {
+  const handleOperatorChange = (machineId: string, operatorId: string) => {
+    setEntries(prev => prev.map(entry => 
+      entry.machineId === machineId ? { ...entry, operatorId } : entry
+    ));
+    machineOperatorMapRef.current[machineId] = operatorId;
+    setLocalStorageItem('machineOperatorMap', machineOperatorMapRef.current);
+  };
+  
+  const handleSkuChange = (machineId: string, skuIndex: number, newSku: string) => {
+      const planItem = allProductionPlan.find(p => p.machineId === machineId);
+      const newSkuPlan = planItem?.skus.find(s => s.sku === newSku);
+      
+      setEntries(prev => prev.map(entry => {
           if (entry.machineId === machineId) {
-            const newEntry = {...entry, [field]: value};
-            
-            if (field === 'sku') {
-              const planItem = allProductionPlan.find(p => p.machineId === machineId);
-              const newSkuPlan = planItem?.skus.find(s => s.sku === value);
-              newEntry.sapCode = newSkuPlan?.sapCode || '';
-              machineSkuMapRef.current[machineId] = String(value);
-              setLocalStorageItem('machineSkuMap', machineSkuMapRef.current);
-            }
-            if (field === 'operatorId') {
-              machineOperatorMapRef.current[machineId] = String(value);
-              setLocalStorageItem('machineOperatorMap', machineOperatorMapRef.current);
-            }
-            return newEntry;
+              const updatedSkus = [...entry.skus];
+              updatedSkus[skuIndex] = {
+                  ...updatedSkus[skuIndex],
+                  sku: newSku,
+                  sapCode: newSkuPlan?.sapCode || '',
+              };
+              return { ...entry, skus: updatedSkus };
           }
           return entry;
-        })
-      );
-    },
-    [allProductionPlan]
-  );
+      }));
+  };
+  
+  const handleQuantityChange = (machineId: string, skuIndex: number, quantity: number) => {
+      setEntries(prev => prev.map(entry => {
+          if (entry.machineId === machineId) {
+              const updatedSkus = [...entry.skus];
+              updatedSkus[skuIndex] = { ...updatedSkus[skuIndex], quantity: isNaN(quantity) ? 0 : quantity };
+              return { ...entry, skus: updatedSkus };
+          }
+          return entry;
+      }));
+  };
+  
+  const handleAddSku = (machineId: string) => {
+      setEntries(prev => prev.map(entry => {
+          if (entry.machineId === machineId) {
+              return { ...entry, skus: [...entry.skus, { sku: '', sapCode: '', quantity: 0 }] };
+          }
+          return entry;
+      }));
+  };
+  
+  const handleRemoveSku = (machineId: string, skuIndex: number) => {
+      setEntries(prev => prev.map(entry => {
+          if (entry.machineId === machineId) {
+              const updatedSkus = entry.skus.filter((_, index) => index !== skuIndex);
+              return { ...entry, skus: updatedSkus };
+          }
+          return entry;
+      }));
+  };
 
   const handleSaveRound = useCallback(async () => {
     if (!selectedRound || !selectedShift) {
@@ -469,7 +491,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       return;
     }
     
-    const entriesWithUser = entries.map(entry => ({
+    const entriesToSave = entries.map(entry => ({
       ...entry,
       userId: user.id,
       userName: user.name,
@@ -479,12 +501,26 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       selectedDate,
       selectedShift,
       selectedRound,
-      entriesWithUser
+      entriesToSave
+    );
+
+    const flatEntriesForLog = entries.flatMap(entry => 
+      entry.skus.map(skuProd => ({
+        machineId: entry.machineId,
+        name: entry.name,
+        operatorId: entry.operatorId,
+        sku: skuProd.sku,
+        sapCode: skuProd.sapCode,
+        quantity: skuProd.quantity,
+        status: 'Online' as const,
+        userId: user.id,
+        userName: user.name,
+      }))
     );
 
     setProductionLog(prev => ({
       ...prev,
-      [selectedRound]: {entries: entriesWithUser, status: 'synced'},
+      [selectedRound]: {entries: flatEntriesForLog, status: 'synced'},
     }));
 
     toast({
@@ -521,7 +557,9 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   );
 
   const roundTotal = useMemo(() => {
-    return entries.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
+    return entries.reduce((acc, entry) => 
+      acc + entry.skus.reduce((skuAcc, sku) => skuAcc + (sku.quantity || 0), 0)
+    , 0);
   }, [entries]);
 
   const cumulativeTotal = useMemo(() => {
@@ -543,13 +581,20 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     text += `*Round Production:* ${roundTotal}\n`;
     text += `*Shift Cumulative:* ${cumulativeTotal}\n\n`;
 
-    const producedEntries = entries.filter(entry => entry.quantity > 0);
+    const producedEntries = entries.filter(entry => entry.skus.some(sku => sku.quantity > 0));
 
     if (producedEntries.length > 0) {
       text += `*TBM wise production:*\n`;
       producedEntries.forEach(entry => {
         const operatorName = operatorMap.get(entry.operatorId || '') || 'N/A';
-        text += `- *${entry.name}* (${operatorName}): ${entry.quantity}\n`;
+        const skuTexts = entry.skus
+          .filter(s => s.quantity > 0)
+          .map(s => `${s.sku}: ${s.quantity}`)
+          .join(', ');
+        
+        if (skuTexts) {
+            text += `- *${entry.name}* (${operatorName}): ${skuTexts}\n`;
+        }
       });
     } else {
       text += `*No production was recorded for this round.*\n`;
@@ -827,94 +872,85 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
             const machineSkus = planItem?.skus || [];
             return (
               <Card key={entry.machineId}>
-                <CardContent className="p-4">
-                  <div className="flex flex-col md:flex-row md:items-center md:gap-4">
-                    <div className="md:w-1/6 mb-4 md:mb-0">
-                      <Label className="font-bold text-base">{entry.name}</Label>
-                    </div>
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <CardContent className="p-4 space-y-4">
+                  {/* Machine Name and Operator */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                    <Label className="font-bold text-base sm:w-1/6">{entry.name}</Label>
+                    <div className="flex-1 sm:w-5/6">
                       {columnVisibility.operator && (
-                        <div className="space-y-1">
-                          <Label htmlFor={`operator-${entry.machineId}`}>
-                            Operator
-                          </Label>
-                          <Select
-                            value={entry.operatorId || ''}
-                            onValueChange={val =>
-                              handleEntryChange(
-                                entry.machineId,
-                                'operatorId',
-                                val
-                              )
-                            }
-                          >
-                            <SelectTrigger id={`operator-${entry.machineId}`}>
-                              <SelectValue placeholder="Select Operator" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableOperators.map(op => (
-                                <SelectItem key={op.cardNo} value={op.cardNo}>
-                                  {op.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <Select
+                          value={entry.operatorId || ''}
+                          onValueChange={val => handleOperatorChange(entry.machineId, val)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Operator" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableOperators.map(op => (
+                              <SelectItem key={op.cardNo} value={op.cardNo}>
+                                {op.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       )}
-
-                      {columnVisibility.sku && (
-                        <div className="space-y-1">
-                          <Label htmlFor={`sku-${entry.machineId}`}>SKU</Label>
-                          <Select
-                            value={entry.sku}
-                            onValueChange={val =>
-                              handleEntryChange(entry.machineId, 'sku', val)
-                            }
-                            disabled={machineSkus.length === 0}
-                          >
-                            <SelectTrigger id={`sku-${entry.machineId}`}>
-                              <SelectValue
-                                placeholder={
-                                  machineSkus.length > 0
-                                    ? 'Select SKU'
-                                    : 'No SKUs'
-                                }
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {machineSkus.map(skuPlan => (
-                                <SelectItem
-                                  key={`${skuPlan.sku}-${skuPlan.sapCode}`}
-                                  value={skuPlan.sku}
-                                >
-                                  {skuPlan.sku}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-
-                      <div className="space-y-1">
-                        <Label htmlFor={`quantity-${entry.machineId}`}>
-                          Quantity
-                        </Label>
-                        <Input
-                          id={`quantity-${entry.machineId}`}
-                          type="number"
-                          placeholder="0"
-                          value={entry.quantity === 0 ? '' : entry.quantity}
-                          onChange={e =>
-                            handleEntryChange(
-                              entry.machineId,
-                              'quantity',
-                              parseInt(e.target.value, 10) || 0
-                            )
-                          }
-                        />
-                      </div>
                     </div>
                   </div>
+
+                  {/* SKU Entry Rows */}
+                  {columnVisibility.sku && (
+                    <div className="space-y-3 pl-4 border-l-2">
+                      {entry.skus.map((skuEntry, skuIndex) => (
+                        <div key={skuIndex} className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <Label htmlFor={`sku-${entry.machineId}-${skuIndex}`}>SKU</Label>
+                              <Select
+                                value={skuEntry.sku}
+                                onValueChange={val => handleSkuChange(entry.machineId, skuIndex, val)}
+                                disabled={machineSkus.length === 0}
+                              >
+                                <SelectTrigger id={`sku-${entry.machineId}-${skuIndex}`}>
+                                  <SelectValue placeholder={machineSkus.length > 0 ? 'Select SKU' : 'No SKUs'} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {machineSkus.map(skuPlan => (
+                                    <SelectItem key={`${skuPlan.sku}-${skuPlan.sapCode}`} value={skuPlan.sku}>
+                                      {skuPlan.sku}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-1">
+                              <Label htmlFor={`quantity-${entry.machineId}-${skuIndex}`}>Quantity</Label>
+                              <Input
+                                id={`quantity-${entry.machineId}-${skuIndex}`}
+                                type="number"
+                                placeholder="0"
+                                value={skuEntry.quantity === 0 ? '' : skuEntry.quantity}
+                                onChange={e => handleQuantityChange(entry.machineId, skuIndex, parseInt(e.target.value, 10) || 0)}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 mt-2 sm:mt-0">
+                             <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleRemoveSku(entry.machineId, skuIndex)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                          </div>
+                        </div>
+                      ))}
+                      <Button variant="outline" size="sm" onClick={() => handleAddSku(entry.machineId)}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add SKU
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -968,3 +1004,4 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
+

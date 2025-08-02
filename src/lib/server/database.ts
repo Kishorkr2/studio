@@ -65,7 +65,7 @@ async function setup() {
       operatorId TEXT,
       userId INTEGER,
       userName TEXT,
-      UNIQUE(date, shiftName, round, machineId)
+      UNIQUE(date, shiftName, round, machineId, sapCode)
     );
     CREATE TABLE IF NOT EXISTS dailyTreadProduction (
       id TEXT PRIMARY KEY,
@@ -80,7 +80,7 @@ async function setup() {
   `);
 
   // Drop old problematic tables if they exist
-  await db.exec('DROP TABLE IF EXISTS productionLogs;');
+  await db.exec('DROP TABLE IF EXISTS productionLogs;').catch(() => {});
 
   // Add userId and userName columns to productionLogEntries if they don't exist
   try {
