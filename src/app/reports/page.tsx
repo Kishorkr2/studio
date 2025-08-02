@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import {Bar, BarChart, CartesianGrid, XAxis, YAxis} from 'recharts';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 import {
   Calendar as CalendarIcon,
   Download,
@@ -11,15 +11,17 @@ import {
   Clock,
   Wrench,
   Check,
+  Package,
+  Factory,
+  UserCheck,
 } from 'lucide-react';
-import {addDays, format, parseISO} from 'date-fns';
-import type {DateRange} from 'react-day-picker';
+import { addDays, format, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
 
-import {cn} from '@/lib/utils';
-import {Button} from '@/components/ui/button';
-import {Calendar} from '@/components/ui/calendar';
-import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -48,9 +50,9 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
-import {useToast} from '@/hooks/use-toast';
-import {Label} from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
 import type {
   Machine,
   Operator,
@@ -78,22 +80,29 @@ const oeeChartData = [
     value: mockOeeData.performance,
     fill: 'var(--color-performance)',
   },
-  {name: 'Quality', value: mockOeeData.quality, fill: 'var(--color-quality)'},
+  { name: 'Quality', value: mockOeeData.quality, fill: 'var(--color-quality)' },
 ];
 
 const oeeChartConfig = {
-  value: {label: 'Value'},
-  availability: {label: 'Availability', color: 'hsl(var(--primary))'},
-  performance: {label: 'Performance', color: 'hsl(var(--accent))'},
-  quality: {label: 'Quality', color: 'hsl(var(--secondary-foreground))'},
+  value: { label: 'Value' },
+  availability: { label: 'Availability', color: 'hsl(var(--primary))' },
+  performance: { label: 'Performance', color: 'hsl(var(--accent))' },
+  quality: { label: 'Quality', color: 'hsl(var(--secondary-foreground))' },
+} satisfies ChartConfig;
+
+const chartConfig = {
+  quantity: {
+    label: 'Quantity',
+    color: 'hsl(var(--primary))',
+  },
 } satisfies ChartConfig;
 
 export default function ReportsPage() {
-  const {toast} = useToast();
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: addDays(new Date(), -7),
-    to: new Date(),
-  });
+  const { toast } = useToast();
+  const [fromDate, setFromDate] = React.useState<Date | undefined>(
+    addDays(new Date(), -7)
+  );
+  const [toDate, setToDate] = React.useState<Date | undefined>(new Date());
 
   const [selectedShift, setSelectedShift] = React.useState<string>('all');
   const [selectedOperator, setSelectedOperator] =
@@ -129,12 +138,12 @@ export default function ReportsPage() {
         setAllReportData(logs as ReportDataRow[]);
         setBreakdownData(
           (logs as ReportDataRow[]).filter(
-            item => item.remark && item.remark.trim() !== ''
+            (item) => item.remark && item.remark.trim() !== ''
           )
         );
       } catch (error) {
         console.error('Failed to load report data', error);
-        toast({variant: 'destructive', title: 'Error loading data'});
+        toast({ variant: 'destructive', title: 'Error loading data' });
       }
     };
     loadData();
@@ -143,12 +152,12 @@ export default function ReportsPage() {
   const handleApplyFilters = React.useCallback(() => {
     let data = [...allReportData];
 
-    if (date?.from && date?.to) {
-      const from = new Date(date.from);
+    if (fromDate && toDate) {
+      const from = new Date(fromDate);
       from.setHours(0, 0, 0, 0);
-      const to = new Date(date.to);
+      const to = new Date(toDate);
       to.setHours(23, 59, 59, 999);
-      data = data.filter(item => {
+      data = data.filter((item) => {
         try {
           const itemDate = parseISO(item.date);
           return itemDate >= from && itemDate <= to;
@@ -159,20 +168,19 @@ export default function ReportsPage() {
     }
 
     if (selectedShift !== 'all') {
-      data = data.filter(item => item.shift === selectedShift);
+      data = data.filter((item) => item.shift === selectedShift);
     }
     if (selectedOperator !== 'all') {
-      data = data.filter(item => item.operatorId === selectedOperator);
+      data = data.filter((item) => item.operatorId === selectedOperator);
     }
     if (selectedMachine !== 'all') {
-      data = data.filter(item => item.machineId === selectedMachine);
+      data = data.filter((item) => item.machineId === selectedMachine);
     }
     if (selectedUser !== 'all') {
-      data = data.filter(item => String(item.userId) === selectedUser);
+      data = data.filter((item) => String(item.userId) === selectedUser);
     }
 
-    // Filter out items with zero or no quantity
-    data = data.filter(item => item.quantity > 0);
+    data = data.filter((item) => item.quantity > 0);
 
     setFilteredReportData(data);
     toast({
@@ -181,7 +189,8 @@ export default function ReportsPage() {
     });
   }, [
     allReportData,
-    date,
+    fromDate,
+    toDate,
     selectedShift,
     selectedOperator,
     selectedMachine,
@@ -203,7 +212,7 @@ export default function ReportsPage() {
       return;
     }
 
-    const exportData = filteredReportData.map(row => ({
+    const exportData = filteredReportData.map((row) => ({
       Date: format(parseISO(row.date), 'yyyy-MM-dd'),
       Shift: row.shift,
       Operator: row.operatorName,
@@ -219,15 +228,15 @@ export default function ReportsPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'ProductionReport');
     worksheet['!cols'] = [
-      {wch: 12}, // Date
-      {wch: 15}, // Shift
-      {wch: 20}, // Operator
-      {wch: 12}, // TBM No
-      {wch: 20}, // SKU
-      {wch: 15}, // SAP Code
-      {wch: 20}, // Entered By
-      {wch: 10}, // Quantity
-      {wch: 30}, // Remark
+      { wch: 12 }, // Date
+      { wch: 15 }, // Shift
+      { wch: 20 }, // Operator
+      { wch: 12 }, // TBM No
+      { wch: 20 }, // SKU
+      { wch: 15 }, // SAP Code
+      { wch: 20 }, // Entered By
+      { wch: 10 }, // Quantity
+      { wch: 30 }, // Remark
     ];
     XLSX.writeFile(workbook, 'TyreTrack_Production_Report.xlsx');
     toast({
@@ -235,12 +244,39 @@ export default function ReportsPage() {
       description: 'Your report has been downloaded successfully.',
     });
   };
-
-  const totalProduction = React.useMemo(() => {
-    return filteredReportData.reduce(
+  
+  const summaryStats = React.useMemo(() => {
+    const totalProduction = filteredReportData.reduce(
       (acc, item) => acc + (item.quantity || 0),
       0
     );
+    const uniqueSkus = new Set(filteredReportData.map(item => item.sku)).size;
+    const activeTbms = new Set(filteredReportData.map(item => item.machineId)).size;
+    return { totalProduction, uniqueSkus, activeTbms };
+  }, [filteredReportData]);
+
+
+  const productionByTbm = React.useMemo(() => {
+    const tbmData = filteredReportData.reduce((acc, item) => {
+      acc[item.machineName] = (acc[item.machineName] || 0) + item.quantity;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(tbmData)
+      .map(([name, quantity]) => ({ name, quantity }))
+      .sort((a, b) => b.quantity - a.quantity);
+  }, [filteredReportData]);
+
+  const productionByOperator = React.useMemo(() => {
+    const operatorData = filteredReportData.reduce((acc, item) => {
+      const name = item.operatorName || 'Unknown';
+      acc[name] = (acc[name] || 0) + item.quantity;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(operatorData)
+      .map(([name, quantity]) => ({ name, quantity }))
+      .sort((a, b) => b.quantity - a.quantity);
   }, [filteredReportData]);
 
   return (
@@ -267,7 +303,7 @@ export default function ReportsPage() {
           </Button>
         </div>
 
-        <TabsContent value="production">
+        <TabsContent value="production" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">
@@ -278,10 +314,14 @@ export default function ReportsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 <div className="grid gap-2">
-                  <Label>Date range</Label>
-                  <DateRangePicker date={date} setDate={setDate} />
+                  <Label>From Date</Label>
+                  <DatePicker date={fromDate} setDate={setFromDate} />
+                </div>
+                 <div className="grid gap-2">
+                  <Label>To Date</Label>
+                  <DatePicker date={toDate} setDate={setToDate} />
                 </div>
                 <div className="grid gap-2">
                   <Label>Shift</Label>
@@ -294,7 +334,7 @@ export default function ReportsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Shifts</SelectItem>
-                      {allShifts.map(s => (
+                      {allShifts.map((s) => (
                         <SelectItem key={s.name} value={s.name}>
                           {s.name}
                         </SelectItem>
@@ -313,7 +353,7 @@ export default function ReportsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Operators</SelectItem>
-                      {allOperators.map(op => (
+                      {allOperators.map((op) => (
                         <SelectItem key={op.cardNo} value={op.cardNo}>
                           {op.name}
                         </SelectItem>
@@ -332,7 +372,7 @@ export default function ReportsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All TBMs</SelectItem>
-                      {allMachines.map(m => (
+                      {allMachines.map((m) => (
                         <SelectItem key={m.id} value={m.id}>
                           {m.name}
                         </SelectItem>
@@ -349,8 +389,8 @@ export default function ReportsPage() {
                     <SelectContent>
                       <SelectItem value="all">All Users</SelectItem>
                       {allUsers
-                        .filter(u => u.isApproved)
-                        .map(user => (
+                        .filter((u) => u.isApproved)
+                        .map((user) => (
                           <SelectItem key={user.id} value={String(user.id)}>
                             {user.name}
                           </SelectItem>
@@ -367,12 +407,82 @@ export default function ReportsPage() {
               </div>
             </CardContent>
           </Card>
-          <Card className="mt-6">
+
+           <div className="grid gap-6 md:grid-cols-3">
+             <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Production</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{summaryStats.totalProduction.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">Total units produced in the selected period.</p>
+              </CardContent>
+            </Card>
+             <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Active TBMs</CardTitle>
+                <Factory className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{summaryStats.activeTbms}</div>
+                <p className="text-xs text-muted-foreground">TBMs with production in this period.</p>
+              </CardContent>
+            </Card>
+             <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Unique SKUs</CardTitle>
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{summaryStats.uniqueSkus}</div>
+                <p className="text-xs text-muted-foreground">Distinct SKUs produced in this period.</p>
+              </CardContent>
+            </Card>
+           </div>
+          
+           <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+             <Card>
+                <CardHeader>
+                    <CardTitle>Production by TBM</CardTitle>
+                    <CardDescription>Total units produced by each TBM.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
+                        <BarChart accessibilityLayer data={productionByTbm} layout="vertical" margin={{ left: 10, right: 10 }}>
+                            <CartesianGrid horizontal={false} />
+                            <YAxis dataKey="name" type="category" tickLine={false} tickMargin={10} axisLine={false} className="text-muted-foreground text-xs" />
+                            <XAxis dataKey="quantity" type="number" hide />
+                            <Tooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent />} />
+                            <Bar dataKey="quantity" fill="hsl(var(--primary))" radius={4} />
+                        </BarChart>
+                    </ChartContainer>
+                </CardContent>
+             </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Production by Operator</CardTitle>
+                    <CardDescription>Total units produced by each operator.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
+                        <BarChart accessibilityLayer data={productionByOperator} layout="vertical" margin={{ left: 10, right: 10 }}>
+                            <CartesianGrid horizontal={false} />
+                            <YAxis dataKey="name" type="category" tickLine={false} tickMargin={10} axisLine={false} className="text-muted-foreground text-xs" />
+                            <XAxis dataKey="quantity" type="number" hide />
+                            <Tooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent />} />
+                            <Bar dataKey="quantity" fill="hsl(var(--primary))" radius={4} />
+                        </BarChart>
+                    </ChartContainer>
+                </CardContent>
+             </Card>
+           </div>
+
+          <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Production Summary</CardTitle>
+              <CardTitle className="text-lg">Production Details</CardTitle>
               <CardDescription>
-                Detailed report based on your filter selection. Total:{' '}
-                {totalProduction.toLocaleString()}
+                Detailed log based on your filter selection.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -509,7 +619,7 @@ export default function ReportsPage() {
                   accessibilityLayer
                   data={oeeChartData}
                   layout="vertical"
-                  margin={{left: 10}}
+                  margin={{ left: 10 }}
                 >
                   <YAxis
                     dataKey="name"
@@ -517,7 +627,7 @@ export default function ReportsPage() {
                     tickLine={false}
                     tickMargin={10}
                     axisLine={false}
-                    tick={{fill: 'hsl(var(--muted-foreground))'}}
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
                     className="text-muted-foreground"
                   />
                   <XAxis dataKey="value" type="number" hide />
@@ -592,52 +702,37 @@ export default function ReportsPage() {
   );
 }
 
-function DateRangePicker({
-  className,
+function DatePicker({
   date,
   setDate,
-}: React.HTMLAttributes<HTMLDivElement> & {
-  date: DateRange | undefined;
-  setDate: (date: DateRange | undefined) => void;
+}: {
+  date: Date | undefined;
+  setDate: (date: Date | undefined) => void;
 }) {
   return (
-    <div className={cn('grid gap-2', className)}>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            id="date"
-            variant={'outline'}
-            className={cn(
-              'w-full justify-start text-left font-normal',
-              !date && 'text-muted-foreground'
-            )}
-          >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {date?.from ? (
-              date.to ? (
-                <>
-                  {format(date.from, 'LLL dd, y')} -{' '}
-                  {format(date.to, 'LLL dd, y')}
-                </>
-              ) : (
-                format(date.from, 'LLL dd, y')
-              )
-            ) : (
-              <span>Pick a date</span>
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            initialFocus
-            mode="range"
-            defaultMonth={date?.from}
-            selected={date}
-            onSelect={setDate}
-            numberOfMonths={2}
-          />
-        </PopoverContent>
-      </Popover>
-    </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant={'outline'}
+          className={cn(
+            'w-full justify-start text-left font-normal',
+            !date && 'text-muted-foreground'
+          )}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {date ? format(date, 'PPP') : <span>Pick a date</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          initialFocus
+          mode="single"
+          selected={date}
+          onSelect={setDate}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
+
+    
