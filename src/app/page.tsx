@@ -387,11 +387,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
         let skus: SkuProduction[] = [];
         if (loggedEntriesForMachine.length > 0) {
-            skus = loggedEntriesForMachine.map(e => ({
-                sku: e.sku,
-                sapCode: e.sapCode,
-                quantity: e.quantity,
-            }));
+            skus = loggedEntriesForMachine[0].skus;
         }
         
         const operatorId = loggedEntriesForMachine.length > 0
@@ -548,7 +544,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const cumulativeTotal = useMemo(() => {
     const total = Object.values(productionLog)
       .flatMap(logEntry => logEntry.entries)
-      .reduce((acc, entry) => acc + (entry.quantity || 0), 0);
+      .flatMap(machineEntry => machineEntry.skus)
+      .reduce((acc, sku) => acc + (sku.quantity || 0), 0);
     return total;
   }, [productionLog]);
 
@@ -912,8 +909,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                                 id={`quantity-${entry.machineId}-${skuIndex}`}
                                 type="number"
                                 placeholder="0"
-                                value={skuEntry.quantity === 0 ? '' : skuEntry.quantity}
-                                onChange={e => handleQuantityChange(entry.machineId, skuIndex, parseInt(e.target.value, 10) || 0)}
+                                value={skuEntry.quantity || ''}
+                                onChange={e => handleQuantityChange(entry.machineId, skuIndex, parseInt(e.target.value))}
                               />
                             </div>
                           </div>
@@ -987,3 +984,5 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
+
+    
