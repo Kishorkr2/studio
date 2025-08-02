@@ -1,3 +1,4 @@
+
 'use client';
 
 import {useState, useEffect, useCallback, useMemo} from 'react';
@@ -65,6 +66,12 @@ import {Skeleton} from '@/components/ui/skeleton';
 import {Slider} from '@/components/ui/slider';
 import * as actions from '../actions';
 
+interface EditableSkuPlan extends SkuPlan {
+  originalMachineId: string;
+  originalSapCode: string;
+  machineId: string;
+}
+
 function UserManagement({users, onApprove, onDelete}: {users: User[], onApprove: (id: number) => void, onDelete: (id: number) => void}) {
   return (
     <Card>
@@ -127,6 +134,8 @@ export default function AdminPage() {
   const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>(
     []
   );
+  const [editablePlan, setEditablePlan] = useState<EditableSkuPlan[]>([]);
+
   const [machines, setMachines] = useState<Machine[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
@@ -144,6 +153,30 @@ export default function AdminPage() {
 
   const {toast} = useToast();
 
+  const flattenProductionPlan = (plan: ProductionPlanItem[]): EditableSkuPlan[] => {
+    return plan.flatMap(item =>
+      item.skus.map(sku => ({
+        ...sku,
+        originalMachineId: item.machineId,
+        originalSapCode: sku.sapCode,
+        machineId: item.machineId,
+      }))
+    );
+  };
+  
+  const structureProductionPlan = (flatPlan: EditableSkuPlan[]): ProductionPlanItem[] => {
+    const planMap = new Map<string, SkuPlan[]>();
+
+    for (const item of flatPlan) {
+      const { machineId, sku, sapCode, quantity } = item;
+      const skus = planMap.get(machineId) || [];
+      skus.push({ sku, sapCode, quantity });
+      planMap.set(machineId, skus);
+    }
+
+    return Array.from(planMap.entries()).map(([machineId, skus]) => ({ machineId, skus }));
+  };
+
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
@@ -158,6 +191,7 @@ export default function AdminPage() {
       setManagedShifts(shifts);
       setMachines(machs);
       setProductionPlan(plan);
+      setEditablePlan(flattenProductionPlan(plan));
       setUsers(usersData);
     } catch (error) {
       console.error('Failed to load initial data', error);
@@ -174,17 +208,16 @@ export default function AdminPage() {
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
-
+  
   const totalPlanQuantity = useMemo(() => {
-    return productionPlan.reduce((total, item) => {
-      return total + item.skus.reduce((subTotal, sku) => subTotal + sku.quantity, 0);
-    }, 0);
-  }, [productionPlan]);
+    return editablePlan.reduce((total, item) => total + item.quantity, 0);
+  }, [editablePlan]);
 
   const handleClearProductionPlan = async () => {
     try {
       await actions.clearProductionPlan();
       setProductionPlan([]);
+      setEditablePlan([]);
       toast({
         title: 'Production Plan Cleared',
         description: 'The entire production plan has been deleted.',
@@ -246,6 +279,7 @@ export default function AdminPage() {
     try {
       const newOperatorData = {...operatorToUpdate, cardNo: newCardNo};
       await actions.renameOperator(originalCardNo, newCardNo, newOperatorData);
+      await loadInitialData();
       toast({title: 'Operator Card No Updated'});
     } catch (error) {
       console.error('Failed to rename operator:', error);
@@ -258,7 +292,6 @@ export default function AdminPage() {
             : `Card No "${newCardNo}" might already exist.`,
       });
     } finally {
-      await loadInitialData();
       setIsRenaming(null);
     }
   };
@@ -286,8 +319,29 @@ export default function AdminPage() {
     await actions.updateShifts(managedShifts);
     toast({title: 'Shifts Updated'});
   };
+  
+  const handleEditablePlanChange = (index: number, field: keyof EditableSkuPlan, value: string | number) => {
+    setEditablePlan(currentPlan => 
+      currentPlan.map((item, i) => 
+        i === index ? { ...item, [field]: value } : item
+      )
+    );
+  };
+  
+  const handleSavePlan = async () => {
+    const structuredPlan = structureProductionPlan(editablePlan);
+    await actions.updateProductionPlan(structuredPlan);
+    setProductionPlan(structuredPlan);
+    toast({title: 'Production Plan Updated'});
+  };
 
-  const handleAddPlanItem = useCallback(async () => {
+  const handleDeletePlanSku = (indexToDelete: number) => {
+      const newEditablePlan = editablePlan.filter((_, index) => index !== indexToDelete);
+      setEditablePlan(newEditablePlan);
+      toast({title: 'SKU Removed. Click "Save Plan" to confirm.'});
+  };
+
+  const handleAddPlanItem = useCallback(() => {
     if (!newPlanMachineId || !newPlanSku || !newPlanSapCode) {
       toast({
         variant: 'destructive',
@@ -297,68 +351,23 @@ export default function AdminPage() {
       return;
     }
 
-    const newSkuPlan: SkuPlan = {
+    const newEditableItem: EditableSkuPlan = {
       sku: newPlanSku,
       sapCode: newPlanSapCode,
       quantity: newPlanQuantity,
+      originalMachineId: newPlanMachineId,
+      originalSapCode: newPlanSapCode,
+      machineId: newPlanMachineId
     };
-
-    const newPlan = [...productionPlan];
-    const existingPlanItemIndex = newPlan.findIndex(
-      p => p.machineId === newPlanMachineId
-    );
-
-    if (existingPlanItemIndex > -1) {
-      const newSkus = [...newPlan[existingPlanItemIndex].skus, newSkuPlan];
-      newPlan[existingPlanItemIndex] = {
-        ...newPlan[existingPlanItemIndex],
-        skus: newSkus,
-      };
-    } else {
-      newPlan.push({machineId: newPlanMachineId, skus: [newSkuPlan]});
-    }
-
-    setProductionPlan(newPlan);
-    await actions.updateProductionPlan(newPlan);
-
-    toast({title: 'Plan Item Added'});
+    
+    setEditablePlan(prev => [...prev, newEditableItem]);
+    
+    toast({title: 'Plan Item Added. Click "Save Plan" to confirm.'});
     setNewPlanMachineId('');
     setNewPlanSku('');
     setNewPlanSapCode('');
     setNewPlanQuantity(0);
-  }, [
-    newPlanMachineId,
-    newPlanQuantity,
-    newPlanSapCode,
-    newPlanSku,
-    productionPlan,
-    toast,
-  ]);
-
-  const handleDeletePlanSku = useCallback(
-    async (machineId: string, skuIndex: number) => {
-      const newPlan = [...productionPlan];
-      const planItemIndex = newPlan.findIndex(p => p.machineId === machineId);
-
-      if (planItemIndex === -1) return;
-
-      const newSkus = newPlan[planItemIndex].skus.filter(
-        (_, index) => index !== skuIndex
-      );
-
-      if (newSkus.length > 0) {
-        newPlan[planItemIndex] = {...newPlan[planItemIndex], skus: newSkus};
-      } else {
-        newPlan.splice(planItemIndex, 1);
-      }
-
-      setProductionPlan(newPlan);
-      await actions.updateProductionPlan(newPlan);
-
-      toast({title: 'SKU Removed'});
-    },
-    [productionPlan, toast]
-  );
+  }, [newPlanMachineId, newPlanSku, newPlanSapCode, newPlanQuantity, toast]);
 
   const handleClearDataConfirm = async () => {
     await actions.clearAllProductionData();
@@ -502,6 +511,7 @@ export default function AdminPage() {
     if (!uploadedPlan) return;
     await actions.updateProductionPlan(uploadedPlan);
     setProductionPlan(uploadedPlan);
+    setEditablePlan(flattenProductionPlan(uploadedPlan));
     setUploadedPlan(null);
     toast({
       title: 'Production Plan Saved',
@@ -862,21 +872,21 @@ export default function AdminPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="manual-sap-code">SAP Code</Label>
-                    <Input
-                      id="manual-sap-code"
-                      value={newPlanSapCode}
-                      onChange={e => setNewPlanSapCode(e.target.value)}
-                      placeholder="SAP Code"
-                    />
-                  </div>
-                  <div className="space-y-2">
                     <Label htmlFor="manual-sku">SKU</Label>
                     <Input
                       id="manual-sku"
                       value={newPlanSku}
                       onChange={e => setNewPlanSku(e.target.value)}
                       placeholder="Enter SKU"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="manual-sap-code">SAP Code</Label>
+                    <Input
+                      id="manual-sap-code"
+                      value={newPlanSapCode}
+                      onChange={e => setNewPlanSapCode(e.target.value)}
+                      placeholder="SAP Code"
                     />
                   </div>
                   <div className="space-y-2">
@@ -891,7 +901,7 @@ export default function AdminPage() {
                   </div>
                   <Button onClick={handleAddPlanItem}>
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Add to Plan
+                    Add Item
                   </Button>
                 </div>
               </div>
@@ -900,43 +910,63 @@ export default function AdminPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>TBM No</TableHead>
-                      <TableHead>Assigned SKUs</TableHead>
+                      <TableHead className="w-[150px]">TBM No</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead className="w-[150px]">SAP Code</TableHead>
+                      <TableHead className="w-[120px]">Quantity</TableHead>
+                      <TableHead className="text-right w-[80px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {productionPlan.map(item => (
-                      <TableRow key={item.machineId}>
+                    {editablePlan.map((item, index) => (
+                      <TableRow key={`${item.originalMachineId}-${item.originalSapCode}-${index}`}>
                         <TableCell>
-                          {machines.find(m => m.id === item.machineId)?.name}
+                          <Select
+                            value={item.machineId}
+                            onValueChange={(value) => handleEditablePlanChange(index, 'machineId', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select TBM" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {machines.map(m => (
+                                <SelectItem key={m.id} value={m.id}>
+                                  {m.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-2 items-start">
-                            {item.skus.map((skuPlan, index) => (
-                              <div
-                                key={`${item.machineId}-${skuPlan.sapCode}-${index}`}
-                                className="flex items-center gap-2 w-full"
-                              >
-                                <Badge
-                                  variant="secondary"
-                                  className="flex-grow justify-start text-left"
-                                >
-                                  {skuPlan.sku} (SAP: {skuPlan.sapCode}, Qty:{' '}
-                                  {skuPlan.quantity})
-                                </Badge>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() =>
-                                    handleDeletePlanSku(item.machineId, index)
-                                  }
-                                >
-                                  <Trash className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
+                           <Input
+                              value={item.sku}
+                              onChange={(e) => handleEditablePlanChange(index, 'sku', e.target.value)}
+                              placeholder="SKU"
+                            />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.sapCode}
+                            onChange={(e) => handleEditablePlanChange(index, 'sapCode', e.target.value)}
+                            placeholder="SAP Code"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => handleEditablePlanChange(index, 'quantity', Number(e.target.value))}
+                            placeholder="Quantity"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeletePlanSku(index)}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -944,6 +974,11 @@ export default function AdminPage() {
                 </Table>
               </div>
             </CardContent>
+             <CardFooter className="justify-end">
+              <Button onClick={handleSavePlan}>
+                <Save className="mr-2 h-4 w-4" /> Save Plan
+              </Button>
+            </CardFooter>
           </Card>
         </TabsContent>
 
