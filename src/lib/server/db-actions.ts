@@ -90,11 +90,24 @@ export async function getProductionLogForShift(
     [dateKey, shiftName]
   );
   const log: ProductionLog = {};
+  
   for (const row of rows) {
     if (!log[row.round]) {
       log[row.round] = {entries: [], status: 'synced'};
     }
-    const logEntry : MachineProductionData = {
+
+    let machineEntry = log[row.round].entries.find(e => e.machineId === row.machineId);
+
+    if (machineEntry) {
+      // Machine already exists, just add the SKU
+      machineEntry.skus.push({
+        sku: row.sku,
+        sapCode: row.sapCode,
+        quantity: row.quantity
+      });
+    } else {
+      // First time we see this machine in this round
+      const newMachineEntry: MachineProductionData = {
         machineId: row.machineId,
         name: row.name,
         operatorId: row.operatorId,
@@ -105,8 +118,9 @@ export async function getProductionLogForShift(
         }],
         userId: row.userId,
         userName: row.userName
+      };
+      log[row.round].entries.push(newMachineEntry);
     }
-    log[row.round].entries.push(row);
   }
   return log;
 }
@@ -262,6 +276,7 @@ export async function saveProductionRound(
 
   await db.exec('BEGIN TRANSACTION');
   try {
+    // Get all machine IDs from the payload to clear their previous entries for this round
     const machineIdsInPayload = entries.map(entry => entry.machineId);
 
     if (machineIdsInPayload.length > 0) {
@@ -272,27 +287,29 @@ export async function saveProductionRound(
       );
     }
 
+    // Insert the new entries
     for (const entry of entries) {
       for (const sku of entry.skus) {
-        if (!sku.sku || !sku.sapCode || sku.quantity <= 0) continue;
-        
-        await db.run(
-          `INSERT INTO productionLogEntries 
-          (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          dateKey,
-          shiftName,
-          round,
-          entry.machineId,
-          entry.name,
-          'Online',
-          sku.sku,
-          sku.sapCode,
-          sku.quantity,
-          entry.operatorId,
-          entry.userId,
-          entry.userName
-        );
+        // Only save entries that have a SKU and a quantity
+        if (sku.sku && sku.sapCode && sku.quantity > 0) {
+          await db.run(
+            `INSERT INTO productionLogEntries 
+            (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            dateKey,
+            shiftName,
+            round,
+            entry.machineId,
+            entry.name,
+            'Online',
+            sku.sku,
+            sku.sapCode,
+            sku.quantity,
+            entry.operatorId,
+            entry.userId,
+            entry.userName
+          );
+        }
       }
     }
     await db.exec('COMMIT');

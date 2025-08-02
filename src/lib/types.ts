@@ -41,6 +41,9 @@ export interface MachineProductionData {
 
 // This is the raw row from the DB
 export interface FlatProductionLogEntry {
+    date: string;
+    shiftName: string;
+    round: string;
     machineId: string;
     name: string;
     status: 'Online' | 'Offline';
@@ -70,7 +73,7 @@ export interface ProductionPlanItem {
 }
 
 export interface ProductionLogEntry {
-  entries: FlatProductionLogEntry[];
+  entries: MachineProductionData[];
   status: 'synced' | 'pending';
 }
 
