@@ -93,34 +93,38 @@ export async function getProductionLogForShift(
     [dateKey, shiftName]
   );
   const log: ProductionLog = {};
-  
+
   for (const row of rows) {
+    if (!row.round || !row.machineId) continue;
+
     if (!log[row.round]) {
       log[row.round] = {entries: [], status: 'synced'};
     }
 
-    let machineEntry = log[row.round].entries.find(e => e.machineId === row.machineId);
+    let machineEntry = log[row.round].entries.find(
+      e => e.machineId === row.machineId
+    );
 
     if (machineEntry) {
-      // Machine already exists, just add the SKU
       machineEntry.skus.push({
         sku: row.sku,
         sapCode: row.sapCode,
-        quantity: row.quantity
+        quantity: row.quantity,
       });
     } else {
-      // First time we see this machine in this round
       const newMachineEntry: MachineProductionData = {
         machineId: row.machineId,
         name: row.name,
         operatorId: row.operatorId,
-        skus: [{
+        skus: [
+          {
             sku: row.sku,
             sapCode: row.sapCode,
-            quantity: row.quantity
-        }],
+            quantity: row.quantity,
+          },
+        ],
         userId: row.userId,
-        userName: row.userName
+        userName: row.userName,
       };
       log[row.round].entries.push(newMachineEntry);
     }
@@ -279,42 +283,45 @@ export async function saveProductionRound(
 
   await db.exec('BEGIN TRANSACTION');
   try {
-    const machineIdsToUpdate = entries
-      .map(e => e.machineId)
-      .filter((value, index, self) => self.indexOf(value) === index);
+    // Get all machine IDs that are being updated in this round.
+    const machineIdsToUpdate = [
+      ...new Set(entries.map(entry => entry.machineId)),
+    ];
 
     if (machineIdsToUpdate.length > 0) {
+      // Delete all existing entries for these specific machines in this specific round.
       const placeholders = machineIdsToUpdate.map(() => '?').join(',');
       await db.run(
         `DELETE FROM productionLogEntries 
          WHERE date = ? AND shiftName = ? AND round = ? AND machineId IN (${placeholders})`,
-        dateKey,
-        shiftName,
-        round,
-        ...machineIdsToUpdate
+        [dateKey, shiftName, round, ...machineIdsToUpdate]
       );
-    }
 
-    for (const entry of entries) {
-      for (const sku of entry.skus) {
-        if (sku.sku && sku.sapCode && sku.quantity > 0) {
-          await db.run(
-            `INSERT INTO productionLogEntries 
-            (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            dateKey,
-            shiftName,
-            round,
-            entry.machineId,
-            entry.name,
-            'Online',
-            sku.sku,
-            sku.sapCode,
-            sku.quantity,
-            entry.operatorId,
-            entry.userId,
-            entry.userName
-          );
+      // Insert all the new entries from the screen.
+      for (const entry of entries) {
+        for (const sku of entry.skus) {
+          if (sku.sku && sku.sapCode && sku.quantity > 0) {
+            await db.run(
+              `INSERT INTO productionLogEntries 
+               (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName, remark) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                dateKey,
+                shiftName,
+                round,
+                entry.machineId,
+                entry.name,
+                'Online', // Default status
+                sku.sku,
+                sku.sapCode,
+                sku.quantity,
+                entry.operatorId,
+                entry.userId,
+                entry.userName,
+                sku.remark || null,
+              ]
+            );
+          }
         }
       }
     }
@@ -325,7 +332,6 @@ export async function saveProductionRound(
     throw error;
   }
 }
-
 
 export async function clearShiftData(date: Date, shift: ShiftInfo) {
   const dateKey = format(date, 'yyyy-MM-dd');
@@ -370,13 +376,20 @@ export async function saveTreadOpeningStock(stock: TreadStock[]) {
 }
 
 // User Actions
-
-export async function signUpUser(data: SignUpInput): Promise<{success: boolean; message?: string}> {
+export async function signUpUser(
+  data: SignUpInput
+): Promise<{success: boolean; message?: string}> {
   const {name, email, mobile, password} = data;
   try {
-    const existingUser = await db.get('SELECT * FROM users WHERE email = ?', email);
+    const existingUser = await db.get(
+      'SELECT * FROM users WHERE email = ?',
+      email
+    );
     if (existingUser) {
-      return {success: false, message: 'An account with this email already exists.'};
+      return {
+        success: false,
+        message: 'An account with this email already exists.',
+      };
     }
     const hashedPassword = await bcrypt.hash(password, 10);
     await db.run(
@@ -393,29 +406,39 @@ export async function signUpUser(data: SignUpInput): Promise<{success: boolean; 
   }
 }
 
-export async function verifyUserLogin(email: string, pass: string): Promise<{success: boolean; message?: string; user?: User}> {
-  const user = await db.get<User>('SELECT * FROM users WHERE email = ?', email.toLowerCase());
-  
+export async function verifyUserLogin(
+  email: string,
+  pass: string
+): Promise<{success: boolean; message?: string; user?: User}> {
+  const user = await db.get<User>(
+    'SELECT * FROM users WHERE email = ?',
+    email.toLowerCase()
+  );
+
   if (!user) {
     return {success: false, message: 'Invalid email or password.'};
   }
-  
+
   const isPasswordValid = await bcrypt.compare(pass, user.password);
-  
+
   if (!isPasswordValid) {
     return {success: false, message: 'Invalid email or password.'};
   }
-  
+
   if (!user.isApproved) {
-    return {success: false, message: 'Your account has not been approved by an administrator yet.'};
+    return {
+      success: false,
+      message: 'Your account has not been approved by an administrator yet.',
+    };
   }
-  
+
   return {success: true, user};
 }
 
-
 export async function getUsers(): Promise<User[]> {
-  return db.all('SELECT id, name, email, mobile, isApproved, isAdmin FROM users ORDER BY name');
+  return db.all(
+    'SELECT id, name, email, mobile, isApproved, isAdmin FROM users ORDER BY name'
+  );
 }
 
 export async function approveUser(userId: number) {

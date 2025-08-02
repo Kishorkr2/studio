@@ -1,9 +1,10 @@
+
 export interface User {
   id: number;
   name: string;
   email: string;
   mobile: string;
-  password?: string;
+  password: string; // Hashed password from DB
   isApproved: boolean;
   isAdmin: boolean;
 }
@@ -27,6 +28,7 @@ export interface SkuProduction {
   sku: string;
   sapCode: string;
   quantity: number;
+  remark?: string;
 }
 
 // Represents the data for a single machine card in a given round
@@ -41,18 +43,19 @@ export interface MachineProductionData {
 
 // This is the raw row from the DB
 export interface FlatProductionLogEntry {
-    date: string;
-    shiftName: string;
-    round: string;
-    machineId: string;
-    name: string;
-    status: 'Online' | 'Offline';
-    sku: string;
-    sapCode: string;
-    quantity: number;
-    operatorId?: string;
-    userId?: number;
-    userName?: string;
+  date: string;
+  shiftName: string;
+  round: string;
+  machineId: string;
+  name: string;
+  status: 'Online' | 'Offline';
+  sku: string;
+  sapCode: string;
+  quantity: number;
+  operatorId?: string;
+  userId?: number;
+  userName?: string;
+  remark?: string;
 }
 
 export interface ShiftInfo {

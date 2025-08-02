@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -10,7 +11,7 @@ import {
 import {usePathname, useRouter} from 'next/navigation';
 import {Skeleton} from './ui/skeleton';
 import * as dbActions from '@/lib/server/db-actions';
-import type { User } from '@/lib/types';
+import type {User} from '@/lib/types';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -73,17 +74,25 @@ export function AuthProvider({children}: {children: ReactNode}) {
     pass: string
   ): Promise<{success: boolean; message?: string}> => {
     try {
-      const {success, message, user} = await dbActions.verifyUserLogin(email, pass);
+      const {success, message, user} = await dbActions.verifyUserLogin(
+        email,
+        pass
+      );
       if (success && user) {
         const expiry = new Date().getTime() + 24 * 60 * 60 * 1000; // 24 hours
         const authData = {
           isAuthenticated: true,
           expiry,
-          user: {id: user.id, name: user.name, email: user.email, isAdmin: user.isAdmin},
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            isAdmin: user.isAdmin,
+          },
         };
         localStorage.setItem('authData', JSON.stringify(authData));
         setIsAuthenticated(true);
-        setUser(authData.user);
+        setUser(authData.user as User);
         return {success: true};
       }
       return {success: false, message};

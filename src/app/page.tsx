@@ -59,8 +59,6 @@ import type {
   Operator,
   ProductionLog,
   ProductionPlanItem,
-  User,
-  SkuProduction,
 } from '@/lib/types';
 import {cn} from '@/lib/utils';
 import {Skeleton} from '@/components/ui/skeleton';
@@ -73,7 +71,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { useAuth } from '@/components/auth-provider';
+import {useAuth} from '@/components/auth-provider';
 
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === 'undefined') return defaultValue;
@@ -123,13 +121,21 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
 };
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg viewBox="0 0 32 32" {...props}>
-        <path d="M19.11 17.205c-.372 0-1.088 1.39-1.518 1.39a.63.63 0 0 1-.315-.1c-.802-.402-1.504-.817-2.163-1.447-.545-.516-1.146-1.29-1.46-1.963a.426.426 0 0 1-.073-.215c0-.33.99-.945.99-1.962a.427.427 0 0 0-.073-.215c-.33-1.01-.99-2.512-.99-3.264 0-.426-.24-.426-.51-.426h-1.62a.63.63 0 0 0-.315.1c-.843.43-1.518 1.39-1.518 2.162 0 1.582 1.518 4.816 3.544 6.988 2.026 2.17 4.57 2.648 5.746 2.648.72 0 2.4-1.25 2.4-2.648s-.99-1.69-.99-1.69z" fill="#fff"></path>
-        <path d="M20.213 4.933a10.27 10.27 0 0 0-16.488 11.103L2.645 22.47l6.57-4.085a10.27 10.27 0 0 0 11.002-13.45z" fill="#4caf50"></path>
-        <path d="M19.11,17.205 c-0.372,0 -1.088,1.39 -1.518,1.39 a0.63,0.63 0,0 1,-0.315,-0.1 c-0.802,-0.402 -1.504,-0.817 -2.163,-1.447 c-0.545,-0.516 -1.146,-1.29 -1.46,-1.963 a0.426,0.426 0,0 1,-0.073,-0.215 c0,-0.33 0.99,-0.945 0.99,-1.962 a0.427,0.427 0,0 0,-0.073,-0.215 c-0.33,-1.01 -0.99,-2.512 -0.99,-3.264 c0,-0.426 -0.24,-0.426 -0.51,-0.426 h-1.62 a0.63,0.63 0,0 0,-0.315,0.1 c-0.843,0.43 -1.518,1.39 -1.518,2.162 c0,1.582 1.518,4.816 3.544,6.988 c2.026,2.17 4.57,2.648 5.746,2.648 c0.72,0 2.4,-1.25 2.4,-2.648 s-0.99,-1.69 -0.99,-1.69 z" fill="#fff"></path>
-    </svg>
+  <svg viewBox="0 0 32 32" {...props}>
+    <path
+      d="M19.11 17.205c-.372 0-1.088 1.39-1.518 1.39a.63.63 0 0 1-.315-.1c-.802-.402-1.504-.817-2.163-1.447-.545-.516-1.146-1.29-1.46-1.963a.426.426 0 0 1-.073-.215c0-.33.99-.945.99-1.962a.427.427 0 0 0-.073-.215c-.33-1.01-.99-2.512-.99-3.264 0-.426-.24-.426-.51-.426h-1.62a.63.63 0 0 0-.315.1c-.843.43-1.518 1.39-1.518 2.162 0 1.582 1.518 4.816 3.544 6.988 2.026 2.17 4.57 2.648 5.746 2.648.72 0 2.4-1.25 2.4-2.648s-.99-1.69-.99-1.69z"
+      fill="#fff"
+    ></path>
+    <path
+      d="M20.213 4.933a10.27 10.27 0 0 0-16.488 11.103L2.645 22.47l6.57-4.085a10.27 10.27 0 0 0 11.002-13.45z"
+      fill="#4caf50"
+    ></path>
+    <path
+      d="M19.11,17.205 c-0.372,0 -1.088,1.39 -1.518,1.39 a0.63,0.63 0,0 1,-0.315,-0.1 c-0.802,-0.402 -1.504,-0.817 -2.163,-1.447 c-0.545,-0.516 -1.146,-1.29 -1.46,-1.963 a0.426,0.426 0,0 1,-0.073,-0.215 c0,-0.33 0.99,-0.945 0.99,-1.962 a0.427,0.427 0,0 0,-0.073,-0.215 c-0.33,-1.01 -0.99,-2.512 -0.99,-3.264 c0,-0.426 -0.24,-0.426 -0.51,-0.426 h-1.62 a0.63,0.63 0,0 0,-0.315,0.1 c-0.843,0.43 -1.518,1.39 -1.518,2.162 c0,1.582 1.518,4.816 3.544,6.988 c2.026,2.17 4.57,2.648 5.746,2.648 c0.72,0 2.4,-1.25 2.4,-2.648 s-0.99,-1.69 -0.99,-1.69 z"
+      fill="#fff"
+    ></path>
+  </svg>
 );
-
 
 export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const {toast} = useToast();
@@ -137,7 +143,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
   const [allMachines, setAllMachines] = useState<Machine[]>([]);
@@ -145,17 +150,12 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const [allProductionPlan, setAllProductionPlan] = useState<
     ProductionPlanItem[]
   >([]);
-
   const [roundTimes, setRoundTimes] = useState<string[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>('');
-
   const [entries, setEntries] = useState<MachineProductionData[]>([]);
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
-
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
-
   const machineOperatorMapRef = useRef<Record<string, string>>({});
-
   const [columnVisibility, setColumnVisibility] = useState(() =>
     getLocalStorageItem('columnVisibility', {
       operator: true,
@@ -181,18 +181,19 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       setAllMachines(machinesData);
       setAllOperators(operatorsData);
       setAllProductionPlan(planData);
-      
+
       const currentShift = getCurrentShift(shiftsData);
       setSelectedShift(currentShift);
-      
+
       if (currentShift) {
         const newRoundTimes = generateRoundTimes(currentShift);
         setRoundTimes(newRoundTimes);
         const savedRound = getLocalStorageItem('selectedRound', '');
-        const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || '';
+        const currentRound = newRoundTimes.includes(savedRound)
+          ? savedRound
+          : newRoundTimes[0] || '';
         setSelectedRound(currentRound);
       }
-
     } catch (error) {
       console.error('Failed to load initial data:', error);
       toast({variant: 'destructive', title: 'Error loading data'});
@@ -212,76 +213,76 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const generateRoundTimes = useCallback(
     (shift: ShiftInfo | undefined): string[] => {
       if (!shift) return [];
-      
+
       const times: string[] = [];
       let startHour: number;
-      let endHour: number;
 
       try {
         [startHour] = shift.startTime.split(':').map(Number);
-        [endHour] = shift.endTime.split(':').map(Number);
       } catch {
         return [];
       }
-      
-      const isNightShift = startHour >= 21;
 
-      if(isNightShift) {
+      const isNightShift = startHour >= 21 || startHour < 7;
+
+      if (isNightShift) {
         for (let h = 21; h <= 23; h++) times.push(`${h}:00`);
-        for (let h = 0; h <= 7; h++) times.push(`0${h}:00`);
+        for (let h = 0; h < 8; h++) times.push(`0${h}:00`);
       } else {
         for (let h = 9; h <= 19; h++) times.push(`${h}:00`);
       }
-      
+
       return times.map(t => {
-          const [h] = t.split(':').map(Number);
-          const ampm = h >= 12 ? 'PM' : 'AM';
-          let displayHour = h % 12;
-          if (displayHour === 0) displayHour = 12;
-          return `${displayHour}:00 ${ampm}`;
+        const [h] = t.split(':').map(Number);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        let displayHour = h % 12;
+        if (displayHour === 0) displayHour = 12;
+        return `${displayHour}:00 ${ampm}`;
       });
     },
     []
   );
 
-  const loadEntriesForRound = useCallback((round: string, log: ProductionLog) => {
-    const logForRound = log[round]?.entries || [];
-    const newEntries = allMachines
-      .filter(machine => machine.isAvailable)
-      .map(machine => {
-        const loggedEntry = logForRound.find(e => e.machineId === machine.id);
-        const skus = loggedEntry ? loggedEntry.skus : [];
-        const operatorId = loggedEntry ? loggedEntry.operatorId : machineOperatorMapRef.current[machine.id];
-        
-        return {
-          machineId: machine.id,
-          name: machine.name,
-          operatorId: operatorId || '',
-          skus: skus.length > 0 ? skus : [],
-        };
-      });
-    setEntries(newEntries);
-  }, [allMachines]);
+  const loadEntriesForRound = useCallback(
+    (round: string, log: ProductionLog) => {
+      const logForRound = log[round]?.entries || [];
+      const newEntries = allMachines
+        .filter(machine => machine.isAvailable)
+        .map(machine => {
+          const loggedEntry = logForRound.find(e => e.machineId === machine.id);
+          const skus = loggedEntry ? loggedEntry.skus : [];
+          const operatorId =
+            loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id];
 
-  // Effect to fetch log data when date or shift changes
+          return {
+            machineId: machine.id,
+            name: machine.name,
+            operatorId: operatorId || '',
+            skus: skus.length > 0 ? skus : [],
+          };
+        });
+      setEntries(newEntries);
+    },
+    [allMachines]
+  );
+
   useEffect(() => {
     if (loading || !selectedShift) return;
-
     const fetchLog = async () => {
-      const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
+      const log = await actions.getProductionLogForShift(
+        selectedDate,
+        selectedShift
+      );
       setProductionLog(log);
     };
-
     fetchLog();
   }, [selectedDate, selectedShift, loading]);
 
-  // Effect to update UI when log data or round changes
   useEffect(() => {
     if (loading) return;
     machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
     loadEntriesForRound(selectedRound, productionLog);
   }, [productionLog, selectedRound, loadEntriesForRound, loading]);
-
 
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
@@ -353,7 +354,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       );
       setPageActions(pageActions);
     }
-
     return () => {
       if (setPageActions) {
         setPageActions(null);
@@ -374,78 +374,104 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   };
 
   const handleOperatorChange = (machineId: string, operatorId: string) => {
-    setEntries(prev => prev.map(entry => 
-      entry.machineId === machineId ? { ...entry, operatorId } : entry
-    ));
+    setEntries(prev =>
+      prev.map(entry =>
+        entry.machineId === machineId ? {...entry, operatorId} : entry
+      )
+    );
     machineOperatorMapRef.current[machineId] = operatorId;
     setLocalStorageItem('machineOperatorMap', machineOperatorMapRef.current);
   };
-  
-  const handleSkuChange = (machineId: string, skuIndex: number, newSku: string) => {
-      const planItem = allProductionPlan.find(p => p.machineId === machineId);
-      const newSkuPlan = planItem?.skus.find(s => s.sku === newSku);
-      
-      setEntries(prev => prev.map(entry => {
-          if (entry.machineId === machineId) {
-              const updatedSkus = [...entry.skus];
-              updatedSkus[skuIndex] = {
-                  ...updatedSkus[skuIndex],
-                  sku: newSku,
-                  sapCode: newSkuPlan?.sapCode || '',
-              };
-              return { ...entry, skus: updatedSkus };
-          }
-          return entry;
-      }));
+
+  const handleSkuChange = (
+    machineId: string,
+    skuIndex: number,
+    newSku: string
+  ) => {
+    const planItem = allProductionPlan.find(p => p.machineId === machineId);
+    const newSkuPlan = planItem?.skus.find(s => s.sku === newSku);
+
+    setEntries(prev =>
+      prev.map(entry => {
+        if (entry.machineId === machineId) {
+          const updatedSkus = [...entry.skus];
+          updatedSkus[skuIndex] = {
+            ...updatedSkus[skuIndex],
+            sku: newSku,
+            sapCode: newSkuPlan?.sapCode || '',
+          };
+          return {...entry, skus: updatedSkus};
+        }
+        return entry;
+      })
+    );
   };
-  
-  const handleQuantityChange = (machineId: string, skuIndex: number, quantity: number) => {
-      setEntries(prev => prev.map(entry => {
-          if (entry.machineId === machineId) {
-              const updatedSkus = [...entry.skus];
-              updatedSkus[skuIndex] = { ...updatedSkus[skuIndex], quantity: isNaN(quantity) ? 0 : quantity };
-              return { ...entry, skus: updatedSkus };
-          }
-          return entry;
-      }));
+
+  const handleQuantityChange = (
+    machineId: string,
+    skuIndex: number,
+    quantity: number
+  ) => {
+    setEntries(prev =>
+      prev.map(entry => {
+        if (entry.machineId === machineId) {
+          const updatedSkus = [...entry.skus];
+          updatedSkus[skuIndex] = {
+            ...updatedSkus[skuIndex],
+            quantity: isNaN(quantity) ? 0 : quantity,
+          };
+          return {...entry, skus: updatedSkus};
+        }
+        return entry;
+      })
+    );
   };
-  
+
   const handleAddSku = (machineId: string) => {
-      setEntries(prev => prev.map(entry => {
-          if (entry.machineId === machineId) {
-              return { ...entry, skus: [...entry.skus, { sku: '', sapCode: '', quantity: 0 }] };
-          }
-          return entry;
-      }));
+    setEntries(prev =>
+      prev.map(entry => {
+        if (entry.machineId === machineId) {
+          return {
+            ...entry,
+            skus: [...entry.skus, {sku: '', sapCode: '', quantity: 0}],
+          };
+        }
+        return entry;
+      })
+    );
   };
-  
+
   const handleRemoveSku = (machineId: string, skuIndex: number) => {
-      setEntries(prev => prev.map(entry => {
-          if (entry.machineId === machineId) {
-              const updatedSkus = entry.skus.filter((_, index) => index !== skuIndex);
-              return { ...entry, skus: updatedSkus };
-          }
-          return entry;
-      }));
+    setEntries(prev =>
+      prev.map(entry => {
+        if (entry.machineId === machineId) {
+          const updatedSkus = entry.skus.filter(
+            (_, index) => index !== skuIndex
+          );
+          return {...entry, skus: updatedSkus};
+        }
+        return entry;
+      })
+    );
   };
 
   const handleSaveRound = useCallback(async () => {
     if (!selectedRound || !selectedShift) {
-        toast({
-            variant: 'destructive',
-            title: 'Cannot Save',
-            description: 'Please select a shift and round time first.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Cannot Save',
+        description: 'Please select a shift and round time first.',
+      });
+      return;
     }
-    
+
     if (!user) {
-        toast({
-            variant: 'destructive',
-            title: 'Cannot Save',
-            description: 'User information not available. Please log in again.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Cannot Save',
+        description: 'User information not available. Please log in again.',
+      });
+      return;
     }
 
     const entriesToSave = entries.map(entry => ({
@@ -461,7 +487,10 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       entriesToSave
     );
 
-    const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
+    const log = await actions.getProductionLogForShift(
+      selectedDate,
+      selectedShift
+    );
     setProductionLog(log);
 
     toast({
@@ -469,8 +498,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       description: `Data for round ${selectedRound} has been saved.`,
       action: <Save className="text-green-500" />,
     });
-}, [selectedDate, selectedShift, selectedRound, entries, toast, user]);
-
+  }, [selectedDate, selectedShift, selectedRound, entries, toast, user]);
 
   const handleShiftChange = useCallback(
     (name: string) => {
@@ -478,28 +506,28 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       if (newShift?.name !== selectedShift?.name) {
         setSelectedShift(newShift);
         if (newShift) {
-            const newRoundTimes = generateRoundTimes(newShift);
-            setRoundTimes(newRoundTimes);
-            setSelectedRound(newRoundTimes[0] || '');
+          const newRoundTimes = generateRoundTimes(newShift);
+          setRoundTimes(newRoundTimes);
+          setSelectedRound(newRoundTimes[0] || '');
         }
       }
     },
     [allShifts, selectedShift, generateRoundTimes]
   );
 
-  const handleDateChange = useCallback(
-    (date: Date | undefined) => {
-      if (date) {
-        setSelectedDate(date);
-      }
-    },
-    []
-  );
+  const handleDateChange = useCallback((date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+    }
+  }, []);
 
   const roundTotal = useMemo(() => {
-    return entries.reduce((acc, entry) => 
-      acc + entry.skus.reduce((skuAcc, sku) => skuAcc + (sku.quantity || 0), 0)
-    , 0);
+    return entries.reduce(
+      (acc, entry) =>
+        acc +
+        entry.skus.reduce((skuAcc, sku) => skuAcc + (sku.quantity || 0), 0),
+      0
+    );
   }, [entries]);
 
   const cumulativeTotal = useMemo(() => {
@@ -522,7 +550,9 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     text += `*Round Production:* ${roundTotal}\n`;
     text += `*Shift Cumulative:* ${cumulativeTotal}\n\n`;
 
-    const producedEntries = entries.filter(entry => entry.skus.some(sku => sku.quantity > 0));
+    const producedEntries = entries.filter(entry =>
+      entry.skus.some(sku => sku.quantity > 0)
+    );
 
     if (producedEntries.length > 0) {
       text += `*TBM wise production:*\n`;
@@ -532,59 +562,78 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           .filter(s => s.quantity > 0)
           .map(s => `${s.sku}: ${s.quantity}`)
           .join(', ');
-        
+
         if (skuTexts) {
-            text += `- *${entry.name}* (${operatorName}): ${skuTexts}\n`;
+          text += `- *${entry.name}* (${operatorName}): ${skuTexts}\n`;
         }
       });
     } else {
       text += `*No production was recorded for this round.*\n`;
     }
     return text;
-  }, [allOperators, cumulativeTotal, entries, roundTotal, selectedDate, selectedRound, selectedShift]);
+  }, [
+    allOperators,
+    cumulativeTotal,
+    entries,
+    roundTotal,
+    selectedDate,
+    selectedRound,
+    selectedShift,
+  ]);
 
-  const handleShare = useCallback(async (type: 'native' | 'whatsapp' | 'sms' | 'email' | 'copy') => {
+  const handleShare = useCallback(
+    async (type: 'native' | 'whatsapp' | 'sms' | 'email' | 'copy') => {
       const shareText = generateShareText();
       if (!shareText) {
-          toast({
-              variant: 'destructive',
-              title: 'Cannot Share',
-              description: 'Please select a date, shift, and round.',
-          });
-          return;
+        toast({
+          variant: 'destructive',
+          title: 'Cannot Share',
+          description: 'Please select a date, shift, and round.',
+        });
+        return;
       }
-      
+
       const encodedText = encodeURIComponent(shareText);
 
       if (type === 'native' && navigator.share) {
-          try {
-              await navigator.share({ title: 'Hourly Production Report', text: shareText });
-          } catch (error) {
-              console.log('Share was cancelled or failed', error);
-          }
+        try {
+          await navigator.share({
+            title: 'Hourly Production Report',
+            text: shareText,
+          });
+        } catch (error) {
+          console.log('Share was cancelled or failed', error);
+        }
       } else if (type === 'whatsapp') {
-          window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+        window.open(`https://wa.me/?text=${encodedText}`, '_blank');
       } else if (type === 'sms') {
-          window.open(`sms:?body=${encodedText}`, '_blank');
+        window.open(`sms:?body=${encodedText}`, '_blank');
       } else if (type === 'email') {
-          window.open(`mailto:?subject=Hourly Production Report&body=${encodedText}`, '_blank');
-      } else { // Fallback to copy
-          try {
-              await navigator.clipboard.writeText(shareText);
-              toast({
-                  title: 'Report Copied!',
-                  description: 'The production report has been copied to your clipboard.',
-              });
-          } catch (copyError) {
-              console.error('Fallback copy failed:', copyError);
-              toast({
-                  variant: 'destructive',
-                  title: 'Share Failed',
-                  description: 'Could not share or copy the report.',
-              });
-          }
+        window.open(
+          `mailto:?subject=Hourly Production Report&body=${encodedText}`,
+          '_blank'
+        );
+      } else {
+        // Fallback to copy
+        try {
+          await navigator.clipboard.writeText(shareText);
+          toast({
+            title: 'Report Copied!',
+            description:
+              'The production report has been copied to your clipboard.',
+          });
+        } catch (copyError) {
+          console.error('Fallback copy failed:', copyError);
+          toast({
+            variant: 'destructive',
+            title: 'Share Failed',
+            description: 'Could not share or copy the report.',
+          });
+        }
       }
-  }, [generateShareText, toast]);
+    },
+    [generateShareText, toast]
+  );
 
   if (loading) {
     return (
@@ -691,39 +740,46 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   const ShareMenu = ({isMobile = false}) => (
     <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-            <Button variant={isMobile ? "ghost" : "outline"} className={isMobile ? "flex flex-col h-auto p-2" : ""}>
-                <Share2 className="h-5 w-5" />
-                {isMobile ? <span className="text-xs">Share</span> : <span className="hidden lg:inline ml-2">Share</span>}
-            </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Share Report</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => handleShare('native')}>
-                <Share2 className="mr-2 h-4 w-4" />
-                <span>General Share</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => handleShare('whatsapp')}>
-                <WhatsAppIcon className="mr-2 h-4 w-4" />
-                <span>WhatsApp</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => handleShare('sms')}>
-                <MessageSquare className="mr-2 h-4 w-4" />
-                <span>SMS / Message</span>
-            </DropdownMenuItem>
-             <DropdownMenuItem onSelect={() => handleShare('email')}>
-                <Mail className="mr-2 h-4 w-4" />
-                <span>Email</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => handleShare('copy')}>
-                <Clipboard className="mr-2 h-4 w-4" />
-                <span>Copy to Clipboard</span>
-            </DropdownMenuItem>
-        </DropdownMenuContent>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant={isMobile ? 'ghost' : 'outline'}
+          className={isMobile ? 'flex flex-col h-auto p-2' : ''}
+        >
+          <Share2 className="h-5 w-5" />
+          {isMobile ? (
+            <span className="text-xs">Share</span>
+          ) : (
+            <span className="hidden lg:inline ml-2">Share</span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Share Report</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => handleShare('native')}>
+          <Share2 className="mr-2 h-4 w-4" />
+          <span>General Share</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => handleShare('whatsapp')}>
+          <WhatsAppIcon className="mr-2 h-4 w-4" />
+          <span>WhatsApp</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => handleShare('sms')}>
+          <MessageSquare className="mr-2 h-4 w-4" />
+          <span>SMS / Message</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => handleShare('email')}>
+          <Mail className="mr-2 h-4 w-4" />
+          <span>Email</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => handleShare('copy')}>
+          <Clipboard className="mr-2 h-4 w-4" />
+          <span>Copy to Clipboard</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
     </DropdownMenu>
-);
+  );
 
   return (
     <div className="flex flex-col h-screen">
@@ -750,7 +806,9 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                   <SelectItem key={time} value={time}>
                     <div className="flex items-center justify-between w-full">
                       <span>{time}</span>
-                      <RoundStatusIndicator status={productionLog[time]?.status} />
+                      <RoundStatusIndicator
+                        status={productionLog[time]?.status}
+                      />
                     </div>
                   </SelectItem>
                 ))}
@@ -816,12 +874,16 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                 <CardContent className="p-4 space-y-4">
                   {/* Machine Name and Operator */}
                   <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
-                    <Label className="font-bold text-base sm:w-1/6">{entry.name}</Label>
+                    <Label className="font-bold text-base sm:w-1/6">
+                      {entry.name}
+                    </Label>
                     <div className="flex-1 sm:w-5/6">
                       {columnVisibility.operator && (
                         <Select
                           value={entry.operatorId || ''}
-                          onValueChange={val => handleOperatorChange(entry.machineId, val)}
+                          onValueChange={val =>
+                            handleOperatorChange(entry.machineId, val)
+                          }
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select Operator" />
@@ -842,21 +904,41 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                   {columnVisibility.sku && (
                     <div className="space-y-3 pl-4 border-l-2">
                       {entry.skus.map((skuEntry, skuIndex) => (
-                        <div key={skuIndex} className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                        <div
+                          key={skuIndex}
+                          className="flex flex-col sm:flex-row sm:items-center sm:gap-4"
+                        >
                           <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1">
-                              <Label htmlFor={`sku-${entry.machineId}-${skuIndex}`}>SKU</Label>
+                              <Label
+                                htmlFor={`sku-${entry.machineId}-${skuIndex}`}
+                              >
+                                SKU
+                              </Label>
                               <Select
                                 value={skuEntry.sku}
-                                onValueChange={val => handleSkuChange(entry.machineId, skuIndex, val)}
+                                onValueChange={val =>
+                                  handleSkuChange(entry.machineId, skuIndex, val)
+                                }
                                 disabled={machineSkus.length === 0}
                               >
-                                <SelectTrigger id={`sku-${entry.machineId}-${skuIndex}`}>
-                                  <SelectValue placeholder={machineSkus.length > 0 ? 'Select SKU' : 'No SKUs'} />
+                                <SelectTrigger
+                                  id={`sku-${entry.machineId}-${skuIndex}`}
+                                >
+                                  <SelectValue
+                                    placeholder={
+                                      machineSkus.length > 0
+                                        ? 'Select SKU'
+                                        : 'No SKUs'
+                                    }
+                                  />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {machineSkus.map(skuPlan => (
-                                    <SelectItem key={`${skuPlan.sku}-${skuPlan.sapCode}`} value={skuPlan.sku}>
+                                    <SelectItem
+                                      key={`${skuPlan.sku}-${skuPlan.sapCode}`}
+                                      value={skuPlan.sku}
+                                    >
                                       {skuPlan.sku}
                                     </SelectItem>
                                   ))}
@@ -865,29 +947,49 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                             </div>
 
                             <div className="space-y-1">
-                              <Label htmlFor={`quantity-${entry.machineId}-${skuIndex}`}>Quantity</Label>
+                              <Label
+                                htmlFor={`quantity-${entry.machineId}-${skuIndex}`}
+                              >
+                                Quantity
+                              </Label>
                               <Input
                                 id={`quantity-${entry.machineId}-${skuIndex}`}
                                 type="number"
                                 placeholder="0"
-                                value={skuEntry.quantity === 0 ? '' : skuEntry.quantity}
-                                onChange={e => handleQuantityChange(entry.machineId, skuIndex, parseInt(e.target.value))}
+                                value={
+                                  skuEntry.quantity === 0
+                                    ? ''
+                                    : skuEntry.quantity
+                                }
+                                onChange={e =>
+                                  handleQuantityChange(
+                                    entry.machineId,
+                                    skuIndex,
+                                    parseInt(e.target.value)
+                                  )
+                                }
                               />
                             </div>
                           </div>
                           <div className="flex-shrink-0 mt-2 sm:mt-0">
-                             <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => handleRemoveSku(entry.machineId, skuIndex)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() =>
+                                handleRemoveSku(entry.machineId, skuIndex)
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                       ))}
-                      <Button variant="outline" size="sm" onClick={() => handleAddSku(entry.machineId)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAddSku(entry.machineId)}
+                      >
                         <PlusCircle className="mr-2 h-4 w-4" /> Add SKU
                       </Button>
                     </div>
@@ -940,7 +1042,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         </Button>
 
         <ShareMenu isMobile={true} />
-
       </div>
     </div>
   );

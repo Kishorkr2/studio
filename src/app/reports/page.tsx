@@ -11,7 +11,6 @@ import {
   Clock,
   Wrench,
   Check,
-  User as UserIcon,
 } from 'lucide-react';
 import {addDays, format, parseISO} from 'date-fns';
 import type {DateRange} from 'react-day-picker';
@@ -129,7 +128,9 @@ export default function ReportsPage() {
         setAllUsers(users);
         setAllReportData(logs as ReportDataRow[]);
         setBreakdownData(
-          (logs as ReportDataRow[]).filter(item => item.remark && item.remark.trim() !== '')
+          (logs as ReportDataRow[]).filter(
+            item => item.remark && item.remark.trim() !== ''
+          )
         );
       } catch (error) {
         console.error('Failed to load report data', error);
@@ -167,12 +168,12 @@ export default function ReportsPage() {
       data = data.filter(item => item.machineId === selectedMachine);
     }
     if (selectedUser !== 'all') {
-        data = data.filter(item => String(item.userId) === selectedUser);
+      data = data.filter(item => String(item.userId) === selectedUser);
     }
 
     // Filter out items with zero or no quantity
     data = data.filter(item => item.quantity > 0);
-    
+
     setFilteredReportData(data);
     toast({
       title: 'Filters Applied',
@@ -269,7 +270,9 @@ export default function ReportsPage() {
         <TabsContent value="production">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Production Report Filters</CardTitle>
+              <CardTitle className="text-lg">
+                Production Report Filters
+              </CardTitle>
               <CardDescription>
                 Filter the production data to generate your detailed report.
               </CardDescription>
@@ -338,20 +341,22 @@ export default function ReportsPage() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                    <Label>Entered By</Label>
-                    <Select value={selectedUser} onValueChange={setSelectedUser}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="All Users" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Users</SelectItem>
-                            {allUsers.filter(u => u.isApproved).map(user => (
-                                <SelectItem key={user.id} value={String(user.id)}>
-                                    {user.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                  <Label>Entered By</Label>
+                  <Select value={selectedUser} onValueChange={setSelectedUser}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Users" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Users</SelectItem>
+                      {allUsers
+                        .filter(u => u.isApproved)
+                        .map(user => (
+                          <SelectItem key={user.id} value={String(user.id)}>
+                            {user.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="flex justify-end mt-4">
@@ -389,7 +394,7 @@ export default function ReportsPage() {
                     {filteredReportData.length > 0 ? (
                       filteredReportData.map((row, index) => (
                         <TableRow
-                          key={`${row.date}-${row.shift}-${row.machineId}-${row.round}-${index}`}
+                          key={`${row.date}-${row.shift}-${row.machineId}-${row.round}-${row.sapCode}-${index}`}
                         >
                           <TableCell>
                             {format(parseISO(row.date), 'yyyy-MM-dd')}
@@ -552,7 +557,7 @@ export default function ReportsPage() {
                     {breakdownData.length > 0 ? (
                       breakdownData.map((row, index) => (
                         <TableRow
-                          key={`${row.date}-${row.machineName}-${index}`}
+                          key={`${row.date}-${row.machineName}-${row.round}-${index}`}
                         >
                           <TableCell>
                             {format(parseISO(row.date), 'yyyy-MM-dd')}

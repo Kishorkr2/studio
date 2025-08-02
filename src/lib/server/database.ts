@@ -9,7 +9,6 @@ import {
 } from '../data';
 import bcrypt from 'bcryptjs';
 
-
 // This is a top-level await, which is supported in modern TypeScript and Node.js.
 // It ensures that the database is connected before any other module that imports this file can use it.
 export const db = await open({
@@ -18,13 +17,10 @@ export const db = await open({
 });
 
 async function setup() {
-    // Drop the problematic table to ensure it's recreated with the correct schema.
-    await db.exec('DROP TABLE IF EXISTS productionLogEntries;').catch(() => {
-        // Ignore errors if the table doesn't exist
-    });
-    
-    // Drop old problematic tables if they exist
-    await db.exec('DROP TABLE IF EXISTS productionLogs;').catch(() => {});
+  // Drop the problematic table to ensure it's recreated with the correct schema.
+  await db.exec('DROP TABLE IF EXISTS productionLogEntries;').catch(() => {
+    // Ignore errors if the table doesn't exist
+  });
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -74,6 +70,7 @@ async function setup() {
       operatorId TEXT,
       userId INTEGER,
       userName TEXT,
+      remark TEXT,
       UNIQUE(date, shiftName, round, machineId, sapCode)
     );
     CREATE TABLE IF NOT EXISTS dailyTreadProduction (
@@ -87,16 +84,7 @@ async function setup() {
       production INTEGER
     );
   `);
-
-  // Add userId and userName columns to productionLogEntries if they don't exist
-  try {
-    await db.exec('ALTER TABLE productionLogEntries ADD COLUMN userId INTEGER');
-    await db.exec('ALTER TABLE productionLogEntries ADD COLUMN userName TEXT');
-  } catch (e) {
-    // Ignore error if columns already exist
-  }
-
-
+  
   // Seed Admin user
   const adminUser = await db.get('SELECT * FROM users WHERE email = ?', 'ralson@ralson.com');
   if (!adminUser) {
