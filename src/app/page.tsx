@@ -1,42 +1,46 @@
 
 'use client';
 
-import {useState, useEffect, useMemo, useCallback, useRef} from 'react';
-import {Button} from '@/components/ui/button';
-import {Input} from '@/components/ui/input';
-import {useToast} from '@/hooks/use-toast';
+import * as React from 'react';
+import Link from 'next/link';
 import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type AppLayoutProps,
+} from 'react';
+import {usePathname, useRouter} from 'next/navigation';
+import {format} from 'date-fns';
+import {
+  BotMessageSquare,
   CalendarIcon,
   CheckCircle,
+  Clipboard,
+  ClipboardList,
   Clock,
+  Cog,
   Eraser,
   Filter,
+  LayoutDashboard,
+  LineChart,
+  ListPlus,
+  LogOut,
+  Mail,
+  MessageSquare,
+  PlusCircle,
   Save,
   Share2,
   Sigma,
-  MessageSquare,
-  Mail,
-  Clipboard,
-  PlusCircle,
   Trash2,
+  Truck,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
-} from '@/components/ui/dropdown-menu';
+
+import * as actions from './actions';
+import {useAuth} from '@/components/auth-provider';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,22 +52,29 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
+import {Button} from '@/components/ui/button';
 import {Calendar} from '@/components/ui/calendar';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
-import {format} from 'date-fns';
-import type {
-  Machine,
-  MachineProductionData,
-  ShiftInfo,
-  Operator,
-  ProductionLog,
-  ProductionPlanItem,
-} from '@/lib/types';
-import {cn} from '@/lib/utils';
-import {Skeleton} from '@/components/ui/skeleton';
-import * as actions from './actions';
-import type {AppLayoutProps} from '@/components/app-layout';
+import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Sheet,
   SheetContent,
@@ -71,7 +82,20 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import {useAuth} from '@/components/auth-provider';
+import {Skeleton} from '@/components/ui/skeleton';
+import {ThemeToggle} from '@/components/theme-toggle';
+import {Toaster} from '@/components/ui/toaster';
+import {useToast} from '@/hooks/use-toast';
+import {cn} from '@/lib/utils';
+import type {
+  Machine,
+  MachineProductionData,
+  Operator,
+  ProductionLog,
+  ProductionPlanItem,
+  ShiftInfo,
+} from '@/lib/types';
+import {useOnlineStatus} from '@/hooks/use-online-status';
 
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === 'undefined') return defaultValue;
@@ -140,7 +164,6 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const {toast} = useToast();
   const {user} = useAuth();
-
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
@@ -181,10 +204,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       setAllMachines(machinesData);
       setAllOperators(operatorsData);
       setAllProductionPlan(planData);
-
       const currentShift = getCurrentShift(shiftsData);
       setSelectedShift(currentShift);
-
       if (currentShift) {
         const newRoundTimes = generateRoundTimes(currentShift);
         setRoundTimes(newRoundTimes);
@@ -213,22 +234,16 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const generateRoundTimes = useCallback(
     (shift: ShiftInfo | undefined): string[] => {
       if (!shift) return [];
-
       const times: string[] = [];
-      let startHour: number;
-
-      try {
-        [startHour] = shift.startTime.split(':').map(Number);
-      } catch {
-        return [];
-      }
-
-      const isNightShift = startHour >= 21 || startHour < 7;
+      const isNightShift = shift.name.toLowerCase().includes('night');
 
       if (isNightShift) {
+        // 9 PM to 11 PM
         for (let h = 21; h <= 23; h++) times.push(`${h}:00`);
+        // 12 AM to 7 AM
         for (let h = 0; h < 8; h++) times.push(`0${h}:00`);
       } else {
+        // Day shift: 9 AM to 7 PM
         for (let h = 9; h <= 19; h++) times.push(`${h}:00`);
       }
 
@@ -237,7 +252,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         const ampm = h >= 12 ? 'PM' : 'AM';
         let displayHour = h % 12;
         if (displayHour === 0) displayHour = 12;
-        return `${displayHour}:00 ${ampm}`;
+        return `${String(displayHour).padStart(2, '0')}:00 ${ampm}`;
       });
     },
     []
@@ -253,7 +268,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           const skus = loggedEntry ? loggedEntry.skus : [];
           const operatorId =
             loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id];
-
           return {
             machineId: machine.id,
             name: machine.name,
@@ -267,8 +281,9 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   );
 
   useEffect(() => {
-    if (loading || !selectedShift) return;
+    if (loading) return;
     const fetchLog = async () => {
+      if (!selectedShift) return;
       const log = await actions.getProductionLogForShift(
         selectedDate,
         selectedShift
@@ -390,7 +405,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   ) => {
     const planItem = allProductionPlan.find(p => p.machineId === machineId);
     const newSkuPlan = planItem?.skus.find(s => s.sku === newSku);
-
     setEntries(prev =>
       prev.map(entry => {
         if (entry.machineId === machineId) {
@@ -464,7 +478,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       });
       return;
     }
-
     if (!user) {
       toast({
         variant: 'destructive',
@@ -473,26 +486,22 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       });
       return;
     }
-
     const entriesToSave = entries.map(entry => ({
       ...entry,
       userId: user.id,
       userName: user.name,
     }));
-
     await actions.saveProductionRound(
       selectedDate,
       selectedShift,
       selectedRound,
       entriesToSave
     );
-
     const log = await actions.getProductionLogForShift(
       selectedDate,
       selectedShift
     );
     setProductionLog(log);
-
     toast({
       title: 'Round Data Saved',
       description: `Data for round ${selectedRound} has been saved.`,
@@ -540,20 +549,16 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   const generateShareText = useCallback(() => {
     if (!selectedShift || !selectedRound) return '';
-
     const operatorMap = new Map(allOperators.map(op => [op.cardNo, op.name]));
-
     let text = `*Hourly Production Report*\n\n`;
     text += `*Date:* ${format(selectedDate, 'PPP')}\n`;
     text += `*Shift:* ${selectedShift.name}\n`;
     text += `*Time:* ${selectedRound}\n\n`;
     text += `*Round Production:* ${roundTotal}\n`;
     text += `*Shift Cumulative:* ${cumulativeTotal}\n\n`;
-
     const producedEntries = entries.filter(entry =>
       entry.skus.some(sku => sku.quantity > 0)
     );
-
     if (producedEntries.length > 0) {
       text += `*TBM wise production:*\n`;
       producedEntries.forEach(entry => {
@@ -562,7 +567,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           .filter(s => s.quantity > 0)
           .map(s => `${s.sku}: ${s.quantity}`)
           .join(', ');
-
         if (skuTexts) {
           text += `- *${entry.name}* (${operatorName}): ${skuTexts}\n`;
         }
@@ -592,9 +596,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         });
         return;
       }
-
       const encodedText = encodeURIComponent(shareText);
-
       if (type === 'native' && navigator.share) {
         try {
           await navigator.share({
@@ -614,7 +616,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           '_blank'
         );
       } else {
-        // Fallback to copy
         try {
           await navigator.clipboard.writeText(shareText);
           toast({
@@ -695,7 +696,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           </PopoverContent>
         </Popover>
       </div>
-
       <div className="space-y-2">
         <Label>Shift</Label>
         <Select
@@ -829,9 +829,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           </div>
         </div>
       </header>
-
       <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
-        {/* Left Slicer Panel (Desktop only) */}
         <div className="hidden lg:block w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto border-r">
           <Card>
             <CardHeader>
@@ -841,7 +839,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
               <ControlsContent />
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Summary</CardTitle>
@@ -851,8 +848,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
             </CardContent>
           </Card>
         </div>
-
-        {/* Right Content Panel */}
         <div className="w-full lg:w-3/4 p-4 space-y-4 overflow-y-auto pb-20 lg:pb-4">
           {entries.length === 0 && !loading && (
             <Card>
@@ -872,7 +867,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
             return (
               <Card key={entry.machineId}>
                 <CardContent className="p-4 space-y-4">
-                  {/* Machine Name and Operator */}
                   <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
                     <Label className="font-bold text-base sm:w-1/6">
                       {entry.name}
@@ -899,8 +893,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                       )}
                     </div>
                   </div>
-
-                  {/* SKU Entry Rows */}
                   {columnVisibility.sku && (
                     <div className="space-y-3 pl-4 border-l-2">
                       {entry.skus.map((skuEntry, skuIndex) => (
@@ -945,7 +937,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                                 </SelectContent>
                               </Select>
                             </div>
-
                             <div className="space-y-1">
                               <Label
                                 htmlFor={`quantity-${entry.machineId}-${skuIndex}`}
@@ -965,7 +956,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                                   handleQuantityChange(
                                     entry.machineId,
                                     skuIndex,
-                                    parseInt(e.target.value)
+                                    parseInt(e.target.value) || 0
                                   )
                                 }
                               />
@@ -1000,8 +991,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           })}
         </div>
       </div>
-
-      {/* Mobile Bottom Bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t flex items-center justify-around z-50">
         <Sheet>
           <SheetTrigger asChild>
@@ -1017,7 +1006,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
             <ControlsContent />
           </SheetContent>
         </Sheet>
-
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" className="flex flex-col h-auto p-2">
@@ -1032,7 +1020,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
             <SummaryContent />
           </SheetContent>
         </Sheet>
-
         <Button
           onClick={handleSaveRound}
           className="flex flex-col h-auto p-2 bg-green-600 hover:bg-green-700 text-white"
@@ -1040,7 +1027,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           <Save className="h-5 w-5" />
           <span className="text-xs">Save</span>
         </Button>
-
         <ShareMenu isMobile={true} />
       </div>
     </div>
