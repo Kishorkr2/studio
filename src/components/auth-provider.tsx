@@ -9,9 +9,9 @@ import {
   type ReactNode,
 } from 'react';
 import {usePathname, useRouter} from 'next/navigation';
-import {Skeleton} from './ui/skeleton';
 import * as dbActions from '@/lib/server/db-actions';
 import type {User} from '@/lib/types';
+import { Loader } from './ui/loader';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -111,11 +111,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="space-y-4 w-full max-w-sm">
-          <Skeleton className="h-48 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
+        <Loader />
       </div>
     );
   }

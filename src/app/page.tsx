@@ -2,7 +2,6 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import {
   useCallback,
   useEffect,
@@ -11,10 +10,8 @@ import {
   useState,
   type AppLayoutProps,
 } from 'react';
-import {usePathname, useRouter} from 'next/navigation';
 import {format} from 'date-fns';
 import {
-  BotMessageSquare,
   CalendarIcon,
   CheckCircle,
   Clipboard,
@@ -37,6 +34,7 @@ import {
   Truck,
   Wifi,
   WifiOff,
+  BotMessageSquare,
 } from 'lucide-react';
 
 import * as actions from './actions';
@@ -52,7 +50,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
 import {Button} from '@/components/ui/button';
 import {Calendar} from '@/components/ui/calendar';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
@@ -82,9 +79,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import {Skeleton} from '@/components/ui/skeleton';
-import {ThemeToggle} from '@/components/theme-toggle';
-import {Toaster} from '@/components/ui/toaster';
 import {useToast} from '@/hooks/use-toast';
 import {cn} from '@/lib/utils';
 import type {
@@ -95,7 +89,7 @@ import type {
   ProductionPlanItem,
   ShiftInfo,
 } from '@/lib/types';
-import {useOnlineStatus} from '@/hooks/use-online-status';
+import { Loader } from '@/components/ui/loader';
 
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === 'undefined') return defaultValue;
@@ -190,6 +184,57 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     setLocalStorageItem('columnVisibility', columnVisibility);
   }, [columnVisibility]);
 
+  const generateRoundTimes = useCallback((shift: ShiftInfo): string[] => {
+    if (!shift) return [];
+    const times: string[] = [];
+    const shiftName = shift.name.toLowerCase();
+
+    if (shiftName.includes('night')) {
+      // 9 PM to 11 PM
+      for (let h = 21; h <= 23; h++) {
+        times.push(`${String(h).padStart(2, '0')}:00`);
+      }
+      // 12 AM to 7 AM
+      for (let h = 0; h <= 7; h++) {
+        times.push(`${String(h).padStart(2, '0')}:00`);
+      }
+    } else {
+      // Day shift: 9 AM to 7 PM (19:00)
+      for (let h = 9; h <= 19; h++) {
+        times.push(`${String(h).padStart(2, '0')}:00`);
+      }
+    }
+    return times.map(t => {
+      const [h] = t.split(':').map(Number);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      let displayHour = h % 12;
+      if (displayHour === 0) displayHour = 12;
+      return `${String(displayHour).padStart(2, '0')}:00 ${ampm}`;
+    });
+  }, []);
+
+  const loadEntriesForRound = useCallback(
+    (round: string, log: ProductionLog) => {
+      const logForRound = log[round]?.entries || [];
+      const newEntries = allMachines
+        .filter(machine => machine.isAvailable)
+        .map(machine => {
+          const loggedEntry = logForRound.find(e => e.machineId === machine.id);
+          const skus = loggedEntry ? loggedEntry.skus : [];
+          const operatorId =
+            loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id];
+          return {
+            machineId: machine.id,
+            name: machine.name,
+            operatorId: operatorId || '',
+            skus: skus.length > 0 ? skus : [],
+          };
+        });
+      setEntries(newEntries);
+    },
+    [allMachines]
+  );
+
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
@@ -221,7 +266,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, generateRoundTimes]);
 
   useEffect(() => {
     loadInitialData();
@@ -231,74 +276,24 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     setAvailableOperators(allOperators.filter(op => !op.isAbsent));
   }, [allOperators]);
 
-  const generateRoundTimes = useCallback(
-    (shift: ShiftInfo | undefined): string[] => {
-      if (!shift) return [];
-      const times: string[] = [];
-      const isNightShift = shift.name.toLowerCase().includes('night');
-
-      if (isNightShift) {
-        // 9 PM to 11 PM
-        for (let h = 21; h <= 23; h++) times.push(`${h}:00`);
-        // 12 AM to 7 AM
-        for (let h = 0; h < 8; h++) times.push(`0${h}:00`);
-      } else {
-        // Day shift: 9 AM to 7 PM
-        for (let h = 9; h <= 19; h++) times.push(`${h}:00`);
-      }
-
-      return times.map(t => {
-        const [h] = t.split(':').map(Number);
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        let displayHour = h % 12;
-        if (displayHour === 0) displayHour = 12;
-        return `${String(displayHour).padStart(2, '0')}:00 ${ampm}`;
-      });
-    },
-    []
-  );
-
-  const loadEntriesForRound = useCallback(
-    (round: string, log: ProductionLog) => {
-      const logForRound = log[round]?.entries || [];
-      const newEntries = allMachines
-        .filter(machine => machine.isAvailable)
-        .map(machine => {
-          const loggedEntry = logForRound.find(e => e.machineId === machine.id);
-          const skus = loggedEntry ? loggedEntry.skus : [];
-          const operatorId =
-            loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id];
-          return {
-            machineId: machine.id,
-            name: machine.name,
-            operatorId: operatorId || '',
-            skus: skus.length > 0 ? skus : [],
-          };
-        });
-      setEntries(newEntries);
-    },
-    [allMachines]
-  );
-
+  // Fetch log data when date or shift changes
   useEffect(() => {
-    if (loading) return;
+    if (loading || !selectedShift) return;
     const fetchLog = async () => {
-      if (!selectedShift) return;
-      const log = await actions.getProductionLogForShift(
-        selectedDate,
-        selectedShift
-      );
+      const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
       setProductionLog(log);
     };
     fetchLog();
   }, [selectedDate, selectedShift, loading]);
 
+  // Load entries for the selected round when the log data changes
   useEffect(() => {
     if (loading) return;
     machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
     loadEntriesForRound(selectedRound, productionLog);
-  }, [productionLog, selectedRound, loadEntriesForRound, loading]);
-
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productionLog, selectedRound, loading]);
+  
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
     await actions.clearShiftData(selectedDate, selectedShift);
@@ -638,22 +633,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   if (loading) {
     return (
-      <div className="space-y-4 p-4">
-        <header>
-          <h1 className="text-2xl font-bold tracking-tight">GT Prod Entry</h1>
-        </header>
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-            <Skeleton className="h-20 w-full" />
-          </CardContent>
-        </Card>
-        <Skeleton className="h-64 w-full" />
+      <div className="flex h-full flex-1 items-center justify-center">
+        <Loader />
       </div>
     );
   }

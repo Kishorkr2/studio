@@ -18,6 +18,7 @@ import {useToast} from '@/hooks/use-toast';
 import {Truck, LogIn} from 'lucide-react';
 import {useAuth} from '@/components/auth-provider';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
+import { Loader } from '@/components/ui/loader';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -97,7 +98,7 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter className="flex-col gap-4">
             <Button className="w-full" onClick={handleLogin} disabled={loading}>
-              {loading ? <LogIn className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
+              {loading ? <Loader className="mr-2 h-4 w-4" /> : <LogIn className="mr-2 h-4 w-4" />}
               Login
             </Button>
             <p className="text-sm text-muted-foreground">

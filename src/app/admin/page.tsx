@@ -45,7 +45,6 @@ import {
   ShieldAlert,
   Save,
   DatabaseZap,
-  Loader2,
   CheckCircle,
 } from 'lucide-react';
 import {useToast} from '@/hooks/use-toast';
@@ -65,6 +64,7 @@ import {Switch} from '@/components/ui/switch';
 import {Skeleton} from '@/components/ui/skeleton';
 import {Slider} from '@/components/ui/slider';
 import * as actions from '../actions';
+import { Loader } from '@/components/ui/loader';
 
 interface EditableSkuPlan extends SkuPlan {
   originalMachineId: string;
@@ -547,12 +547,8 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight">Admin Panel</h1>
-        <div className="space-y-4">
-          <Skeleton className="h-10 w-full md:w-1/2" />
-          <Skeleton className="h-96 w-full" />
-        </div>
+      <div className="flex h-full flex-1 items-center justify-center">
+        <Loader />
       </div>
     );
   }
@@ -600,7 +596,7 @@ export default function AdminPage() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {isRenaming === op.cardNo ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader className="h-4 w-4" />
                             ) : null}
                             <Input
                               defaultValue={op.cardNo}

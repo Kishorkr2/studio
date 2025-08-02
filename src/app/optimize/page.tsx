@@ -24,7 +24,6 @@ import {
 import {Switch} from '@/components/ui/switch';
 import {Slider} from '@/components/ui/slider';
 import {
-  Loader2,
   PlusCircle,
   Sparkles,
   Trash,
@@ -44,6 +43,7 @@ import {
 } from '@/components/ui/select';
 import {Skeleton} from '@/components/ui/skeleton';
 import * as actions from '../actions';
+import { Loader } from '@/components/ui/loader';
 
 export default function OptimizePage() {
   const [loading, setLoading] = useState(true);
@@ -175,14 +175,8 @@ export default function OptimizePage() {
 
   if (loading) {
     return (
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1 space-y-6">
-          <Skeleton className="h-48 w-full" />
-          <Skeleton className="h-72 w-full" />
-        </div>
-        <div className="lg:col-span-2">
-          <Skeleton className="min-h-full h-96 w-full" />
-        </div>
+      <div className="flex h-full flex-1 items-center justify-center">
+        <Loader />
       </div>
     );
   }
@@ -332,7 +326,7 @@ export default function OptimizePage() {
             )}
             {isLoading && (
               <div className="text-center text-muted-foreground">
-                <Loader2 className="mx-auto h-12 w-12 animate-spin" />
+                <Loader className="mx-auto h-12 w-12" />
                 <p className="mt-4">Optimizing... Please wait.</p>
               </div>
             )}
@@ -394,7 +388,7 @@ export default function OptimizePage() {
               className="w-full"
             >
               {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader className="mr-2 h-4 w-4" />
               ) : (
                 <Sparkles className="mr-2 h-4 w-4" />
               )}
