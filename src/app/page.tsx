@@ -151,12 +151,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
 
-  const [machineOperatorMap, setMachineOperatorMap] = useState<
-    Record<string, string>
-  >({});
-  const [machineSkuMap, setMachineSkuMap] = useState<Record<string, string>>(
-    {}
-  );
+  const machineOperatorMapRef = useRef<Record<string, string>>({});
+  const machineSkuMapRef = useRef<Record<string, string>>({});
 
   const [columnVisibility, setColumnVisibility] = useState(() =>
     getLocalStorageItem('columnVisibility', {
@@ -275,8 +271,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     if (!selectedShift) return;
     await actions.clearShiftData(selectedDate, selectedShift);
     setProductionLog({});
-    setMachineOperatorMap({});
-    setMachineSkuMap({});
+    machineOperatorMapRef.current = {};
+    machineSkuMapRef.current = {};
     setLocalStorageItem('machineOperatorMap', {});
     setLocalStorageItem('machineSkuMap', {});
     toast({
@@ -370,16 +366,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       setProductionLog(log);
 
       if (isInitializing.current) {
-        const newOperatorMap: Record<string, string> = getLocalStorageItem(
-          'machineOperatorMap',
-          {}
-        );
-        const newSkuMap: Record<string, string> = getLocalStorageItem(
-          'machineSkuMap',
-          {}
-        );
-        setMachineOperatorMap(newOperatorMap);
-        setMachineSkuMap(newSkuMap);
+        machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
+        machineSkuMapRef.current = getLocalStorageItem('machineSkuMap', {});
         isInitializing.current = false;
       }
       dataLoadedFor.current = key;
@@ -389,16 +377,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   }, [selectedDate, selectedShift, loading]);
 
   useEffect(() => {
-    const key = `${format(selectedDate, 'yyyy-MM-dd')}-${
-      selectedShift?.name
-    }-${selectedRound}`;
-    if (
-      isInitializing.current &&
-      dataLoadedFor.current !== key.substring(0, key.lastIndexOf('-'))
-    ) {
-      return;
-    }
-
+    if (isInitializing.current || !selectedShift) return;
+    
     const planMap = new Map(allProductionPlan.map(p => [p.machineId, p]));
     const logForRound = productionLog[selectedRound]?.entries || [];
     const logMap = new Map(logForRound.map(e => [e.machineId, e]));
@@ -406,53 +386,33 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     const newEntries = allMachines
       .filter(machine => machine.isAvailable)
       .map(machine => {
-        const planItem = planMap.get(machine.id);
         const loggedEntry = logMap.get(machine.id);
-        
-        const operatorId = loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
-        
-        // Priority for SKU:
-        // 1. From saved log for this round
-        // 2. From current session selection (machineSkuMap)
-        // 3. Default from production plan
-        const selectedSkuInSession = machineSkuMap[machine.id];
-        let sku = loggedEntry?.sku || '';
-        if (!sku && selectedSkuInSession) {
-           sku = selectedSkuInSession;
-        }
-        if (!sku && planItem?.skus && planItem.skus.length > 0) {
-            sku = planItem.skus[0].sku;
+        if (loggedEntry) {
+          return loggedEntry; // Prioritize saved log data
         }
 
-        const foundSkuPlan = planItem?.skus.find(s => s.sku === sku);
+        const planItem = planMap.get(machine.id);
+        const sessionOperatorId = machineOperatorMapRef.current[machine.id];
+        const sessionSku = machineSkuMapRef.current[machine.id];
+
+        const defaultSku = planItem?.skus?.[0]?.sku || '';
+        const selectedSku = sessionSku || defaultSku;
+        const foundSkuPlan = planItem?.skus.find(s => s.sku === selectedSku);
         const sapCode = foundSkuPlan?.sapCode || '';
         
         return {
           machineId: machine.id,
           name: machine.name,
           status: 'Online' as const,
-          sku: sku,
+          sku: selectedSku,
           sapCode: sapCode,
-          quantity: loggedEntry?.quantity || 0,
-          operatorId,
-          userId: loggedEntry?.userId,
-          userName: loggedEntry?.userName,
+          quantity: 0,
+          operatorId: sessionOperatorId || '',
         };
-      })
-      .filter((entry): entry is MachineProductionData => entry !== null);
+      });
 
     setEntries(newEntries);
-  }, [
-    selectedRound,
-    productionLog,
-    allMachines,
-    allProductionPlan,
-    machineOperatorMap,
-    machineSkuMap,
-    selectedDate,
-    selectedShift,
-  ]);
-
+  }, [selectedRound, productionLog, allMachines, allProductionPlan, selectedShift]);
 
   const handleSelectedRoundChange = (round: string) => {
     setSelectedRound(round);
@@ -469,30 +429,25 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         prevEntries.map(entry => {
           if (entry.machineId === machineId) {
             const newEntry = {...entry, [field]: value};
+            
             if (field === 'sku') {
-              const planItem = allProductionPlan.find(
-                p => p.machineId === machineId
-              );
+              const planItem = allProductionPlan.find(p => p.machineId === machineId);
               const newSkuPlan = planItem?.skus.find(s => s.sku === value);
               newEntry.sapCode = newSkuPlan?.sapCode || '';
+              machineSkuMapRef.current[machineId] = String(value);
+              setLocalStorageItem('machineSkuMap', machineSkuMapRef.current);
+            }
+            if (field === 'operatorId') {
+              machineOperatorMapRef.current[machineId] = String(value);
+              setLocalStorageItem('machineOperatorMap', machineOperatorMapRef.current);
             }
             return newEntry;
           }
           return entry;
         })
       );
-      if (field === 'operatorId') {
-        const newMap = {...machineOperatorMap, [machineId]: String(value)};
-        setMachineOperatorMap(newMap);
-        setLocalStorageItem('machineOperatorMap', newMap);
-      }
-      if (field === 'sku') {
-        const newMap = {...machineSkuMap, [machineId]: String(value)};
-        setMachineSkuMap(newMap);
-        setLocalStorageItem('machineSkuMap', newMap);
-      }
     },
-    [allProductionPlan, machineOperatorMap, machineSkuMap]
+    [allProductionPlan]
   );
 
   const handleSaveRound = useCallback(async () => {
