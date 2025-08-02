@@ -529,7 +529,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       ) {
         setSelectedDate(date);
         dataLoadedFor.current = '';
-        setProductionLog({});
       }
     },
     [selectedDate]
@@ -984,5 +983,3 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
-
-    
