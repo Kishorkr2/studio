@@ -352,16 +352,22 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     setPageActions,
   ]);
 
-  useEffect(() => {
+useEffect(() => {
     if (loading || !selectedShift) return;
 
     const key = `${format(selectedDate, 'yyyy-MM-dd')}-${selectedShift.name}`;
     if (dataLoadedFor.current === key) return;
 
     const fetchLogAndInitialize = async () => {
+      // If only the shift changes, clear the log. If the date changes,
+      // we wait for new data before replacing to avoid flicker.
+      if (isInitializing.current || key.split('-')[3] !== dataLoadedFor.current.split('-')[3]) {
+        setProductionLog({});
+      }
+        
       const log = await actions.getProductionLogForShift(
         selectedDate,
-        selectedShift!
+        selectedShift
       );
       setProductionLog(log);
 
@@ -373,7 +379,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     };
 
     fetchLogAndInitialize();
-  }, [selectedDate, selectedShift, loading]);
+}, [selectedDate, selectedShift, loading]);
 
   useEffect(() => {
     if (isInitializing.current || !selectedShift) return;
@@ -514,8 +520,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       const newShift = allShifts.find(s => s.name === name);
       if (newShift?.name !== selectedShift?.name) {
         setSelectedShift(newShift);
-        dataLoadedFor.current = '';
-        setProductionLog({});
+        dataLoadedFor.current = ''; 
       }
     },
     [allShifts, selectedShift]
