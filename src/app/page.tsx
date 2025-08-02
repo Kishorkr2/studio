@@ -218,22 +218,30 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         return [];
       }
       
-      // Determine if it's a typical day or night shift based on start time
-      const isNightShift = startHour > endHour;
+      const isNightShift = startHour >= 21;
 
-      let currentHour = startHour;
-      let loopDetector = 24; 
-
-      while (loopDetector > 0) {
-        const ampm = currentHour >= 12 ? 'PM' : 'AM';
-        let displayHour = currentHour % 12;
-        if (displayHour === 0) displayHour = 12;
-        times.push(`${displayHour}:00 ${ampm}`);
-        
-        if (currentHour === endHour) break;
-
-        currentHour = (currentHour + 1) % 24;
-        loopDetector--;
+      if(isNightShift) {
+        // Night Shift: 9 PM to 7 AM
+        for (let h = 21; h <= 23; h++) {
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            let displayHour = h % 12;
+            if (displayHour === 0) displayHour = 12;
+            times.push(`${displayHour}:00 ${ampm}`);
+        }
+        for (let h = 0; h <= 7; h++) {
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            let displayHour = h % 12;
+            if (displayHour === 0) displayHour = 12;
+            times.push(`${displayHour}:00 ${ampm}`);
+        }
+      } else {
+        // Day Shift: 9 AM to 7 PM (19:00)
+        for (let h = 9; h <= 19; h++) {
+             const ampm = h >= 12 ? 'PM' : 'AM';
+            let displayHour = h % 12;
+            if (displayHour === 0) displayHour = 12;
+            times.push(`${displayHour}:00 ${ampm}`);
+        }
       }
 
       return times;
@@ -481,37 +489,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         return;
     }
 
-    const previouslySavedForRound = productionLog[selectedRound]?.entries || [];
-    const currentlyVisibleSkus = new Set(
-        entries.flatMap(e => e.skus.map(s => `${e.machineId}|${s.sapCode}`))
-    );
-
-    const entriesToSave = [...entries];
-
-    // Find previously saved SKUs that are no longer visible and mark them for deletion
-    for (const savedEntry of previouslySavedForRound) {
-        const key = `${savedEntry.machineId}|${savedEntry.sapCode}`;
-        if (!currentlyVisibleSkus.has(key)) {
-            let machineEntry = entriesToSave.find(e => e.machineId === savedEntry.machineId);
-            if (!machineEntry) {
-                machineEntry = {
-                    machineId: savedEntry.machineId,
-                    name: savedEntry.name,
-                    operatorId: savedEntry.operatorId,
-                    skus: [],
-                };
-                entriesToSave.push(machineEntry);
-            }
-            // Add with quantity 0 to signal deletion
-            machineEntry.skus.push({
-                sku: savedEntry.sku,
-                sapCode: savedEntry.sapCode,
-                quantity: 0,
-            });
-        }
-    }
-    
-    const entriesWithUser = entriesToSave.map(entry => ({
+    const entriesToSave = entries.map(entry => ({
       ...entry,
       userId: user.id,
       userName: user.name,
@@ -521,10 +499,9 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       selectedDate,
       selectedShift,
       selectedRound,
-      entriesWithUser
+      entriesToSave
     );
 
-    // Refetch data to update the UI correctly
     const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
     setProductionLog(log);
 
@@ -533,7 +510,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       description: `Data for round ${selectedRound} has been saved.`,
       action: <Save className="text-green-500" />,
     });
-}, [selectedDate, selectedShift, selectedRound, entries, productionLog, toast, user]);
+}, [selectedDate, selectedShift, selectedRound, entries, toast, user]);
 
 
   const handleShiftChange = useCallback(

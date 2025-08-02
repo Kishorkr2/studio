@@ -250,40 +250,40 @@ export async function saveProductionRound(
 
   await db.exec('BEGIN TRANSACTION');
   try {
+    // Get all machine IDs from the current entries payload
+    const machineIdsInPayload = entries.map(entry => entry.machineId);
+
+    // First, delete all existing records for the specified machines in this round
+    if (machineIdsInPayload.length > 0) {
+        const placeholders = machineIdsInPayload.map(() => '?').join(',');
+        await db.run(
+            `DELETE FROM productionLogEntries WHERE date = ? AND shiftName = ? AND round = ? AND machineId IN (${placeholders})`,
+            [dateKey, shiftName, round, ...machineIdsInPayload]
+        );
+    }
+    
+    // Now, insert the new records for skus with quantity > 0
     for (const entry of entries) {
       for (const sku of entry.skus) {
-        if (!sku.sku || !sku.sapCode) continue;
-
-        if (sku.quantity > 0) {
-            await db.run(
-                `INSERT OR REPLACE INTO productionLogEntries 
-                (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                dateKey,
-                shiftName,
-                round,
-                entry.machineId,
-                entry.name,
-                'Online',
-                sku.sku,
-                sku.sapCode,
-                sku.quantity,
-                entry.operatorId,
-                entry.userId,
-                entry.userName
-            );
-        } else {
-             // If quantity is 0, delete the record.
-            await db.run(
-                `DELETE FROM productionLogEntries 
-                WHERE date = ? AND shiftName = ? AND round = ? AND machineId = ? AND sapCode = ?`,
-                dateKey,
-                shiftName,
-                round,
-                entry.machineId,
-                sku.sapCode
-            );
-        }
+        if (!sku.sku || !sku.sapCode || sku.quantity <= 0) continue;
+        
+        await db.run(
+            `INSERT INTO productionLogEntries 
+            (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            dateKey,
+            shiftName,
+            round,
+            entry.machineId,
+            entry.name,
+            'Online',
+            sku.sku,
+            sku.sapCode,
+            sku.quantity,
+            entry.operatorId,
+            entry.userId,
+            entry.userName
+        );
       }
     }
     await db.exec('COMMIT');
