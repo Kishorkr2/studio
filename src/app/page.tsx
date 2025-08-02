@@ -409,24 +409,24 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         const planItem = planMap.get(machine.id);
         const loggedEntry = logMap.get(machine.id);
         
-        const operatorId =
-          loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
+        const operatorId = loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
         
-        let sku = '';
-        let sapCode = '';
-
-        if (loggedEntry?.sku) {
-          sku = loggedEntry.sku;
-          sapCode = loggedEntry.sapCode;
-        } else if (machineSkuMap[machine.id]) {
-          sku = machineSkuMap[machine.id];
-          const foundSkuPlan = planItem?.skus.find(s => s.sku === sku);
-          sapCode = foundSkuPlan?.sapCode || '';
-        } else if (planItem?.skus && planItem.skus.length > 0) {
-          sku = planItem.skus[0].sku;
-          sapCode = planItem.skus[0].sapCode;
+        // Priority for SKU:
+        // 1. From saved log for this round
+        // 2. From current session selection (machineSkuMap)
+        // 3. Default from production plan
+        const selectedSkuInSession = machineSkuMap[machine.id];
+        let sku = loggedEntry?.sku || '';
+        if (!sku && selectedSkuInSession) {
+           sku = selectedSkuInSession;
+        }
+        if (!sku && planItem?.skus && planItem.skus.length > 0) {
+            sku = planItem.skus[0].sku;
         }
 
+        const foundSkuPlan = planItem?.skus.find(s => s.sku === sku);
+        const sapCode = foundSkuPlan?.sapCode || '';
+        
         return {
           machineId: machine.id,
           name: machine.name,
