@@ -214,7 +214,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       try {
         const [startH] = shift.startTime.split(':').map(Number);
         const [endH] = shift.endTime.split(':').map(Number);
-        if (startH > endH) {
+        if (startH >= 21 || startH < 7 ) { // Simple check for night shift
             isNightShift = true;
         }
       } catch {
@@ -397,38 +397,46 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       return;
     }
 
-    const machineMap = new Map(allMachines.map(m => [m.id, m]));
+    const planMap = new Map(allProductionPlan.map(p => [p.machineId, p]));
     const logForRound = productionLog[selectedRound]?.entries || [];
     const logMap = new Map(logForRound.map(e => [e.machineId, e]));
 
-    const newEntries = allProductionPlan
-      .map(planItem => {
-        const machine = machineMap.get(planItem.machineId);
-        if (!machine || !machine.isAvailable) return null;
-
-        const loggedEntry = logMap.get(planItem.machineId);
+    const newEntries = allMachines
+      .filter(machine => machine.isAvailable)
+      .map(machine => {
+        const planItem = planMap.get(machine.id);
+        const loggedEntry = logMap.get(machine.id);
+        
         const operatorId =
           loggedEntry?.operatorId || machineOperatorMap[machine.id] || '';
-        const sku =
-          loggedEntry?.sku ||
-          machineSkuMap[machine.id] ||
-          planItem.skus[0]?.sku ||
-          '';
+        
+        let sku = '';
+        let sapCode = '';
 
-        const skuPlan =
-          planItem.skus.find(s => s.sku === sku) || planItem.skus[0];
+        if (loggedEntry?.sku) {
+          sku = loggedEntry.sku;
+          sapCode = loggedEntry.sapCode;
+        } else if (machineSkuMap[machine.id]) {
+          sku = machineSkuMap[machine.id];
+          const foundSkuPlan = planItem?.skus.find(s => s.sku === sku);
+          sapCode = foundSkuPlan?.sapCode || '';
+        } else if (planItem?.skus && planItem.skus.length > 0) {
+          sku = planItem.skus[0].sku;
+          sapCode = planItem.skus[0].sapCode;
+        }
 
         return {
           machineId: machine.id,
           name: machine.name,
           status: 'Online' as const,
           sku: sku,
-          sapCode: skuPlan?.sapCode || '',
+          sapCode: sapCode,
           quantity: loggedEntry?.quantity || 0,
           operatorId,
         };
       })
       .filter((entry): entry is MachineProductionData => entry !== null);
+
     setEntries(newEntries);
   }, [
     selectedRound,
@@ -440,6 +448,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     selectedDate,
     selectedShift,
   ]);
+
 
   const handleSelectedRoundChange = (round: string) => {
     setSelectedRound(round);
@@ -830,9 +839,9 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           {entries.length === 0 && !loading && (
             <Card>
               <CardContent className="p-10 text-center text-muted-foreground">
-                <p>No machines scheduled for production in the current plan.</p>
+                <p>No machines available for data entry.</p>
                 <p className="text-sm">
-                  Please upload a production plan in the Admin panel.
+                  Please check machine availability in the Admin panel.
                 </p>
               </CardContent>
             </Card>
