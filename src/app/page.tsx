@@ -486,14 +486,11 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   const handleDateChange = useCallback(
     (date: Date | undefined) => {
-      if (
-        date &&
-        format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')
-      ) {
+      if (date) {
         setSelectedDate(date);
       }
     },
-    [selectedDate]
+    []
   );
 
   const roundTotal = useMemo(() => {
