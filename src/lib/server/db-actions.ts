@@ -202,6 +202,10 @@ export async function updateProductionPlan(plan: ProductionPlanItem[]) {
   }
 }
 
+export async function clearProductionPlan() {
+  await db.run('DELETE FROM productionPlanItems');
+}
+
 export async function clearAllProductionData() {
   await db.run('DELETE FROM productionLogEntries');
   await db.run('DELETE FROM dailyTreadProduction');

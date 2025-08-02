@@ -1,6 +1,6 @@
 'use client';
 
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useCallback, useMemo} from 'react';
 import {
   Card,
   CardContent,
@@ -69,7 +69,7 @@ function UserManagement({users, onApprove, onDelete}: {users: User[], onApprove:
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">User Management</CardTitle>
+        <CardTitle>User Management</CardTitle>
         <CardDescription>
           Approve or remove registered users.
         </CardDescription>
@@ -175,6 +175,30 @@ export default function AdminPage() {
     loadInitialData();
   }, [loadInitialData]);
 
+  const totalPlanQuantity = useMemo(() => {
+    return productionPlan.reduce((total, item) => {
+      return total + item.skus.reduce((subTotal, sku) => subTotal + sku.quantity, 0);
+    }, 0);
+  }, [productionPlan]);
+
+  const handleClearProductionPlan = async () => {
+    try {
+      await actions.clearProductionPlan();
+      setProductionPlan([]);
+      toast({
+        title: 'Production Plan Cleared',
+        description: 'The entire production plan has been deleted.',
+      });
+    } catch (error) {
+       toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to clear the production plan.',
+      });
+    }
+  };
+
+
   const handleAddOperator = async () => {
     const newOperator = {
       cardNo: `OP-${Date.now()}`,
@@ -220,12 +244,10 @@ export default function AdminPage() {
 
     setIsRenaming(originalCardNo);
     try {
-      // First, try to perform the update on the server.
       const newOperatorData = {...operatorToUpdate, cardNo: newCardNo};
       await actions.renameOperator(originalCardNo, newCardNo, newOperatorData);
       toast({title: 'Operator Card No Updated'});
     } catch (error) {
-      // If the server update fails (e.g., due to a unique constraint), show an error.
       console.error('Failed to rename operator:', error);
       toast({
         variant: 'destructive',
@@ -236,8 +258,6 @@ export default function AdminPage() {
             : `Card No "${newCardNo}" might already exist.`,
       });
     } finally {
-      // ALWAYS re-fetch data from the server to ensure the UI is in sync with the database.
-      // This will revert the input field if the update failed or show the new value if it succeeded.
       await loadInitialData();
       setIsRenaming(null);
     }
@@ -547,7 +567,7 @@ export default function AdminPage() {
         <TabsContent value="operators">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Operators</CardTitle>
+              <CardTitle>Operators</CardTitle>
               <CardDescription>
                 Manage your list of approved operators.
               </CardDescription>
@@ -650,7 +670,7 @@ export default function AdminPage() {
         <TabsContent value="shifts">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Shift Management</CardTitle>
+              <CardTitle>Shift Management</CardTitle>
               <CardDescription>
                 Set the timings for the day and night shifts.
               </CardDescription>
@@ -695,7 +715,7 @@ export default function AdminPage() {
         <TabsContent value="plan" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Upload Production Plan</CardTitle>
+              <CardTitle>Upload Production Plan</CardTitle>
               <CardDescription>
                 Upload an Excel file to set the production plan. This will
                 replace the existing plan.
@@ -738,7 +758,7 @@ export default function AdminPage() {
           {uploadedPlan && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Uploaded Plan Preview</CardTitle>
+                <CardTitle>Uploaded Plan Preview</CardTitle>
                 <CardDescription>
                   Review the data parsed from your file before saving.
                 </CardDescription>
@@ -789,11 +809,35 @@ export default function AdminPage() {
           )}
 
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Manual Production Plan</CardTitle>
-              <CardDescription>
-                Assign SKUs to TBMs for production manually.
-              </CardDescription>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <CardTitle>Manual Production Plan</CardTitle>
+                <CardDescription>
+                  Total Planned Quantity: <span className="font-bold text-foreground">{totalPlanQuantity.toLocaleString()}</span>
+                </CardDescription>
+              </div>
+               <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash className="mr-2 h-4 w-4" />
+                      Delete Plan
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the entire production plan. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleClearProductionPlan}>
+                        Confirm & Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="p-4 border rounded-lg space-y-4">
@@ -906,7 +950,7 @@ export default function AdminPage() {
         <TabsContent value="machines">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">TBM Management</CardTitle>
+              <CardTitle>TBM Management</CardTitle>
               <CardDescription>
                 View and edit your TBM inventory.
               </CardDescription>
@@ -978,7 +1022,7 @@ export default function AdminPage() {
         <TabsContent value="settings">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Advanced Settings</CardTitle>
+              <CardTitle>Advanced Settings</CardTitle>
               <CardDescription>
                 Manage advanced and dangerous application settings.
               </CardDescription>

@@ -56,6 +56,7 @@ export const saveDailyProductionLog = async (
 ) => dbActions.saveDailyProductionLog(log);
 export const saveTreadOpeningStock = async (stock: TreadStock[]) =>
   dbActions.saveTreadOpeningStock(stock);
+export const clearProductionPlan = async () => dbActions.clearProductionPlan();
 
 // User actions
 export const signUpUser = async (data: SignUpInput) =>
