@@ -252,7 +252,9 @@ export async function saveProductionRound(
   try {
     for (const entry of entries) {
       for (const sku of entry.skus) {
-        if (sku.sku && sku.sapCode && sku.quantity > 0) {
+        if (!sku.sku || !sku.sapCode) continue;
+
+        if (sku.quantity > 0) {
             await db.run(
                 `INSERT OR REPLACE INTO productionLogEntries 
                 (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName) 
@@ -270,6 +272,17 @@ export async function saveProductionRound(
                 entry.userId,
                 entry.userName
             );
+        } else {
+             // If quantity is 0, delete the record.
+            await db.run(
+                `DELETE FROM productionLogEntries 
+                WHERE date = ? AND shiftName = ? AND round = ? AND machineId = ? AND sapCode = ?`,
+                dateKey,
+                shiftName,
+                round,
+                entry.machineId,
+                sku.sapCode
+            );
         }
       }
     }
@@ -280,6 +293,7 @@ export async function saveProductionRound(
     throw error;
   }
 }
+
 
 export async function clearShiftData(date: Date, shift: ShiftInfo) {
   const dateKey = format(date, 'yyyy-MM-dd');

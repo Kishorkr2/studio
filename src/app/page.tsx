@@ -210,24 +210,16 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       const times: string[] = [];
       let startHour: number;
       let endHour: number;
-      let isNightShift = false;
 
       try {
-        const [startH] = shift.startTime.split(':').map(Number);
-        if (startH >= 21 || startH < 7 ) { // Simple check for night shift
-            isNightShift = true;
-        }
+        [startHour] = shift.startTime.split(':').map(Number);
+        [endHour] = shift.endTime.split(':').map(Number);
       } catch {
         return [];
       }
-
-      if (isNightShift) {
-        startHour = 21; // 9 PM
-        endHour = 7;    // 7 AM
-      } else {
-        startHour = 9;  // 9 AM
-        endHour = 19;   // 7 PM
-      }
+      
+      // Determine if it's a typical day or night shift based on start time
+      const isNightShift = startHour > endHour;
 
       let currentHour = startHour;
       let loopDetector = 24; 
@@ -385,26 +377,24 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       .map(machine => {
         const loggedEntriesForMachine = logForRound.filter(e => e.machineId === machine.id);
 
+        let skus: SkuProduction[] = [];
         if (loggedEntriesForMachine.length > 0) {
-            return {
-                machineId: machine.id,
-                name: machine.name,
-                operatorId: loggedEntriesForMachine[0].operatorId,
-                skus: loggedEntriesForMachine.map(e => ({
-                    sku: e.sku,
-                    sapCode: e.sapCode,
-                    quantity: e.quantity,
-                })),
-            };
+            skus = loggedEntriesForMachine.map(e => ({
+                sku: e.sku,
+                sapCode: e.sapCode,
+                quantity: e.quantity,
+            }));
         }
-
-        const sessionOperatorId = machineOperatorMapRef.current[machine.id];
+        
+        const operatorId = loggedEntriesForMachine.length > 0
+            ? loggedEntriesForMachine[0].operatorId
+            : machineOperatorMapRef.current[machine.id];
         
         return {
           machineId: machine.id,
           name: machine.name,
-          operatorId: sessionOperatorId || '',
-          skus: [], // Start with no SKUs for new entries
+          operatorId: operatorId || '',
+          skus: skus,
         };
       });
 
@@ -474,24 +464,54 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   const handleSaveRound = useCallback(async () => {
     if (!selectedRound || !selectedShift) {
-      toast({
-        variant: 'destructive',
-        title: 'Cannot Save',
-        description: 'Please select a shift and round time first.',
-      });
-      return;
+        toast({
+            variant: 'destructive',
+            title: 'Cannot Save',
+            description: 'Please select a shift and round time first.',
+        });
+        return;
     }
     
     if (!user) {
-      toast({
-        variant: 'destructive',
-        title: 'Cannot Save',
-        description: 'User information not available. Please log in again.',
-      });
-      return;
+        toast({
+            variant: 'destructive',
+            title: 'Cannot Save',
+            description: 'User information not available. Please log in again.',
+        });
+        return;
+    }
+
+    const previouslySavedForRound = productionLog[selectedRound]?.entries || [];
+    const currentlyVisibleSkus = new Set(
+        entries.flatMap(e => e.skus.map(s => `${e.machineId}|${s.sapCode}`))
+    );
+
+    const entriesToSave = [...entries];
+
+    // Find previously saved SKUs that are no longer visible and mark them for deletion
+    for (const savedEntry of previouslySavedForRound) {
+        const key = `${savedEntry.machineId}|${savedEntry.sapCode}`;
+        if (!currentlyVisibleSkus.has(key)) {
+            let machineEntry = entriesToSave.find(e => e.machineId === savedEntry.machineId);
+            if (!machineEntry) {
+                machineEntry = {
+                    machineId: savedEntry.machineId,
+                    name: savedEntry.name,
+                    operatorId: savedEntry.operatorId,
+                    skus: [],
+                };
+                entriesToSave.push(machineEntry);
+            }
+            // Add with quantity 0 to signal deletion
+            machineEntry.skus.push({
+                sku: savedEntry.sku,
+                sapCode: savedEntry.sapCode,
+                quantity: 0,
+            });
+        }
     }
     
-    const entriesToSave = entries.map(entry => ({
+    const entriesWithUser = entriesToSave.map(entry => ({
       ...entry,
       userId: user.id,
       userName: user.name,
@@ -501,34 +521,20 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       selectedDate,
       selectedShift,
       selectedRound,
-      entriesToSave
+      entriesWithUser
     );
 
-    const flatEntriesForLog = entries.flatMap(entry => 
-      entry.skus.map(skuProd => ({
-        machineId: entry.machineId,
-        name: entry.name,
-        operatorId: entry.operatorId,
-        sku: skuProd.sku,
-        sapCode: skuProd.sapCode,
-        quantity: skuProd.quantity,
-        status: 'Online' as const,
-        userId: user.id,
-        userName: user.name,
-      }))
-    );
-
-    setProductionLog(prev => ({
-      ...prev,
-      [selectedRound]: {entries: flatEntriesForLog, status: 'synced'},
-    }));
+    // Refetch data to update the UI correctly
+    const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
+    setProductionLog(log);
 
     toast({
       title: 'Round Data Saved',
       description: `Data for round ${selectedRound} has been saved.`,
       action: <Save className="text-green-500" />,
     });
-  }, [selectedDate, selectedShift, selectedRound, entries, toast, user]);
+}, [selectedDate, selectedShift, selectedRound, entries, productionLog, toast, user]);
+
 
   const handleShiftChange = useCallback(
     (name: string) => {
@@ -1004,4 +1010,3 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
-
