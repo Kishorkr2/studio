@@ -1,3 +1,4 @@
+
 import sqlite3 from 'sqlite3';
 import {open} from 'sqlite';
 import {
@@ -17,6 +18,14 @@ export const db = await open({
 });
 
 async function setup() {
+    // Drop the problematic table to ensure it's recreated with the correct schema.
+    await db.exec('DROP TABLE IF EXISTS productionLogEntries;').catch(() => {
+        // Ignore errors if the table doesn't exist
+    });
+    
+    // Drop old problematic tables if they exist
+    await db.exec('DROP TABLE IF EXISTS productionLogs;').catch(() => {});
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,9 +87,6 @@ async function setup() {
       production INTEGER
     );
   `);
-
-  // Drop old problematic tables if they exist
-  await db.exec('DROP TABLE IF EXISTS productionLogs;').catch(() => {});
 
   // Add userId and userName columns to productionLogEntries if they don't exist
   try {
