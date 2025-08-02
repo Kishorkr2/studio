@@ -263,21 +263,24 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     setEntries(newEntries);
   }, [allMachines]);
 
+  // Effect to fetch log data when date or shift changes
   useEffect(() => {
     if (loading || !selectedShift) return;
 
-    const fetchLogAndInitialize = async () => {
-      const log = await actions.getProductionLogForShift(
-        selectedDate,
-        selectedShift
-      );
+    const fetchLog = async () => {
+      const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
       setProductionLog(log);
-      machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
-      loadEntriesForRound(selectedRound, log);
     };
 
-    fetchLogAndInitialize();
-}, [selectedDate, selectedShift, loading, selectedRound, loadEntriesForRound]);
+    fetchLog();
+  }, [selectedDate, selectedShift, loading]);
+
+  // Effect to update UI when log data or round changes
+  useEffect(() => {
+    if (loading) return;
+    machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
+    loadEntriesForRound(selectedRound, productionLog);
+  }, [productionLog, selectedRound, loadEntriesForRound, loading]);
 
 
   const handleClearShiftData = useCallback(async () => {
@@ -867,7 +870,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                                 id={`quantity-${entry.machineId}-${skuIndex}`}
                                 type="number"
                                 placeholder="0"
-                                value={skuEntry.quantity || ''}
+                                value={skuEntry.quantity === 0 ? '' : skuEntry.quantity}
                                 onChange={e => handleQuantityChange(entry.machineId, skuIndex, parseInt(e.target.value))}
                               />
                             </div>
