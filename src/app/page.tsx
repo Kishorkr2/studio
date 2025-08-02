@@ -57,6 +57,7 @@ import type {
   Operator,
   ProductionLog,
   ProductionPlanItem,
+  User,
 } from '@/lib/types';
 import {cn} from '@/lib/utils';
 import {Skeleton} from '@/components/ui/skeleton';
@@ -69,6 +70,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { useAuth } from '@/components/auth-provider';
 
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === 'undefined') return defaultValue;
@@ -128,6 +130,7 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const {toast} = useToast();
+  const {user} = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -213,7 +216,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
       try {
         const [startH] = shift.startTime.split(':').map(Number);
-        const [endH] = shift.endTime.split(':').map(Number);
         if (startH >= 21 || startH < 7 ) { // Simple check for night shift
             isNightShift = true;
         }
@@ -433,6 +435,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           sapCode: sapCode,
           quantity: loggedEntry?.quantity || 0,
           operatorId,
+          userId: loggedEntry?.userId,
+          userName: loggedEntry?.userName,
         };
       })
       .filter((entry): entry is MachineProductionData => entry !== null);
@@ -500,17 +504,32 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       });
       return;
     }
+    
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Cannot Save',
+        description: 'User information not available. Please log in again.',
+      });
+      return;
+    }
+    
+    const entriesWithUser = entries.map(entry => ({
+      ...entry,
+      userId: user.id,
+      userName: user.name,
+    }));
 
     await actions.saveProductionRound(
       selectedDate,
       selectedShift,
       selectedRound,
-      entries
+      entriesWithUser
     );
 
     setProductionLog(prev => ({
       ...prev,
-      [selectedRound]: {entries: entries, status: 'synced'},
+      [selectedRound]: {entries: entriesWithUser, status: 'synced'},
     }));
 
     toast({
@@ -518,7 +537,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       description: `Data for round ${selectedRound} has been saved.`,
       action: <Save className="text-green-500" />,
     });
-  }, [selectedDate, selectedShift, selectedRound, entries, toast]);
+  }, [selectedDate, selectedShift, selectedRound, entries, toast, user]);
 
   const handleShiftChange = useCallback(
     (name: string) => {

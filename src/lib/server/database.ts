@@ -63,6 +63,8 @@ async function setup() {
       sapCode TEXT,
       quantity INTEGER,
       operatorId TEXT,
+      userId INTEGER,
+      userName TEXT,
       UNIQUE(date, shiftName, round, machineId)
     );
     CREATE TABLE IF NOT EXISTS dailyTreadProduction (
@@ -79,6 +81,15 @@ async function setup() {
 
   // Drop old problematic tables if they exist
   await db.exec('DROP TABLE IF EXISTS productionLogs;');
+
+  // Add userId and userName columns to productionLogEntries if they don't exist
+  try {
+    await db.exec('ALTER TABLE productionLogEntries ADD COLUMN userId INTEGER');
+    await db.exec('ALTER TABLE productionLogEntries ADD COLUMN userName TEXT');
+  } catch (e) {
+    // Ignore error if columns already exist
+  }
+
 
   // Seed Admin user
   const adminUser = await db.get('SELECT * FROM users WHERE email = ?', 'ralson@ralson.com');

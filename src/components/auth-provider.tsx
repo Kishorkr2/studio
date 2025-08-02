@@ -10,9 +10,11 @@ import {
 import {usePathname, useRouter} from 'next/navigation';
 import {Skeleton} from './ui/skeleton';
 import * as dbActions from '@/lib/server/db-actions';
+import type { User } from '@/lib/types';
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  user: User | null;
   login: (
     email: string,
     pass: string
@@ -24,6 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({children}: {children: ReactNode}) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -35,16 +38,20 @@ export function AuthProvider({children}: {children: ReactNode}) {
         const authData = JSON.parse(authDataString);
         if (new Date().getTime() < authData.expiry) {
           setIsAuthenticated(true);
+          setUser(authData.user);
         } else {
           localStorage.removeItem('authData');
           setIsAuthenticated(false);
+          setUser(null);
         }
       } else {
         setIsAuthenticated(false);
+        setUser(null);
       }
     } catch (error) {
       console.warn('Could not read auth status from localStorage.', error);
       setIsAuthenticated(false);
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -76,6 +83,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
         };
         localStorage.setItem('authData', JSON.stringify(authData));
         setIsAuthenticated(true);
+        setUser(authData.user);
         return {success: true};
       }
       return {success: false, message};
@@ -87,6 +95,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
   const logout = () => {
     localStorage.removeItem('authData');
     setIsAuthenticated(false);
+    setUser(null);
     router.push('/login');
   };
 
@@ -103,7 +112,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
   }
 
   return (
-    <AuthContext.Provider value={{isAuthenticated, login, logout}}>
+    <AuthContext.Provider value={{isAuthenticated, user, login, logout}}>
       {children}
     </AuthContext.Provider>
   );

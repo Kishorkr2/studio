@@ -11,6 +11,7 @@ import {
   Clock,
   Wrench,
   Check,
+  User as UserIcon,
 } from 'lucide-react';
 import {addDays, format, parseISO} from 'date-fns';
 import type {DateRange} from 'react-day-picker';
@@ -56,6 +57,7 @@ import type {
   Operator,
   ShiftInfo,
   MachineProductionData,
+  User,
 } from '@/lib/types';
 import * as actions from '../actions';
 
@@ -71,6 +73,8 @@ interface ReportDataRow {
   quantity: number;
   remark?: string;
   trolleyNo?: string;
+  userId?: number;
+  userName?: string;
 }
 
 const mockOeeData = {
@@ -112,10 +116,12 @@ export default function ReportsPage() {
   const [selectedOperator, setSelectedOperator] =
     React.useState<string>('all');
   const [selectedMachine, setSelectedMachine] = React.useState<string>('all');
+  const [selectedUser, setSelectedUser] = React.useState<string>('all');
 
   const [allOperators, setAllOperators] = React.useState<Operator[]>([]);
   const [allMachines, setAllMachines] = React.useState<Machine[]>([]);
   const [allShifts, setAllShifts] = React.useState<ShiftInfo[]>([]);
+  const [allUsers, setAllUsers] = React.useState<User[]>([]);
 
   const [allReportData, setAllReportData] = React.useState<ReportDataRow[]>([]);
   const [filteredReportData, setFilteredReportData] = React.useState<
@@ -126,15 +132,17 @@ export default function ReportsPage() {
   React.useEffect(() => {
     const loadData = async () => {
       try {
-        const [ops, machs, shifts, logs] = await Promise.all([
+        const [ops, machs, shifts, logs, users] = await Promise.all([
           actions.getOperators(),
           actions.getMachines(),
           actions.getShifts(),
           actions.getProductionLogs(),
+          actions.getUsers(),
         ]);
         setAllOperators(ops);
         setAllMachines(machs);
         setAllShifts(shifts);
+        setAllUsers(users);
         setAllReportData(logs as ReportDataRow[]);
         setBreakdownData(
           (logs as ReportDataRow[]).filter(item => item.remark && item.remark.trim() !== '')
@@ -174,6 +182,9 @@ export default function ReportsPage() {
     if (selectedMachine !== 'all') {
       data = data.filter(item => item.machineId === selectedMachine);
     }
+    if (selectedUser !== 'all') {
+        data = data.filter(item => String(item.userId) === selectedUser);
+    }
 
     // Filter out items with zero or no quantity
     data = data.filter(item => item.quantity > 0);
@@ -189,6 +200,7 @@ export default function ReportsPage() {
     selectedShift,
     selectedOperator,
     selectedMachine,
+    selectedUser,
     toast,
   ]);
 
@@ -212,7 +224,7 @@ export default function ReportsPage() {
       Operator: row.operatorName,
       'TBM No': row.machineName,
       SKU: row.sku,
-      'Trolley No': row.trolleyNo || '-',
+      'Entered By': row.userName || 'N/A',
       Quantity: row.quantity,
       Remark: row.remark || '-',
     }));
@@ -226,7 +238,7 @@ export default function ReportsPage() {
       {wch: 20}, // Operator
       {wch: 12}, // TBM No
       {wch: 20}, // SKU
-      {wch: 15}, // Trolley No
+      {wch: 20}, // Entered By
       {wch: 10}, // Quantity
       {wch: 30}, // Remark
     ];
@@ -277,7 +289,7 @@ export default function ReportsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                 <div className="grid gap-2">
                   <Label>Date range</Label>
                   <DateRangePicker date={date} setDate={setDate} />
@@ -339,6 +351,22 @@ export default function ReportsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="grid gap-2">
+                    <Label>Entered By</Label>
+                    <Select value={selectedUser} onValueChange={setSelectedUser}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="All Users" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Users</SelectItem>
+                            {allUsers.filter(u => u.isApproved).map(user => (
+                                <SelectItem key={user.id} value={String(user.id)}>
+                                    {user.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
               </div>
               <div className="flex justify-end mt-4">
                 <Button onClick={handleApplyFilters}>
@@ -366,7 +394,7 @@ export default function ReportsPage() {
                       <TableHead>Operator</TableHead>
                       <TableHead>TBM No</TableHead>
                       <TableHead>SKU</TableHead>
-                      <TableHead>Trolley No</TableHead>
+                      <TableHead>Entered By</TableHead>
                       <TableHead className="text-right">Quantity</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -385,7 +413,7 @@ export default function ReportsPage() {
                           </TableCell>
                           <TableCell>{row.machineName}</TableCell>
                           <TableCell>{row.sku}</TableCell>
-                          <TableCell>{row.trolleyNo || '-'}</TableCell>
+                          <TableCell>{row.userName || 'N/A'}</TableCell>
                           <TableCell className="text-right">
                             {row.quantity}
                           </TableCell>

@@ -30,6 +30,8 @@ export interface MachineProductionData {
   sapCode: string;
   quantity: number;
   operatorId?: string;
+  userId?: number;
+  userName?: string;
 }
 
 export interface ShiftInfo {

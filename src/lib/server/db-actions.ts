@@ -72,6 +72,8 @@ export async function getProductionLogs() {
     machineName: machineMap.get(log.machineId) || 'N/A',
     sku: log.sku,
     quantity: log.quantity,
+    userId: log.userId,
+    userName: log.userName,
   }));
 }
 
@@ -98,6 +100,8 @@ export async function getProductionLogForShift(
       sapCode: row.sapCode,
       quantity: row.quantity,
       operatorId: row.operatorId,
+      userId: row.userId,
+      userName: row.userName,
     });
   }
   return log;
@@ -257,8 +261,8 @@ export async function saveProductionRound(
     for (const entry of entries) {
       await db.run(
         `INSERT OR REPLACE INTO productionLogEntries 
-        (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         dateKey,
         shiftName,
         round,
@@ -268,7 +272,9 @@ export async function saveProductionRound(
         entry.sku,
         entry.sapCode,
         entry.quantity,
-        entry.operatorId
+        entry.operatorId,
+        entry.userId,
+        entry.userName,
       );
     }
     await db.exec('COMMIT');
