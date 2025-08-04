@@ -1,3 +1,4 @@
+
 'use server';
 
 import * as dbActions from '@/lib/server/db-actions';
@@ -15,7 +16,7 @@ import type {
 import {SignUpInput} from './signup/page';
 
 export const getOperators = async () => dbActions.getOperators();
-export const getMachines = async () => dbActions.getMachines();
+export const getMachines = async (type: 'TBM' | 'CuringPress' | 'all' = 'all') => dbActions.getMachines(type);
 export const getShifts = async () => dbActions.getShifts();
 export const getProductionPlan = async () => dbActions.getProductionPlan();
 export const getProductionLogs = async () => dbActions.getProductionLogs();

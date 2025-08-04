@@ -21,6 +21,7 @@ export interface Machine {
   id: string;
   name: string;
   isAvailable: boolean;
+  type: 'TBM' | 'CuringPress';
 }
 
 // Represents a single SKU's production for a given machine in a round

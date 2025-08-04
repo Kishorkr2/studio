@@ -127,6 +127,91 @@ function UserManagement({users, onApprove, onDelete}: {users: User[], onApprove:
   )
 }
 
+function MachineManagement({
+  title,
+  description,
+  machines,
+  productionPlan,
+  onMachineChange,
+  onAddMachine,
+  onDeleteMachine,
+  onSaveChanges,
+  machineType
+}: {
+  title: string;
+  description: string;
+  machines: Machine[];
+  productionPlan: ProductionPlanItem[];
+  onMachineChange: (id: string, field: keyof Machine, value: any) => void;
+  onAddMachine: () => void;
+  onDeleteMachine: (id: string) => void;
+  onSaveChanges: () => void;
+  machineType: 'TBM' | 'CuringPress';
+}) {
+   return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Machine No</TableHead>
+                <TableHead>Available</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {machines
+                .filter(m => m.type === machineType)
+                .map(machine => (
+                <TableRow key={machine.id}>
+                  <TableCell>
+                    <Input
+                      defaultValue={machine.name}
+                      onBlur={e => onMachineChange(machine.id, 'name', e.target.value)}
+                      className="w-36"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={machine.isAvailable}
+                      onCheckedChange={checked => onMachineChange(machine.id, 'isAvailable', checked)}
+                    />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onDeleteMachine(machine.id)}
+                      disabled={productionPlan.some(p => p.machineId === machine.id)}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+      <CardFooter className="flex justify-between flex-wrap gap-2">
+        <Button onClick={onAddMachine}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Add {machineType === 'TBM' ? 'TBM' : 'Curing Press'}
+        </Button>
+        <Button onClick={onSaveChanges}>
+          Save All Changes
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
+
 export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [operators, setOperators] = useState<Operator[]>([]);
@@ -379,46 +464,50 @@ export default function AdminPage() {
     setPassword('');
   };
 
-  const handleMachineNameChange = (id: string, newName: string) => {
+  const handleMachineChange = (id: string, field: keyof Machine, value: any) => {
     setMachines(currentMachines =>
-      currentMachines.map(m => (m.id === id ? {...m, name: newName} : m))
+      currentMachines.map(m => (m.id === id ? { ...m, [field]: value } : m))
     );
   };
-
+  
   const handleSaveAllMachineChanges = async () => {
     await actions.updateMachines(machines);
-    toast({title: 'All TBM Changes Saved'});
+    toast({title: 'All Machine Changes Saved'});
   };
-
-  const handleAddMachine = async () => {
+  
+  const handleAddMachine = async (type: 'TBM' | 'CuringPress') => {
+    const prefix = type === 'TBM' ? 'TBM' : 'CP';
     const newIdNumber =
-      machines.length > 0
+      machines.filter(m => m.type === type).length > 0
         ? Math.max(
-            ...machines.map(m => parseInt(m.id.replace('TBM-', '')) || 0)
+            ...machines
+              .filter(m => m.type === type)
+              .map(m => parseInt(m.id.replace(`${prefix}-`, '')) || 0)
           ) + 1
         : 1;
-    const newId = `TBM-${String(newIdNumber).padStart(2, '0')}`;
+    const newId = `${prefix}-${String(newIdNumber).padStart(2, '0')}`;
     const newMachine = {
       id: newId,
-      name: `TBM ${newIdNumber}`,
+      name: `${type === 'TBM' ? 'TBM' : 'Curing Press'} ${newIdNumber}`,
       isAvailable: true,
+      type: type,
     };
     await actions.addMachine(newMachine);
     setMachines(prev => [...prev, newMachine]);
   };
-
+  
   const handleDeleteMachine = async (id: string) => {
     if (productionPlan.some(p => p.machineId === id)) {
       toast({
         variant: 'destructive',
-        title: 'Cannot Delete TBM',
-        description: 'This TBM is part of an active production plan.',
+        title: 'Cannot Delete Machine',
+        description: 'This machine is part of an active production plan.',
       });
       return;
     }
     await actions.deleteMachine(id);
     setMachines(prev => prev.filter(m => m.id !== id));
-    toast({title: 'TBM Removed'});
+    toast({title: 'Machine Removed'});
   };
 
   const handlePlanUpload = useCallback(
@@ -448,10 +537,12 @@ export default function AdminPage() {
 
             const planMap = new Map<string, SkuPlan[]>();
             const machineNameToIdMap = new Map(
-              machines.map(m => {
-                const match = m.name.match(/\d+/);
-                return [match ? match[0] : null, m.id];
-              })
+              machines
+                .filter(m => m.type === 'TBM')
+                .map(m => {
+                  const match = m.name.match(/\d+/);
+                  return [match ? match[0] : null, m.id];
+                })
             );
 
             for (const row of jsonFromSheet) {
@@ -557,12 +648,13 @@ export default function AdminPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold tracking-tight">Admin Panel</h1>
       <Tabs defaultValue="users">
-        <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 lg:grid-cols-6 h-auto">
+        <TabsList className="grid w-full grid-cols-1 md:grid-cols-4 lg:grid-cols-7 h-auto">
           <TabsTrigger value="users">User Management</TabsTrigger>
-          <TabsTrigger value="operators">Operator Management</TabsTrigger>
-          <TabsTrigger value="shifts">Shift Management</TabsTrigger>
+          <TabsTrigger value="operators">Operators</TabsTrigger>
+          <TabsTrigger value="shifts">Shifts</TabsTrigger>
           <TabsTrigger value="plan">Production Plan</TabsTrigger>
-          <TabsTrigger value="machines">TBM Management</TabsTrigger>
+          <TabsTrigger value="tbm">TBMs</TabsTrigger>
+          <TabsTrigger value="curing">Curing Presses</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -859,7 +951,9 @@ export default function AdminPage() {
                         <SelectValue placeholder="Select a TBM" />
                       </SelectTrigger>
                       <SelectContent>
-                        {machines.map(m => (
+                        {machines
+                          .filter(m => m.type === 'TBM')
+                          .map(m => (
                           <SelectItem key={m.id} value={m.id}>
                             {m.name}
                           </SelectItem>
@@ -925,7 +1019,9 @@ export default function AdminPage() {
                               <SelectValue placeholder="Select TBM" />
                             </SelectTrigger>
                             <SelectContent>
-                              {machines.map(m => (
+                              {machines
+                                .filter(m => m.type === 'TBM')
+                                .map(m => (
                                 <SelectItem key={m.id} value={m.id}>
                                   {m.name}
                                 </SelectItem>
@@ -978,76 +1074,32 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="machines">
-          <Card>
-            <CardHeader>
-              <CardTitle>TBM Management</CardTitle>
-              <CardDescription>
-                View and edit your TBM inventory.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>TBM No</TableHead>
-                      <TableHead>Available</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {machines.map(machine => (
-                      <TableRow key={machine.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              defaultValue={machine.name}
-                              onBlur={e =>
-                                handleMachineNameChange(machine.id, e.target.value)
-                              }
-                              className="w-36"
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={machine.isAvailable}
-                            onCheckedChange={checked => {
-                              const updatedMachines = machines.map(m =>
-                                m.id === machine.id
-                                  ? {...m, isAvailable: checked}
-                                  : m
-                              );
-                              setMachines(updatedMachines);
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteMachine(machine.id)}
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-between flex-wrap gap-2">
-              <Button onClick={handleAddMachine}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add TBM
-              </Button>
-              <Button onClick={handleSaveAllMachineChanges}>
-                Save All Availability Changes
-              </Button>
-            </CardFooter>
-          </Card>
+        <TabsContent value="tbm">
+          <MachineManagement 
+            title="TBM Management"
+            description="View and edit your TBM inventory."
+            machines={machines}
+            productionPlan={productionPlan}
+            onMachineChange={handleMachineChange}
+            onAddMachine={() => handleAddMachine('TBM')}
+            onDeleteMachine={handleDeleteMachine}
+            onSaveChanges={handleSaveAllMachineChanges}
+            machineType="TBM"
+          />
+        </TabsContent>
+
+        <TabsContent value="curing">
+          <MachineManagement 
+            title="Curing Press Management"
+            description="View and edit your curing press inventory."
+            machines={machines}
+            productionPlan={productionPlan}
+            onMachineChange={handleMachineChange}
+            onAddMachine={() => handleAddMachine('CuringPress')}
+            onDeleteMachine={handleDeleteMachine}
+            onSaveChanges={handleSaveAllMachineChanges}
+            machineType="CuringPress"
+          />
         </TabsContent>
 
         <TabsContent value="settings">

@@ -24,8 +24,11 @@ export async function getOperators(): Promise<Operator[]> {
   return db.all('SELECT * FROM operators ORDER BY name');
 }
 
-export async function getMachines(): Promise<Machine[]> {
-  return db.all('SELECT * FROM machines ORDER BY id');
+export async function getMachines(type: 'TBM' | 'CuringPress' | 'all' = 'all'): Promise<Machine[]> {
+  if (type === 'all') {
+    return db.all('SELECT * FROM machines ORDER BY type, id');
+  }
+  return db.all('SELECT * FROM machines WHERE type = ? ORDER BY id', type);
 }
 
 export async function getShifts(): Promise<ShiftInfo[]> {
@@ -246,9 +249,10 @@ export async function updateMachines(machines: Machine[]) {
   try {
     for (const machine of machines) {
       await db.run(
-        'UPDATE machines SET name = ?, isAvailable = ? WHERE id = ?',
+        'UPDATE machines SET name = ?, isAvailable = ?, type = ? WHERE id = ?',
         machine.name,
         machine.isAvailable,
+        machine.type,
         machine.id
       );
     }
@@ -261,10 +265,11 @@ export async function updateMachines(machines: Machine[]) {
 
 export async function addMachine(machine: Machine) {
   await db.run(
-    'INSERT INTO machines (id, name, isAvailable) VALUES (?, ?, ?)',
+    'INSERT INTO machines (id, name, isAvailable, type) VALUES (?, ?, ?, ?)',
     machine.id,
     machine.name,
-    machine.isAvailable
+    machine.isAvailable,
+    machine.type
   );
 }
 
@@ -283,13 +288,11 @@ export async function saveProductionRound(
 
   await db.exec('BEGIN TRANSACTION');
   try {
-    // Get all machine IDs that are being updated in this round.
     const machineIdsToUpdate = [
       ...new Set(entries.map(entry => entry.machineId)),
     ];
 
     if (machineIdsToUpdate.length > 0) {
-      // Delete all existing entries for these specific machines in this specific round.
       const placeholders = machineIdsToUpdate.map(() => '?').join(',');
       await db.run(
         `DELETE FROM productionLogEntries 
@@ -297,7 +300,6 @@ export async function saveProductionRound(
         [dateKey, shiftName, round, ...machineIdsToUpdate]
       );
 
-      // Insert all the new entries from the screen.
       for (const entry of entries) {
         for (const sku of entry.skus) {
           if (sku.sku && sku.sapCode && sku.quantity > 0) {
@@ -311,7 +313,7 @@ export async function saveProductionRound(
                 round,
                 entry.machineId,
                 entry.name,
-                'Online', // Default status
+                'Online',
                 sku.sku,
                 sku.sapCode,
                 sku.quantity,

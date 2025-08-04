@@ -86,7 +86,7 @@ export default function DailyTreadProductionPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedShift, toast]);
+  }, [toast]);
 
   useEffect(() => {
     loadData();
@@ -113,11 +113,28 @@ export default function DailyTreadProductionPage() {
   }, [productionPlan]);
 
   useEffect(() => {
+    const prevDate = dailyProductionLog[format(selectedDate, 'yyyy-MM-dd')];
+    if (prevDate && selectedShift) {
+      const prevShift = prevDate[selectedShift.name.replace(/\s+/g, '-')];
+      if (prevShift) {
+        const changed = Object.keys(prevShift).some(
+          sapCode =>
+            prevShift[sapCode].quantity !==
+              dailyProductionEntries[sapCode]?.quantity ||
+            prevShift[sapCode].trolleyNo !==
+              dailyProductionEntries[sapCode]?.trolleyNo
+        );
+        if (changed) {
+          handleSaveDailyProduction();
+        }
+      }
+    }
+
     if (!selectedDate || !selectedShift) return;
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
     setDailyProductionEntries(dailyProductionLog[dateKey]?.[shiftName] || {});
-  }, [selectedDate, selectedShift, dailyProductionLog]);
+  }, [selectedDate, selectedShift]);
 
   const handleDailyProductionChange = (
     sapCode: string,

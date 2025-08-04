@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -25,6 +26,7 @@ import {
   ClipboardList,
   ListPlus,
   LogOut,
+  Flame,
 } from 'lucide-react';
 import {useOnlineStatus} from '@/hooks/use-online-status';
 import {useAuth} from './auth-provider';
@@ -35,7 +37,8 @@ export interface AppLayoutProps {
 }
 
 const navItems = [
-  {href: '/', label: 'Dashboard', icon: LayoutDashboard},
+  {href: '/', label: 'GT Prod Entry', icon: LayoutDashboard},
+  {href: '/curing', label: 'Curing', icon: Flame},
   {href: '/tread-extrusion', label: 'Tread Extrusion', icon: ClipboardList},
   {href: '/daily-tread-production', label: 'Daily Production', icon: ListPlus},
   {href: '/optimize', label: 'AI Optimizer', icon: BotMessageSquare},
@@ -70,8 +73,7 @@ export function AppLayout({children}: {children: React.ReactNode}) {
 
   const childrenWithProps = React.Children.map(children, child => {
     if (React.isValidElement(child)) {
-      // Pass setPageActions only to the DashboardPage
-      if (pathname === '/') {
+      if (pathname === '/' || pathname === '/curing') {
         return React.cloneElement(child as React.ReactElement<any>, { setPageActions });
       }
     }
@@ -138,7 +140,7 @@ function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
             </Link>
           </DropdownMenuItem>
         ))}
-        {pathname === '/' && pageActions}
+        {(pathname === '/' || pathname === '/curing') && pageActions}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />

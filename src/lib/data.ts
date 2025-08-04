@@ -48,11 +48,11 @@ export const initialOperators: Operator[] = [
   },
 ];
 
-// Make machine availability static to ensure predictability.
 export const initialMachines: Machine[] = Array.from({length: 26}, (_, i) => ({
   id: `TBM-${String(i + 1).padStart(2, '0')}`,
   name: `TBM ${i + 1}`,
   isAvailable: i < 23, // TBM-24, 25, 26 are unavailable
+  type: 'TBM'
 }));
 
 export const initialProductionPlan: ProductionPlanItem[] = [
