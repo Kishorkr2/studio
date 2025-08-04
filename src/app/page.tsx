@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { AppLayoutProps } from '@/components/app-layout';
+import type {AppLayoutProps} from '@/components/app-layout';
 import {format} from 'date-fns';
 import {
   CalendarIcon,
@@ -79,7 +79,7 @@ import type {
   ProductionPlanItem,
   ShiftInfo,
 } from '@/lib/types';
-import { Loader } from '@/components/ui/loader';
+import {Loader} from '@/components/ui/loader';
 
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === 'undefined') return defaultValue;
@@ -180,11 +180,14 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     const shiftName = shift.name.toLowerCase();
 
     if (shiftName.includes('night')) {
-      for (let h = 21; h <= 23; h++) times.push(`${String(h).padStart(2, '0')}:00`);
-      for (let h = 0; h <= 6; h++) times.push(`${String(h).padStart(2, '0')}:00`);
+      for (let h = 21; h <= 23; h++)
+        times.push(`${String(h).padStart(2, '0')}:00`);
+      for (let h = 0; h <= 6; h++)
+        times.push(`${String(h).padStart(2, '0')}:00`);
       times.push('07:00');
     } else {
-      for (let h = 9; h <= 18; h++) times.push(`${String(h).padStart(2, '0')}:00`);
+      for (let h = 9; h <= 18; h++)
+        times.push(`${String(h).padStart(2, '0')}:00`);
       times.push('19:00');
     }
 
@@ -259,30 +262,32 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   useEffect(() => {
     setAvailableOperators(allOperators.filter(op => !op.isAbsent));
   }, [allOperators]);
-  
-  // Effect to fetch log data when date or shift changes, and for auto-refresh
+
+  // Effect to fetch log data when date or shift changes
   useEffect(() => {
     if (loading || !selectedShift) return;
 
     const fetchLog = async () => {
-      const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
+      const log = await actions.getProductionLogForShift(
+        selectedDate,
+        selectedShift
+      );
       setProductionLog(log);
     };
 
-    fetchLog(); // Fetch immediately on change
-
-    const intervalId = setInterval(fetchLog, 30000); // Auto-refresh every 30 seconds
-
-    return () => clearInterval(intervalId); // Cleanup interval on unmount or dependency change
+    fetchLog();
   }, [selectedDate, selectedShift, loading]);
 
   // Effect to update the visible entries when the underlying log data or selected round changes
   useEffect(() => {
     if (loading) return;
-    machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
+    machineOperatorMapRef.current = getLocalStorageItem(
+      'machineOperatorMap',
+      {}
+    );
     loadEntriesForRound(selectedRound, productionLog);
   }, [productionLog, selectedRound, loading, allMachines, loadEntriesForRound]);
-  
+
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
     await actions.clearShiftData(selectedDate, selectedShift);
@@ -511,6 +516,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const handleDateChange = useCallback((date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
+      setProductionLog({}); // Clear log to force re-fetch and re-render
     }
   }, []);
 
@@ -632,7 +638,9 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     if (status === 'synced') {
       return <CheckCircle className="h-4 w-4 text-green-500" title="Synced" />;
     }
-    return <Clock className="h-4 w-4 text-muted-foreground" title="Not Synced" />;
+    return (
+      <Clock className="h-4 w-4 text-muted-foreground" title="Not Synced" />
+    );
   };
 
   const ControlsContent = () => (
@@ -880,7 +888,11 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                               <Select
                                 value={skuEntry.sku}
                                 onValueChange={val =>
-                                  handleSkuChange(entry.machineId, skuIndex, val)
+                                  handleSkuChange(
+                                    entry.machineId,
+                                    skuIndex,
+                                    val
+                                  )
                                 }
                                 disabled={machineSkus.length === 0}
                               >
