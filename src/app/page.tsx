@@ -149,6 +149,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const {toast} = useToast();
   const {user} = useAuth();
   const [loading, setLoading] = useState(true);
+  const [isFetchingLog, setIsFetchingLog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
@@ -263,30 +264,40 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     setAvailableOperators(allOperators.filter(op => !op.isAbsent));
   }, [allOperators]);
 
-  // Effect to fetch log data when date or shift changes
   useEffect(() => {
     if (loading || !selectedShift) return;
 
+    setIsFetchingLog(true);
     const fetchLog = async () => {
-      const log = await actions.getProductionLogForShift(
-        selectedDate,
-        selectedShift
-      );
-      setProductionLog(log);
+      try {
+        const log = await actions.getProductionLogForShift(
+          selectedDate,
+          selectedShift
+        );
+        setProductionLog(log);
+        machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
+        loadEntriesForRound(selectedRound, log);
+      } catch (error) {
+        console.error('Failed to fetch production log:', error);
+        toast({variant: 'destructive', title: 'Error fetching shift data.'});
+      } finally {
+        setIsFetchingLog(false);
+      }
     };
 
     fetchLog();
-  }, [selectedDate, selectedShift, loading]);
+  }, [selectedDate, selectedShift, loading, toast, loadEntriesForRound, selectedRound]);
 
-  // Effect to update the visible entries when the underlying log data or selected round changes
   useEffect(() => {
-    if (loading) return;
-    machineOperatorMapRef.current = getLocalStorageItem(
-      'machineOperatorMap',
-      {}
-    );
-    loadEntriesForRound(selectedRound, productionLog);
-  }, [productionLog, selectedRound, loading, allMachines, loadEntriesForRound]);
+    const interval = setInterval(async () => {
+      if (!selectedShift) return;
+      const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
+      setProductionLog(log);
+    }, 30000); // every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [selectedDate, selectedShift]);
+  
 
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
@@ -516,7 +527,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const handleDateChange = useCallback((date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
-      setProductionLog({}); // Clear log to force re-fetch and re-render
     }
   }, []);
 
@@ -827,7 +837,15 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           </Card>
         </div>
         <div className="w-full lg:w-3/4 p-4 space-y-4 overflow-y-auto pb-20 lg:pb-4">
-          {entries.length === 0 && !loading && (
+          {(isFetchingLog) && (
+             <Card>
+               <CardContent className="p-10 text-center text-muted-foreground">
+                 <Loader />
+                 <p className="mt-2">Loading shift data...</p>
+               </CardContent>
+             </Card>
+          )}
+          {!isFetchingLog && entries.length === 0 && (
             <Card>
               <CardContent className="p-10 text-center text-muted-foreground">
                 <p>No machines available for data entry.</p>
@@ -837,7 +855,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
               </CardContent>
             </Card>
           )}
-          {entries.map(entry => {
+          {!isFetchingLog && entries.map(entry => {
             const planItem = allProductionPlan.find(
               p => p.machineId === entry.machineId
             );
