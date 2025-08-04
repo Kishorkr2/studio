@@ -8,35 +8,20 @@ import {
   useMemo,
   useRef,
   useState,
-  type AppLayoutProps,
 } from 'react';
+import type { AppLayoutProps } from '@/components/app-layout';
 import {format} from 'date-fns';
 import {
   CalendarIcon,
   CheckCircle,
-  Clipboard,
-  ClipboardList,
   Clock,
-  Cog,
   Eraser,
   Filter,
-  LayoutDashboard,
-  LineChart,
-  ListPlus,
-  LogOut,
-  Mail,
-  MessageSquare,
+  Package,
   PlusCircle,
   Save,
-  Share2,
   Sigma,
   Trash2,
-  Truck,
-  Wifi,
-  WifiOff,
-  BotMessageSquare,
-  Flame,
-  Package,
 } from 'lucide-react';
 
 import * as actions from '../actions';
@@ -57,12 +42,9 @@ import {Calendar} from '@/components/ui/calendar';
 import {Card, CardContent, CardHeader, CardTitle, CardDescription} from '@/components/ui/card';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
@@ -96,7 +78,6 @@ import type {
   MachineProductionData,
   Operator,
   ProductionLog,
-  ProductionPlanItem,
   ShiftInfo,
   TreadStock,
   SkuPlan
@@ -150,23 +131,6 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
   return shifts[0];
 };
 
-const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 32 32" {...props}>
-    <path
-      d="M19.11 17.205c-.372 0-1.088 1.39-1.518 1.39a.63.63 0 0 1-.315-.1c-.802-.402-1.504-.817-2.163-1.447-.545-.516-1.146-1.29-1.46-1.963a.426.426 0 0 1-.073-.215c0-.33.99-.945.99-1.962a.427.427 0 0 0-.073-.215c-.33-1.01-.99-2.512-.99-3.264 0-.426-.24-.426-.51-.426h-1.62a.63.63 0 0 0-.315.1c-.843.43-1.518 1.39-1.518 2.162 0 1.582 1.518 4.816 3.544 6.988 2.026 2.17 4.57 2.648 5.746 2.648.72 0 2.4-1.25 2.4-2.648s-.99-1.69-.99-1.69z"
-      fill="#fff"
-    ></path>
-    <path
-      d="M20.213 4.933a10.27 10.27 0 0 0-16.488 11.103L2.645 22.47l6.57-4.085a10.27 10.27 0 0 0 11.002-13.45z"
-      fill="#4caf50"
-    ></path>
-    <path
-      d="M19.11,17.205 c-0.372,0 -1.088,1.39 -1.518,1.39 a0.63,0.63 0,0 1,-0.315,-0.1 c-0.802,-0.402 -1.504,-0.817 -2.163,-1.447 c-0.545,-0.516 -1.146,-1.29 -1.46,-1.963 a0.426,0.426 0,0 1,-0.073,-0.215 c0,-0.33 0.99,-0.945 0.99,-1.962 a0.427,0.427 0,0 0,-0.073,-0.215 c-0.33,-1.01 -0.99,-2.512 -0.99,-3.264 c0,-0.426 -0.24,-0.426 -0.51,-0.426 h-1.62 a0.63,0.63 0,0 0,-0.315,0.1 c-0.843,0.43 -1.518,1.39 -1.518,2.162 c0,1.582 1.518,4.816 3.544,6.988 c2.026,2.17 4.57,2.648 5.746,2.648 c0.72,0 2.4,-1.25 2.4,-2.648 s-0.99,-1.69 -0.99,-1.69 z"
-      fill="#fff"
-    ></path>
-  </svg>
-);
-
 export default function CuringPage({setPageActions}: AppLayoutProps) {
   const {toast} = useToast();
   const {user} = useAuth();
@@ -178,7 +142,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   const [allOperators, setAllOperators] = useState<Operator[]>([]);
   
   const [allSkusFromPlan, setAllSkusFromPlan] = useState<SkuPlan[]>([]);
-  const [greenTyreStock, setGreenTyreStock] = useState<any[]>([]);
+  const [greenTyreStock, setGreenTyreStock] = useState<TreadStock[]>([]);
 
   const [roundTimes, setRoundTimes] = useState<string[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>('');
@@ -238,21 +202,28 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [shiftsData, machinesData, operatorsData, planData, openingStock, dailyLogs, historyLogs] =
-        await Promise.all([
-          actions.getShifts(),
-          actions.getMachines('CuringPress'),
-          actions.getOperators(),
-          actions.getProductionPlan(),
-          actions.getTreadOpeningStock(),
-          actions.getDailyTreadProductionLog(),
-          actions.getProductionLogs(),
-        ]);
-        
+      const [
+        shiftsData,
+        machinesData,
+        operatorsData,
+        planData,
+        openingStock,
+        dailyLogs,
+        historyLogs,
+      ] = await Promise.all([
+        actions.getShifts(),
+        actions.getMachines('CuringPress'),
+        actions.getOperators(),
+        actions.getProductionPlan(),
+        actions.getTreadOpeningStock(),
+        actions.getDailyTreadProductionLog(),
+        actions.getProductionLogs(),
+      ]);
+
       setAllShifts(shiftsData);
       setAllCuringPresses(machinesData);
       setAllOperators(operatorsData);
-      
+
       const skuMap = new Map<string, SkuPlan>();
       planData.forEach(item => {
         item.skus.forEach(skuPlan => {
@@ -260,7 +231,10 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
           const key = skuPlan.sapCode;
           const existing = skuMap.get(key);
           if (existing) {
-            skuMap.set(key, {...existing, quantity: existing.quantity + skuPlan.quantity});
+            skuMap.set(key, {
+              ...existing,
+              quantity: (existing.quantity || 0) + (skuPlan.quantity || 0),
+            });
           } else {
             skuMap.set(key, {...skuPlan});
           }
@@ -273,25 +247,35 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       for (const dateKey in dailyLogs) {
         for (const shiftName in dailyLogs[dateKey]) {
           for (const sapCode in dailyLogs[dateKey][shiftName]) {
-            dailyTotals[sapCode] = (dailyTotals[sapCode] || 0) + (dailyLogs[dateKey][shiftName][sapCode].quantity || 0);
+            dailyTotals[sapCode] =
+              (dailyTotals[sapCode] || 0) +
+              (dailyLogs[dateKey][shiftName][sapCode].quantity || 0);
           }
         }
       }
 
       const tyreProd: Record<string, number> = {};
-      (historyLogs as any[]).filter(log => log.machineName.startsWith("CP")).forEach(entry => {
-        if (entry.sapCode && entry.quantity > 0) {
-          tyreProd[entry.sapCode] = (tyreProd[entry.sapCode] || 0) + entry.quantity;
-        }
-      });
-      
+      (historyLogs as any[])
+        .filter(log => log.machineName.startsWith('CP'))
+        .forEach(entry => {
+          if (entry.sapCode && entry.quantity > 0) {
+            tyreProd[entry.sapCode] =
+              (tyreProd[entry.sapCode] || 0) + (entry.quantity || 0);
+          }
+        });
+
       const stock = skus.map(req => {
-        const openingStockInfo = openingStock.find(t => t.sapCode === req.sapCode) || {openingStock: 0};
+        const openingStockInfo = openingStock.find(
+          t => t.sapCode === req.sapCode
+        ) || {openingStock: 0};
         const totalProduction = dailyTotals[req.sapCode] || 0;
         const tyreProduction = tyreProd[req.sapCode] || 0;
-        const currentTreadStock = openingStockInfo.openingStock + totalProduction - tyreProduction;
+        const currentTreadStock =
+          (openingStockInfo.openingStock || 0) + totalProduction - tyreProduction;
         return {
           ...req,
+          openingStock: openingStockInfo.openingStock,
+          production: totalProduction,
           currentTreadStock,
         };
       });
@@ -324,8 +308,10 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   }, [allOperators]);
 
   useEffect(() => {
+    if (loading || !selectedShift) return;
+
     const key = `${format(selectedDate, 'yyyy-MM-dd')}-${selectedShift?.name}`;
-    if (loading || !selectedShift || dataLoadedFor.current === key) return;
+    if (dataLoadedFor.current === key) return;
     
     const fetchLog = async () => {
       const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
@@ -340,7 +326,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     machineOperatorMapRef.current = getLocalStorageItem('curingMachineOperatorMap', {});
     loadEntriesForRound(selectedRound, productionLog);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productionLog, selectedRound, loading, selectedShift]);
+  }, [productionLog, selectedRound, loading, selectedShift, allCuringPresses]);
   
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
@@ -400,12 +386,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         setPageActions(null);
       }
     };
-  }, [
-    handleClearShiftData,
-    selectedDate,
-    selectedShift,
-    setPageActions,
-  ]);
+  }, [handleClearShiftData, selectedDate, selectedShift, setPageActions]);
 
   const handleSelectedRoundChange = (round: string) => {
     setSelectedRound(round);
@@ -448,16 +429,23 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   const handleQuantityChange = (
     machineId: string,
     skuIndex: number,
+    side: 'left' | 'right',
     quantity: number
   ) => {
     setEntries(prev =>
       prev.map(entry => {
         if (entry.machineId === machineId) {
           const updatedSkus = [...entry.skus];
-          updatedSkus[skuIndex] = {
-            ...updatedSkus[skuIndex],
-            quantity: isNaN(quantity) ? 0 : quantity,
-          };
+          const currentSku = updatedSkus[skuIndex];
+          const newQty = isNaN(quantity) ? 0 : quantity;
+          
+          if(side === 'left') {
+            currentSku.leftQty = newQty;
+          } else {
+            currentSku.rightQty = newQty;
+          }
+          currentSku.quantity = (currentSku.leftQty || 0) + (currentSku.rightQty || 0)
+
           return {...entry, skus: updatedSkus};
         }
         return entry;
@@ -471,7 +459,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         if (entry.machineId === machineId) {
           return {
             ...entry,
-            skus: [...entry.skus, {sku: '', sapCode: '', quantity: 0}],
+            skus: [...entry.skus, {sku: '', sapCode: '', quantity: 0, leftQty: 0, rightQty: 0}],
           };
         }
         return entry;
@@ -583,9 +571,9 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
 
   const RoundStatusIndicator = ({status}: {status?: 'synced' | 'pending'}) => {
     if (status === 'synced') {
-      return <CheckCircle className="h-4 w-4 text-green-500" title="Synced" />;
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
     }
-    return <Clock className="h-4 w-4 text-muted-foreground" title="Not Synced" />;
+    return <Clock className="h-4 w-4 text-muted-foreground" />;
   };
 
   const ControlsContent = () => (
@@ -726,14 +714,18 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                   <TableHeader>
                     <TableRow>
                       <TableHead>SKU</TableHead>
-                      <TableHead className="text-right">Available Stock</TableHead>
+                      <TableHead className="text-right">
+                        Available Stock
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {greenTyreStock.map((item) => (
+                    {greenTyreStock.map(item => (
                       <TableRow key={item.sapCode}>
                         <TableCell className="font-medium">{item.sku}</TableCell>
-                        <TableCell className="text-right font-bold">{item.currentTreadStock.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-bold">
+                          {item.currentTreadStock.toLocaleString()}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -785,8 +777,8 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                           key={skuIndex}
                           className="flex flex-col sm:flex-row sm:items-center sm:gap-4"
                         >
-                          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1">
+                          <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="space-y-1 sm:col-span-1">
                               <Label
                                 htmlFor={`sku-${entry.machineId}-${skuIndex}`}
                               >
@@ -824,23 +816,49 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                             </div>
                             <div className="space-y-1">
                               <Label
-                                htmlFor={`quantity-${entry.machineId}-${skuIndex}`}
+                                htmlFor={`left-qty-${entry.machineId}-${skuIndex}`}
                               >
-                                Quantity
+                                Left Qty
                               </Label>
                               <Input
-                                id={`quantity-${entry.machineId}-${skuIndex}`}
+                                id={`left-qty-${entry.machineId}-${skuIndex}`}
                                 type="number"
                                 placeholder="0"
                                 value={
-                                  skuEntry.quantity === 0
+                                  skuEntry.leftQty === 0
                                     ? ''
-                                    : skuEntry.quantity
+                                    : skuEntry.leftQty
                                 }
                                 onChange={e =>
                                   handleQuantityChange(
                                     entry.machineId,
                                     skuIndex,
+                                    'left',
+                                    parseInt(e.target.value) || 0
+                                  )
+                                }
+                              />
+                            </div>
+                             <div className="space-y-1">
+                              <Label
+                                htmlFor={`right-qty-${entry.machineId}-${skuIndex}`}
+                              >
+                                Right Qty
+                              </Label>
+                              <Input
+                                id={`right-qty-${entry.machineId}-${skuIndex}`}
+                                type="number"
+                                placeholder="0"
+                                value={
+                                  skuEntry.rightQty === 0
+                                    ? ''
+                                    : skuEntry.rightQty
+                                }
+                                onChange={e =>
+                                  handleQuantityChange(
+                                    entry.machineId,
+                                    skuIndex,
+                                    'right',
                                     parseInt(e.target.value) || 0
                                   )
                                 }

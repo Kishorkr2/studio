@@ -28,7 +28,7 @@ export async function getMachines(type: 'TBM' | 'CuringPress' | 'all' = 'all'): 
   if (type === 'all') {
     return db.all('SELECT * FROM machines ORDER BY type, id');
   }
-  return db.all('SELECT * FROM machines WHERE type = ? ORDER BY id', type);
+  return db.all('SELECT * FROM machines WHERE type = ? ORDER BY name', type);
 }
 
 export async function getShifts(): Promise<ShiftInfo[]> {
@@ -107,25 +107,23 @@ export async function getProductionLogForShift(
     let machineEntry = log[row.round].entries.find(
       e => e.machineId === row.machineId
     );
-
-    if (machineEntry) {
-      machineEntry.skus.push({
+    
+    const skuProduction = {
         sku: row.sku,
         sapCode: row.sapCode,
         quantity: row.quantity,
-      });
+        leftQty: row.leftQty,
+        rightQty: row.rightQty,
+    };
+
+    if (machineEntry) {
+      machineEntry.skus.push(skuProduction);
     } else {
       const newMachineEntry: MachineProductionData = {
         machineId: row.machineId,
         name: row.name,
         operatorId: row.operatorId,
-        skus: [
-          {
-            sku: row.sku,
-            sapCode: row.sapCode,
-            quantity: row.quantity,
-          },
-        ],
+        skus: [skuProduction],
         userId: row.userId,
         userName: row.userName,
       };
@@ -302,11 +300,11 @@ export async function saveProductionRound(
 
       for (const entry of entries) {
         for (const sku of entry.skus) {
-          if (sku.sku && sku.sapCode && sku.quantity > 0) {
+          if (sku.sku && sku.sapCode && (sku.quantity || 0) > 0) {
             await db.run(
               `INSERT INTO productionLogEntries 
-               (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName, remark) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+               (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, leftQty, rightQty, operatorId, userId, userName, remark) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 dateKey,
                 shiftName,
@@ -317,6 +315,8 @@ export async function saveProductionRound(
                 sku.sku,
                 sku.sapCode,
                 sku.quantity,
+                sku.leftQty,
+                sku.rightQty,
                 entry.operatorId,
                 entry.userId,
                 entry.userName,

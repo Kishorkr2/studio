@@ -19,17 +19,15 @@ export const db = await open({
 async function setup() {
   await db.exec('PRAGMA journal_mode = WAL;');
   
-  // Drop the problematic table to ensure it's recreated with the correct schema.
   await db.exec('DROP TABLE IF EXISTS productionLogEntries;').catch(() => {
     // Ignore errors if the table doesn't exist
   });
 
-  const existingColumns = await db.all("PRAGMA table_info(machines)");
+  const existingColumns = await db.all("PRAGMA table_info(machines)").catch(() => []);
   const hasTypeColumn = existingColumns.some(col => col.name === 'type');
 
   if (!hasTypeColumn) {
-    // To add a column with a default value, we need to recreate the table
-    await db.exec('ALTER TABLE machines RENAME TO machines_old;');
+    await db.exec('ALTER TABLE machines RENAME TO machines_old;').catch(() => {});
     await db.exec(`
       CREATE TABLE IF NOT EXISTS machines (
         id TEXT PRIMARY KEY,
@@ -38,8 +36,8 @@ async function setup() {
         type TEXT NOT NULL DEFAULT 'TBM'
       );
     `);
-    await db.exec('INSERT INTO machines (id, name, isAvailable) SELECT id, name, isAvailable FROM machines_old;');
-    await db.exec('DROP TABLE machines_old;');
+    await db.exec('INSERT INTO machines (id, name, isAvailable) SELECT id, name, isAvailable FROM machines_old;').catch(() => {});
+    await db.exec('DROP TABLE machines_old;').catch(() => {});
   }
 
 
@@ -59,6 +57,12 @@ async function setup() {
       builderNo TEXT,
       skillRating INTEGER,
       isAbsent BOOLEAN
+    );
+    CREATE TABLE IF NOT EXISTS machines (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        isAvailable BOOLEAN,
+        type TEXT NOT NULL DEFAULT 'TBM'
     );
     CREATE TABLE IF NOT EXISTS shifts (
       name TEXT PRIMARY KEY,
@@ -83,6 +87,8 @@ async function setup() {
       sku TEXT,
       sapCode TEXT,
       quantity INTEGER,
+      leftQty INTEGER,
+      rightQty INTEGER,
       operatorId TEXT,
       userId INTEGER,
       userName TEXT,
@@ -125,8 +131,10 @@ async function setup() {
     }
   }
 
-  const machineCount = await db.get('SELECT COUNT(*) as count FROM machines');
-  if (machineCount.count === 0) {
+  const machineCountResult = await db.get('SELECT COUNT(*) as count FROM machines');
+  const machineCount = machineCountResult?.count ?? 0;
+  if (machineCount === 0) {
+    // Seed TBMs
     for (const m of initialMachines) {
       await db.run(
         'INSERT INTO machines (id, name, isAvailable, type) VALUES (?, ?, ?, ?)',
@@ -135,6 +143,22 @@ async function setup() {
         m.isAvailable,
         m.type
       );
+    }
+    // Seed Curing Presses
+     for (let i = 1; i <= 41; i++) {
+        const curingPress: Machine = {
+            id: `CP-${String(i).padStart(2, '0')}`,
+            name: `Curing Press ${i}`,
+            isAvailable: true,
+            type: 'CuringPress'
+        };
+        await db.run(
+            'INSERT INTO machines (id, name, isAvailable, type) VALUES (?, ?, ?, ?)',
+            curingPress.id,
+            curingPress.name,
+            curingPress.isAvailable,
+            curingPress.type
+        );
     }
   }
 

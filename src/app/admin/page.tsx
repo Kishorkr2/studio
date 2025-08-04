@@ -61,7 +61,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {Switch} from '@/components/ui/switch';
-import {Skeleton} from '@/components/ui/skeleton';
 import {Slider} from '@/components/ui/slider';
 import * as actions from '../actions';
 import { Loader } from '@/components/ui/loader';
@@ -295,7 +294,7 @@ export default function AdminPage() {
   }, [loadInitialData]);
   
   const totalPlanQuantity = useMemo(() => {
-    return editablePlan.reduce((total, item) => total + item.quantity, 0);
+    return editablePlan.reduce((total, item) => total + (item.quantity || 0), 0);
   }, [editablePlan]);
 
   const handleClearProductionPlan = async () => {
@@ -477,23 +476,23 @@ export default function AdminPage() {
   
   const handleAddMachine = async (type: 'TBM' | 'CuringPress') => {
     const prefix = type === 'TBM' ? 'TBM' : 'CP';
+    const existingOfType = machines.filter(m => m.type === type);
     const newIdNumber =
-      machines.filter(m => m.type === type).length > 0
+      existingOfType.length > 0
         ? Math.max(
-            ...machines
-              .filter(m => m.type === type)
-              .map(m => parseInt(m.id.replace(`${prefix}-`, '')) || 0)
+            ...existingOfType.map(m => parseInt(m.id.replace(`${prefix}-`, '')) || 0)
           ) + 1
         : 1;
-    const newId = `${prefix}-${String(newIdNumber).padStart(2, '0')}`;
+
     const newMachine = {
-      id: newId,
+      id: `${prefix}-${String(newIdNumber).padStart(2, '0')}`,
       name: `${type === 'TBM' ? 'TBM' : 'Curing Press'} ${newIdNumber}`,
       isAvailable: true,
       type: type,
     };
     await actions.addMachine(newMachine);
     setMachines(prev => [...prev, newMachine]);
+    toast({title: 'Machine Added'});
   };
   
   const handleDeleteMachine = async (id: string) => {

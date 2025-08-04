@@ -29,6 +29,8 @@ export interface SkuProduction {
   sku: string;
   sapCode: string;
   quantity: number;
+  leftQty?: number;
+  rightQty?: number;
   remark?: string;
 }
 
@@ -53,6 +55,8 @@ export interface FlatProductionLogEntry {
   sku: string;
   sapCode: string;
   quantity: number;
+  leftQty?: number;
+  rightQty?: number;
   operatorId?: string;
   userId?: number;
   userName?: string;
@@ -90,6 +94,7 @@ export interface TreadStock {
   sapCode: string;
   openingStock: number;
   production: number;
+  currentTreadStock: number;
 }
 
 export interface DailyProductionEntry {

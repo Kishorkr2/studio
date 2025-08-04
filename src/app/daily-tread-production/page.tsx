@@ -134,7 +134,7 @@ export default function DailyTreadProductionPage() {
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
     setDailyProductionEntries(dailyProductionLog[dateKey]?.[shiftName] || {});
-  }, [selectedDate, selectedShift]);
+  }, [selectedDate, selectedShift, dailyProductionLog, dailyProductionEntries]);
 
   const handleDailyProductionChange = (
     sapCode: string,
