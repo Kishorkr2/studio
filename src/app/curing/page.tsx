@@ -326,7 +326,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     machineOperatorMapRef.current = getLocalStorageItem('curingMachineOperatorMap', {});
     loadEntriesForRound(selectedRound, productionLog);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productionLog, selectedRound, loading, selectedShift, allCuringPresses]);
+  }, [productionLog, selectedRound, loading, selectedShift]);
   
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;

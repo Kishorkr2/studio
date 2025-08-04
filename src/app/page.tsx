@@ -164,6 +164,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
   const machineOperatorMapRef = useRef<Record<string, string>>({});
+  const dataLoadedFor = useRef('');
+  
   const [columnVisibility, setColumnVisibility] = useState(() =>
     getLocalStorageItem('columnVisibility', {
       operator: true,
@@ -181,14 +183,11 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     const shiftName = shift.name.toLowerCase();
 
     if (shiftName.includes('night')) {
-      for (let h = 21; h <= 23; h++)
-        times.push(`${String(h).padStart(2, '0')}:00`);
-      for (let h = 0; h <= 6; h++)
-        times.push(`${String(h).padStart(2, '0')}:00`);
+      for (let h = 21; h <= 23; h++) times.push(`${String(h).padStart(2, '0')}:00`);
+      for (let h = 0; h <= 6; h++) times.push(`${String(h).padStart(2, '0')}:00`);
       times.push('07:00');
     } else {
-      for (let h = 9; h <= 18; h++)
-        times.push(`${String(h).padStart(2, '0')}:00`);
+      for (let h = 9; h <= 18; h++) times.push(`${String(h).padStart(2, '0')}:00`);
       times.push('19:00');
     }
 
@@ -266,6 +265,9 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   useEffect(() => {
     if (loading || !selectedShift) return;
+    
+    const key = `${format(selectedDate, 'yyyy-MM-dd')}-${selectedShift?.name}`;
+    if (dataLoadedFor.current === key) return;
 
     setIsFetchingLog(true);
     const fetchLog = async () => {
@@ -275,8 +277,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           selectedShift
         );
         setProductionLog(log);
-        machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
-        loadEntriesForRound(selectedRound, log);
+        dataLoadedFor.current = key;
       } catch (error) {
         console.error('Failed to fetch production log:', error);
         toast({variant: 'destructive', title: 'Error fetching shift data.'});
@@ -286,11 +287,18 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     };
 
     fetchLog();
-  }, [selectedDate, selectedShift, loading, toast, loadEntriesForRound, selectedRound]);
+  }, [selectedDate, selectedShift, loading, toast]);
+
+  useEffect(() => {
+    if (loading || !selectedShift) return;
+    machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
+    loadEntriesForRound(selectedRound, productionLog);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productionLog, selectedRound, loading, selectedShift]);
 
   useEffect(() => {
     const interval = setInterval(async () => {
-      if (!selectedShift) return;
+      if (!selectedShift || document.hidden) return;
       const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
       setProductionLog(log);
     }, 30000); // every 30 seconds
@@ -513,6 +521,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     (name: string) => {
       const newShift = allShifts.find(s => s.name === name);
       if (newShift?.name !== selectedShift?.name) {
+        dataLoadedFor.current = '';
         setSelectedShift(newShift);
         if (newShift) {
           const newRoundTimes = generateRoundTimes(newShift);
@@ -526,9 +535,12 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   const handleDateChange = useCallback((date: Date | undefined) => {
     if (date) {
-      setSelectedDate(date);
+      if (format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
+        dataLoadedFor.current = '';
+        setSelectedDate(date);
+      }
     }
-  }, []);
+  }, [selectedDate]);
 
   const roundTotal = useMemo(() => {
     return entries.reduce(
@@ -837,7 +849,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           </Card>
         </div>
         <div className="w-full lg:w-3/4 p-4 space-y-4 overflow-y-auto pb-20 lg:pb-4">
-          {(isFetchingLog) && (
+          {isFetchingLog && (
              <Card>
                <CardContent className="p-10 text-center text-muted-foreground">
                  <Loader />
