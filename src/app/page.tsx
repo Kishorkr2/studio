@@ -259,23 +259,29 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   useEffect(() => {
     setAvailableOperators(allOperators.filter(op => !op.isAbsent));
   }, [allOperators]);
-
+  
+  // Effect to fetch log data when date or shift changes, and for auto-refresh
   useEffect(() => {
     if (loading || !selectedShift) return;
+
     const fetchLog = async () => {
-      setProductionLog({}); 
       const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
       setProductionLog(log);
     };
-    fetchLog();
+
+    fetchLog(); // Fetch immediately on change
+
+    const intervalId = setInterval(fetchLog, 30000); // Auto-refresh every 30 seconds
+
+    return () => clearInterval(intervalId); // Cleanup interval on unmount or dependency change
   }, [selectedDate, selectedShift, loading]);
 
+  // Effect to update the visible entries when the underlying log data or selected round changes
   useEffect(() => {
     if (loading) return;
     machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
     loadEntriesForRound(selectedRound, productionLog);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productionLog, selectedRound, loading, allMachines]);
+  }, [productionLog, selectedRound, loading, allMachines, loadEntriesForRound]);
   
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
