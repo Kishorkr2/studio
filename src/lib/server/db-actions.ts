@@ -24,11 +24,18 @@ export async function getOperators(): Promise<Operator[]> {
   return db.all('SELECT * FROM operators ORDER BY name');
 }
 
-export async function getMachines(type: 'TBM' | 'CuringPress' | 'all' = 'all'): Promise<Machine[]> {
+export async function getMachines(
+  type: 'TBM' | 'CuringPress' | 'all' = 'all'
+): Promise<Machine[]> {
+  const orderByClause =
+    "ORDER BY type, CAST(SUBSTR(name, INSTR(name, ' ') + 1) AS INTEGER)";
   if (type === 'all') {
-    return db.all('SELECT * FROM machines ORDER BY type, id');
+    return db.all(`SELECT * FROM machines ${orderByClause}`);
   }
-  return db.all('SELECT * FROM machines WHERE type = ? ORDER BY name', type);
+  return db.all(
+    `SELECT * FROM machines WHERE type = ? ${orderByClause}`,
+    type
+  );
 }
 
 export async function getShifts(): Promise<ShiftInfo[]> {
@@ -107,13 +114,13 @@ export async function getProductionLogForShift(
     let machineEntry = log[row.round].entries.find(
       e => e.machineId === row.machineId
     );
-    
+
     const skuProduction = {
-        sku: row.sku,
-        sapCode: row.sapCode,
-        quantity: row.quantity,
-        leftQty: row.leftQty,
-        rightQty: row.rightQty,
+      sku: row.sku,
+      sapCode: row.sapCode,
+      quantity: row.quantity,
+      leftQty: row.leftQty,
+      rightQty: row.rightQty,
     };
 
     if (machineEntry) {
@@ -287,7 +294,7 @@ export async function saveProductionRound(
   await db.exec('BEGIN TRANSACTION');
   try {
     const machineIdsToUpdate = [
-      ...new Set(entries.map(entry => entry.machineId)),
+      ...new Set(entries.filter(e => e.skus.length > 0).map(entry => entry.machineId)),
     ];
 
     if (machineIdsToUpdate.length > 0) {
