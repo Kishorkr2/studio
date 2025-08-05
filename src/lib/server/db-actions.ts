@@ -114,6 +114,11 @@ export async function getProductionLogForShift(
     let machineEntry = log[row.round].entries.find(
       e => e.machineId === row.machineId
     );
+    
+    // Skip placeholder remarks if actual production data exists for the machine
+    if (row.remark === 'Operator Assigned' && machineEntry && machineEntry.skus.some(s => s.quantity > 0)) {
+        continue;
+    }
 
     const skuProduction = {
       sku: row.sku,
@@ -122,15 +127,31 @@ export async function getProductionLogForShift(
       leftQty: row.leftQty,
       rightQty: row.rightQty,
     };
+    
+    if (row.remark === 'Operator Assigned') {
+      skuProduction.quantity = 0;
+    }
+
 
     if (machineEntry) {
-      machineEntry.skus.push(skuProduction);
+       // Avoid adding placeholder if real data is already there
+      if (skuProduction.quantity > 0) {
+        // If the existing one was a placeholder, replace it. Otherwise, add to it.
+        const placeholderIndex = machineEntry.skus.findIndex(s => s.remark === 'Operator Assigned');
+        if (placeholderIndex > -1) {
+          machineEntry.skus.splice(placeholderIndex, 1, skuProduction);
+        } else {
+          machineEntry.skus.push(skuProduction);
+        }
+      } else if (machineEntry.skus.length === 0) {
+         machineEntry.skus.push(skuProduction);
+      }
     } else {
       const newMachineEntry: MachineProductionData = {
         machineId: row.machineId,
         name: row.name,
         operatorId: row.operatorId,
-        skus: [skuProduction],
+        skus: row.sku ? [skuProduction] : [], // Only add if there's an actual sku
         userId: row.userId,
         userName: row.userName,
       };
@@ -294,7 +315,7 @@ export async function saveProductionRound(
   await db.exec('BEGIN TRANSACTION');
   try {
     const machineIdsToUpdate = [
-      ...new Set(entries.filter(e => e.skus.length > 0).map(entry => entry.machineId)),
+      ...new Set(entries.filter(e => e.operatorId).map(entry => entry.machineId)),
     ];
 
     if (machineIdsToUpdate.length > 0) {
@@ -306,11 +327,13 @@ export async function saveProductionRound(
       );
 
       for (const entry of entries) {
-        for (const sku of entry.skus) {
-          if (sku.sku && sku.sapCode && (sku.quantity || 0) > 0) {
-            await db.run(
+         if (!entry.operatorId) continue;
+
+        // If there are no SKUs with quantity, save a placeholder entry for the operator assignment
+        if (entry.skus.every(s => (s.quantity || 0) === 0)) {
+           await db.run(
               `INSERT INTO productionLogEntries 
-               (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, leftQty, rightQty, operatorId, userId, userName, remark) 
+               (date, shiftName, round, machineId, name, status, operatorId, userId, userName, remark, sku, sapCode, quantity, leftQty, rightQty) 
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 dateKey,
@@ -319,17 +342,40 @@ export async function saveProductionRound(
                 entry.machineId,
                 entry.name,
                 'Online',
-                sku.sku,
-                sku.sapCode,
-                sku.quantity,
-                sku.leftQty,
-                sku.rightQty,
                 entry.operatorId,
                 entry.userId,
                 entry.userName,
-                sku.remark || null,
+                'Operator Assigned', // Placeholder remark
+                null, null, 0, null, null // No SKU data
               ]
             );
+        } else {
+          // Save entries with actual production
+          for (const sku of entry.skus) {
+            if (sku.sku && sku.sapCode && (sku.quantity || 0) > 0) {
+              await db.run(
+                `INSERT INTO productionLogEntries 
+                 (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, leftQty, rightQty, operatorId, userId, userName, remark) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                  dateKey,
+                  shiftName,
+                  round,
+                  entry.machineId,
+                  entry.name,
+                  'Online',
+                  sku.sku,
+                  sku.sapCode,
+                  sku.quantity,
+                  sku.leftQty,
+                  sku.rightQty,
+                  entry.operatorId,
+                  entry.userId,
+                  entry.userName,
+                  sku.remark || null,
+                ]
+              );
+            }
           }
         }
       }

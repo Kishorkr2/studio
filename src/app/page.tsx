@@ -164,7 +164,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
   const machineOperatorMapRef = useRef<Record<string, string>>({});
-  const dataLoadedFor = useRef('');
   
   const [columnVisibility, setColumnVisibility] = useState(() =>
     getLocalStorageItem('columnVisibility', {
@@ -183,10 +182,10 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     const shiftName = shift.name.toLowerCase();
 
     if (shiftName.includes('night')) {
-      for (let h = 21; h <= 23; h++) times.push(`${String(h).padStart(2, '0')}:00`);
+       for (let h = 21; h <= 23; h++) times.push(`${String(h).padStart(2, '0')}:00`);
       for (let h = 0; h <= 6; h++) times.push(`${String(h).padStart(2, '0')}:00`);
       times.push('07:00');
-    } else {
+    } else { // Day shift
       for (let h = 9; h <= 18; h++) times.push(`${String(h).padStart(2, '0')}:00`);
       times.push('19:00');
     }
@@ -195,7 +194,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       const [h] = t.split(':').map(Number);
       const ampm = h >= 12 ? 'PM' : 'AM';
       let displayHour = h % 12;
-      if (displayHour === 0) displayHour = 12;
+      if (displayHour === 0) displayHour = 12; // Handle midnight and noon
       return `${String(displayHour).padStart(2, '0')}:00 ${ampm}`;
     });
   }, []);
@@ -207,9 +206,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         .filter(machine => machine.isAvailable)
         .map(machine => {
           const loggedEntry = logForRound.find(e => e.machineId === machine.id);
-          const skus = loggedEntry ? loggedEntry.skus : [];
-          const operatorId =
-            loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id];
+          const skus = loggedEntry?.skus?.filter(s => s.sku) || [];
+          const operatorId = loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id];
           return {
             machineId: machine.id,
             name: machine.name,
@@ -263,11 +261,9 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     setAvailableOperators(allOperators.filter(op => !op.isAbsent));
   }, [allOperators]);
 
+  // Effect to fetch log data when date or shift changes
   useEffect(() => {
     if (loading || !selectedShift) return;
-    
-    const key = `${format(selectedDate, 'yyyy-MM-dd')}-${selectedShift?.name}`;
-    if (dataLoadedFor.current === key) return;
 
     setIsFetchingLog(true);
     const fetchLog = async () => {
@@ -277,7 +273,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
           selectedShift
         );
         setProductionLog(log);
-        dataLoadedFor.current = key;
       } catch (error) {
         console.error('Failed to fetch production log:', error);
         toast({variant: 'destructive', title: 'Error fetching shift data.'});
@@ -288,13 +283,15 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
     fetchLog();
   }, [selectedDate, selectedShift, loading, toast]);
-
+  
+  // Effect to update UI only after productionLog state has been updated
   useEffect(() => {
     if (loading || !selectedShift) return;
     machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
     loadEntriesForRound(selectedRound, productionLog);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productionLog, selectedRound, loading, selectedShift]);
+
 
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -521,7 +518,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     (name: string) => {
       const newShift = allShifts.find(s => s.name === name);
       if (newShift?.name !== selectedShift?.name) {
-        dataLoadedFor.current = '';
         setSelectedShift(newShift);
         if (newShift) {
           const newRoundTimes = generateRoundTimes(newShift);
@@ -536,8 +532,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const handleDateChange = useCallback((date: Date | undefined) => {
     if (date) {
       if (format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
-        dataLoadedFor.current = '';
         setSelectedDate(date);
+        setProductionLog({}); // Clear old log to force fetch
       }
     }
   }, [selectedDate]);
