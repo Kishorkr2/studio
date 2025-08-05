@@ -532,9 +532,10 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   const handleDateChange = useCallback((date: Date | undefined) => {
     if (date) {
       if (format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
-        setSelectedDate(date);
-        setEntries([]);
+        // Clear all relevant state before setting the new date to prevent data carry-over
         setProductionLog({});
+        setEntries([]);
+        setSelectedDate(date);
       }
     }
   }, [selectedDate]);
@@ -1041,3 +1042,5 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
+
+    
