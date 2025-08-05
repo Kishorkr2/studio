@@ -533,7 +533,8 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     if (date) {
       if (format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
         setSelectedDate(date);
-        setProductionLog({}); // Clear old log to force fetch
+        setEntries([]);
+        setProductionLog({});
       }
     }
   }, [selectedDate]);
