@@ -206,7 +206,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
         .filter(machine => machine.isAvailable)
         .map(machine => {
           const loggedEntry = logForRound.find(e => e.machineId === machine.id);
-          const skus = loggedEntry?.skus?.filter(s => s.sku) || [];
+          const skus = loggedEntry?.skus?.filter(s => s.sku || s.sapCode) || [];
           const operatorId = loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id];
           return {
             machineId: machine.id,
@@ -286,11 +286,11 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   
   // Effect to update UI only after productionLog state has been updated
   useEffect(() => {
-    if (loading || !selectedShift) return;
+    if (loading || !selectedShift || isFetchingLog) return;
     machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
     loadEntriesForRound(selectedRound, productionLog);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productionLog, selectedRound, loading, selectedShift]);
+  }, [productionLog, selectedRound, loading, selectedShift, isFetchingLog]);
 
 
   useEffect(() => {

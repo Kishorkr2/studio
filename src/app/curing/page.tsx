@@ -184,7 +184,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         .filter(machine => machine.isAvailable)
         .map(machine => {
           const loggedEntry = logForRound.find(e => e.machineId === machine.id);
-          const skus = loggedEntry ? loggedEntry.skus : [];
+          const skus = loggedEntry?.skus?.filter(s => s.sku || s.sapCode) || [];
           const operatorId =
             loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id];
           return {

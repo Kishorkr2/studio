@@ -314,26 +314,46 @@ export async function saveProductionRound(
 
   await db.exec('BEGIN TRANSACTION');
   try {
-    const machineIdsToUpdate = [
-      ...new Set(entries.filter(e => e.operatorId).map(entry => entry.machineId)),
-    ];
+    // Delete all existing entries for this specific round first.
+    await db.run(
+      `DELETE FROM productionLogEntries 
+       WHERE date = ? AND shiftName = ? AND round = ?`,
+      [dateKey, shiftName, round]
+    );
 
-    if (machineIdsToUpdate.length > 0) {
-      const placeholders = machineIdsToUpdate.map(() => '?').join(',');
-      await db.run(
-        `DELETE FROM productionLogEntries 
-         WHERE date = ? AND shiftName = ? AND round = ? AND machineId IN (${placeholders})`,
-        [dateKey, shiftName, round, ...machineIdsToUpdate]
-      );
+    // Now, insert the new entries from the UI.
+    for (const entry of entries) {
+      // Only save if an operator is assigned.
+      if (!entry.operatorId) continue;
 
-      for (const entry of entries) {
-         if (!entry.operatorId) continue;
-
-        // If there are no SKUs with quantity, save a placeholder entry for the operator assignment
-        if (entry.skus.every(s => (s.quantity || 0) === 0)) {
-           await db.run(
+      // If there are no SKUs or all SKUs have 0 quantity, save a single entry for the operator assignment.
+      const hasProduction = entry.skus.some(s => (s.quantity || 0) > 0);
+      if (!hasProduction) {
+        await db.run(
+          `INSERT INTO productionLogEntries 
+           (date, shiftName, round, machineId, name, status, operatorId, userId, userName, quantity) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            dateKey,
+            shiftName,
+            round,
+            entry.machineId,
+            entry.name,
+            'Online',
+            entry.operatorId,
+            entry.userId,
+            entry.userName,
+            0 // quantity
+          ]
+        );
+      } else {
+        // Otherwise, save each SKU with its production quantity.
+        for (const sku of entry.skus) {
+          // Save even if quantity is 0, as long as SKU details are present with an operator.
+          if (sku.sku || sku.sapCode) {
+            await db.run(
               `INSERT INTO productionLogEntries 
-               (date, shiftName, round, machineId, name, status, operatorId, userId, userName, remark, sku, sapCode, quantity, leftQty, rightQty) 
+               (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, leftQty, rightQty, operatorId, userId, userName, remark) 
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 dateKey,
@@ -342,40 +362,17 @@ export async function saveProductionRound(
                 entry.machineId,
                 entry.name,
                 'Online',
+                sku.sku,
+                sku.sapCode,
+                sku.quantity || 0,
+                sku.leftQty,
+                sku.rightQty,
                 entry.operatorId,
                 entry.userId,
                 entry.userName,
-                'Operator Assigned', // Placeholder remark
-                null, null, 0, null, null // No SKU data
+                sku.remark || null,
               ]
             );
-        } else {
-          // Save entries with actual production
-          for (const sku of entry.skus) {
-            if (sku.sku && sku.sapCode && (sku.quantity || 0) > 0) {
-              await db.run(
-                `INSERT INTO productionLogEntries 
-                 (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, leftQty, rightQty, operatorId, userId, userName, remark) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                  dateKey,
-                  shiftName,
-                  round,
-                  entry.machineId,
-                  entry.name,
-                  'Online',
-                  sku.sku,
-                  sku.sapCode,
-                  sku.quantity,
-                  sku.leftQty,
-                  sku.rightQty,
-                  entry.operatorId,
-                  entry.userId,
-                  entry.userName,
-                  sku.remark || null,
-                ]
-              );
-            }
           }
         }
       }
