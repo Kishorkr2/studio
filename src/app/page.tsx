@@ -219,6 +219,21 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     },
     [allMachines]
   );
+  
+  const fetchAndSetLog = useCallback(async (date: Date, shift: ShiftInfo) => {
+    setIsFetchingLog(true);
+    try {
+      const log = await actions.getProductionLogForShift(date, shift);
+      setProductionLog(log);
+      return log;
+    } catch (error) {
+      console.error('Failed to fetch production log:', error);
+      toast({ variant: 'destructive', title: 'Error fetching shift data.' });
+      return {};
+    } finally {
+      setIsFetchingLog(false);
+    }
+  }, [toast]);
 
   const loadInitialData = useCallback(async () => {
     setLoading(true);
@@ -236,14 +251,21 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       setAllProductionPlan(planData);
       const currentShift = getCurrentShift(shiftsData);
       setSelectedShift(currentShift);
+
       if (currentShift) {
         const newRoundTimes = generateRoundTimes(currentShift);
         setRoundTimes(newRoundTimes);
+        
+        const log = await fetchAndSetLog(selectedDate, currentShift);
+        
         const savedRound = getLocalStorageItem('selectedRound', '');
         const currentRound = newRoundTimes.includes(savedRound)
           ? savedRound
           : newRoundTimes[0] || '';
+        
         setSelectedRound(currentRound);
+        machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
+        loadEntriesForRound(currentRound, log);
       }
     } catch (error) {
       console.error('Failed to load initial data:', error);
@@ -251,57 +273,26 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     } finally {
       setLoading(false);
     }
-  }, [toast, generateRoundTimes]);
+  }, [toast, generateRoundTimes, fetchAndSetLog, loadEntriesForRound, selectedDate]);
 
   useEffect(() => {
     loadInitialData();
-  }, [loadInitialData]);
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     setAvailableOperators(allOperators.filter(op => !op.isAbsent));
   }, [allOperators]);
-
-  // Effect to fetch log data when date or shift changes
-  useEffect(() => {
-    if (loading || !selectedShift) return;
-
-    setIsFetchingLog(true);
-    const fetchLog = async () => {
-      try {
-        const log = await actions.getProductionLogForShift(
-          selectedDate,
-          selectedShift
-        );
-        setProductionLog(log);
-      } catch (error) {
-        console.error('Failed to fetch production log:', error);
-        toast({variant: 'destructive', title: 'Error fetching shift data.'});
-      } finally {
-        setIsFetchingLog(false);
-      }
-    };
-
-    fetchLog();
-  }, [selectedDate, selectedShift, loading, toast]);
   
-  // Effect to update UI only after productionLog state has been updated
-  useEffect(() => {
-    if (loading || !selectedShift || isFetchingLog) return;
-    machineOperatorMapRef.current = getLocalStorageItem('machineOperatorMap', {});
-    loadEntriesForRound(selectedRound, productionLog);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productionLog, selectedRound, loading, selectedShift, isFetchingLog]);
-
 
   useEffect(() => {
     const interval = setInterval(async () => {
       if (!selectedShift || document.hidden) return;
-      const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
-      setProductionLog(log);
+      await fetchAndSetLog(selectedDate, selectedShift);
     }, 30000); // every 30 seconds
 
     return () => clearInterval(interval);
-  }, [selectedDate, selectedShift]);
+  }, [selectedDate, selectedShift, fetchAndSetLog]);
   
 
   const handleClearShiftData = useCallback(async () => {
@@ -515,30 +506,40 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
   }, [selectedDate, selectedShift, selectedRound, entries, toast, user]);
 
   const handleShiftChange = useCallback(
-    (name: string) => {
+    async (name: string) => {
       const newShift = allShifts.find(s => s.name === name);
-      if (newShift?.name !== selectedShift?.name) {
+      if (newShift && newShift?.name !== selectedShift?.name) {
         setSelectedShift(newShift);
-        if (newShift) {
-          const newRoundTimes = generateRoundTimes(newShift);
-          setRoundTimes(newRoundTimes);
-          setSelectedRound(newRoundTimes[0] || '');
-        }
-      }
-    },
-    [allShifts, selectedShift, generateRoundTimes]
-  );
-
-  const handleDateChange = useCallback((date: Date | undefined) => {
-    if (date) {
-      if (format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
-        // Clear all relevant state before setting the new date to prevent data carry-over
+        const newRoundTimes = generateRoundTimes(newShift);
+        setRoundTimes(newRoundTimes);
+        
+        // Reset and fetch data for the new shift
         setProductionLog({});
         setEntries([]);
-        setSelectedDate(date);
+        
+        const log = await fetchAndSetLog(selectedDate, newShift);
+        const currentRound = newRoundTimes[0] || '';
+        setSelectedRound(currentRound);
+        loadEntriesForRound(currentRound, log);
       }
+    },
+    [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound]
+  );
+
+  const handleDateChange = useCallback(async (date: Date | undefined) => {
+    if (date && selectedShift && format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
+      // 1. Clear all relevant state
+      setProductionLog({});
+      setEntries([]);
+      
+      // 2. Set the new date
+      setSelectedDate(date);
+      
+      // 3. Fetch new data and update UI
+      const log = await fetchAndSetLog(date, selectedShift);
+      loadEntriesForRound(selectedRound, log);
     }
-  }, [selectedDate]);
+  }, [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound]);
 
   const roundTotal = useMemo(() => {
     return entries.reduce(
@@ -1015,3 +1016,5 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
+
+    
