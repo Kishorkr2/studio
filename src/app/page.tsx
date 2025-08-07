@@ -730,119 +730,83 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   return (
     <div className="flex flex-col h-screen">
-       <header className="flex-shrink-0 p-2 md:p-4 flex flex-wrap items-center justify-between gap-2 md:gap-4 border-b">
-         <h1 className="text-lg font-bold tracking-tight w-full md:w-auto text-center md:text-left">
-           GT Prod Entry
-         </h1>
-        <div className="flex-grow flex items-center justify-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={'outline'}
-                  size="sm"
-                  className={cn(
-                    'w-[150px] justify-start text-left font-normal',
-                    !selectedDate && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? (
-                    format(selectedDate, 'PP')
-                  ) : (
-                    <span>Pick a date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleDateChange}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          
-            <Select
-              value={selectedShift?.name || ''}
-              onValueChange={handleShiftChange}
-            >
-              <SelectTrigger className="w-[150px]" size="sm">
-                <SelectValue placeholder="Select shift" />
-              </SelectTrigger>
-              <SelectContent>
-                {allShifts.map(s => (
-                  <SelectItem key={s.name} value={s.name}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={selectedRound}
-              onValueChange={handleSelectedRoundChange}
-            >
-              <SelectTrigger className="w-[150px] font-semibold text-sm" size="sm">
-                <div className="flex items-center gap-2">
-                  <RoundStatusIndicator
-                    status={productionLog[selectedRound]?.status}
+      <header className="flex-shrink-0 p-2 md:p-4 border-b">
+         <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+            <h1 className="text-lg font-bold tracking-tight">GT Prod Entry</h1>
+            <div className="flex items-center gap-2">
+               <Popover>
+                  <PopoverTrigger asChild>
+                  <Button
+                     variant={'outline'}
+                     size="sm"
+                     className={cn(
+                        'w-[150px] justify-start text-left font-normal',
+                        !selectedDate && 'text-muted-foreground'
+                     )}
+                  >
+                     <CalendarIcon className="mr-2 h-4 w-4" />
+                     {selectedDate ? (
+                        format(selectedDate, 'PP')
+                     ) : (
+                        <span>Pick a date</span>
+                     )}
+                  </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                  <Calendar
+                     mode="single"
+                     selected={selectedDate}
+                     onSelect={handleDateChange}
+                     initialFocus
                   />
-                  <SelectValue placeholder="Select time" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                {roundTimes.map(time => (
-                  <SelectItem key={time} value={time}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{time}</span>
-                      <RoundStatusIndicator
-                        status={productionLog[time]?.status}
-                      />
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-        </div>
-        <div className="flex justify-end items-center gap-2 w-full md:w-auto">
-          <ShareMenu />
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="lg:hidden">
-                <Sigma className="h-4 w-4" />
-                <span className="ml-2">Summary</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="bottom">
-              <SheetHeader>
-                <SheetTitle>Summary</SheetTitle>
-              </SheetHeader>
-              <SummaryContent />
-            </SheetContent>
-          </Sheet>
-          <Button
-            onClick={handleSaveRound}
-            size="sm"
-            className="bg-green-600 hover:bg-green-700 text-white"
-          >
-            <Save className="mr-2 h-4 w-4" />
-            Save Round
-          </Button>
-        </div>
+                  </PopoverContent>
+               </Popover>
+               
+               <Select
+                  value={selectedShift?.name || ''}
+                  onValueChange={handleShiftChange}
+               >
+                  <SelectTrigger className="w-[150px]" size="sm">
+                  <SelectValue placeholder="Select shift" />
+                  </SelectTrigger>
+                  <SelectContent>
+                  {allShifts.map(s => (
+                     <SelectItem key={s.name} value={s.name}>
+                        {s.name}
+                     </SelectItem>
+                  ))}
+                  </SelectContent>
+               </Select>
+
+               <Select
+                  value={selectedRound}
+                  onValueChange={handleSelectedRoundChange}
+               >
+                  <SelectTrigger className="w-[150px] font-semibold text-sm" size="sm">
+                  <div className="flex items-center gap-2">
+                     <RoundStatusIndicator
+                        status={productionLog[selectedRound]?.status}
+                     />
+                     <SelectValue placeholder="Select time" />
+                  </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                  {roundTimes.map(time => (
+                     <SelectItem key={time} value={time}>
+                        <div className="flex items-center justify-between w-full">
+                        <span>{time}</span>
+                        <RoundStatusIndicator
+                           status={productionLog[time]?.status}
+                        />
+                        </div>
+                     </SelectItem>
+                  ))}
+                  </SelectContent>
+               </Select>
+            </div>
+         </div>
       </header>
-      <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
-        <div className="hidden lg:block w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto border-r">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SummaryContent />
-            </CardContent>
-          </Card>
-        </div>
-        <div className="w-full lg:w-3/4 p-4 space-y-4 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto p-4 space-y-4">
           {isFetchingLog && (
              <Card>
                <CardContent className="p-10 text-center text-muted-foreground">
@@ -995,8 +959,59 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
               </Card>
             );
           })}
+      </main>
+      <footer className="sticky bottom-0 z-10 flex h-20 items-center justify-between gap-4 border-t bg-background px-4">
+        <div className="hidden lg:block">
+          <Card>
+             <CardContent className="p-0">
+                <div className="flex items-center gap-6 p-2">
+                   <div>
+                     <p className="text-xs font-medium text-muted-foreground">
+                       Round Total
+                     </p>
+                     <p className="text-lg font-bold text-primary">
+                       {roundTotal.toLocaleString()}
+                     </p>
+                   </div>
+                    <div className="border-l h-10"></div>
+                   <div>
+                     <p className="text-xs font-medium text-muted-foreground">
+                       Shift Total (Saved)
+                     </p>
+                     <p className="text-lg font-bold text-accent">
+                       {cumulativeTotal.toLocaleString()}
+                     </p>
+                   </div>
+                </div>
+             </CardContent>
+          </Card>
         </div>
-      </div>
+        <div className="flex items-center gap-2">
+           <ShareMenu />
+           <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="lg:hidden">
+                <Sigma className="h-4 w-4" />
+                <span className="ml-2">Summary</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom">
+              <SheetHeader>
+                <SheetTitle>Summary</SheetTitle>
+              </SheetHeader>
+              <SummaryContent />
+            </SheetContent>
+          </Sheet>
+          <Button
+            onClick={handleSaveRound}
+            size="lg"
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Save Round
+          </Button>
+        </div>
+      </footer>
     </div>
   );
 }

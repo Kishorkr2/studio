@@ -604,11 +604,10 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
 
   return (
     <div className="flex flex-col h-screen">
-      <header className="flex-shrink-0 p-2 md:p-4 flex flex-wrap items-center justify-between gap-2 md:gap-4 border-b">
-         <h1 className="text-lg font-bold tracking-tight w-full md:w-auto text-center md:text-left">
-           Curing Prod Entry
-         </h1>
-        <div className="flex-grow flex items-center justify-center gap-2">
+      <header className="flex-shrink-0 p-2 md:p-4 border-b">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+           <h1 className="text-lg font-bold tracking-tight">Curing Prod Entry</h1>
+          <div className="flex items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -678,9 +677,240 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
         </div>
-        <div className="flex justify-end items-center gap-2 w-full md:w-auto">
-          <Sheet>
+      </header>
+      <main className="flex-1 overflow-y-auto p-4 space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-green-600" />
+              <span>Green Tyre Stock</span>
+            </CardTitle>
+            <CardDescription>
+              Real-time availability of green tyres for curing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-lg max-h-48 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>SKU</TableHead>
+                    <TableHead className="text-right">
+                      Available Stock
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {greenTyreStock.map(item => (
+                    <TableRow key={item.sapCode}>
+                      <TableCell className="font-medium">{item.sku}</TableCell>
+                      <TableCell className="text-right font-bold">
+                        {item.currentTreadStock.toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+        {isFetchingLog && (
+           <Card>
+             <CardContent className="p-10 text-center text-muted-foreground">
+               <Loader />
+               <p className="mt-2">Loading shift data...</p>
+             </CardContent>
+           </Card>
+        )}
+        {!isFetchingLog && entries.length === 0 && (
+          <Card>
+            <CardContent className="p-10 text-center text-muted-foreground">
+              <p>No curing presses available for data entry.</p>
+              <p className="text-sm">
+                Please check machine availability in the Admin panel.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+        {!isFetchingLog && entries.map(entry => {
+          return (
+            <Card key={entry.machineId}>
+              <CardContent className="p-4 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                  <Label className="font-bold text-base sm:w-1/6">
+                    {entry.name}
+                  </Label>
+                  <div className="flex-1 sm:w-5/6">
+                      <Select
+                        value={entry.operatorId || ''}
+                        onValueChange={val =>
+                          handleOperatorChange(entry.machineId, val)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Operator" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableOperators.map(op => (
+                            <SelectItem key={op.cardNo} value={op.cardNo}>
+                              {op.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                  </div>
+                </div>
+                  <div className="space-y-3 pl-4 border-l-2">
+                    {entry.skus.map((skuEntry, skuIndex) => (
+                      <div
+                        key={skuIndex}
+                        className="flex flex-col sm:flex-row sm:items-center sm:gap-4"
+                      >
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="space-y-1 sm:col-span-1">
+                            <Label
+                              htmlFor={`sku-${entry.machineId}-${skuIndex}`}
+                            >
+                              SKU
+                            </Label>
+                            <Select
+                              value={skuEntry.sku}
+                              onValueChange={val =>
+                                handleSkuChange(entry.machineId, skuIndex, val)
+                              }
+                              disabled={allSkusFromPlan.length === 0}
+                            >
+                              <SelectTrigger
+                                id={`sku-${entry.machineId}-${skuIndex}`}
+                              >
+                                <SelectValue
+                                  placeholder={
+                                    allSkusFromPlan.length > 0
+                                      ? 'Select SKU'
+                                      : 'No SKUs'
+                                  }
+                                />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {allSkusFromPlan.map(skuPlan => (
+                                  <SelectItem
+                                    key={`${skuPlan.sku}-${skuPlan.sapCode}`}
+                                    value={skuPlan.sku}
+                                  >
+                                    {skuPlan.sku}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label
+                              htmlFor={`left-qty-${entry.machineId}-${skuIndex}`}
+                            >
+                              Left Qty
+                            </Label>
+                            <Input
+                              id={`left-qty-${entry.machineId}-${skuIndex}`}
+                              type="number"
+                              placeholder="0"
+                              value={
+                                skuEntry.leftQty === 0
+                                  ? ''
+                                  : skuEntry.leftQty
+                              }
+                              onChange={e =>
+                                handleQuantityChange(
+                                  entry.machineId,
+                                  skuIndex,
+                                  'left',
+                                  parseInt(e.target.value) || 0
+                                )
+                              }
+                            />
+                          </div>
+                           <div className="space-y-1">
+                            <Label
+                              htmlFor={`right-qty-${entry.machineId}-${skuIndex}`}
+                            >
+                              Right Qty
+                            </Label>
+                            <Input
+                              id={`right-qty-${entry.machineId}-${skuIndex}`}
+                              type="number"
+                              placeholder="0"
+                              value={
+                                skuEntry.rightQty === 0
+                                  ? ''
+                                  : skuEntry.rightQty
+                              }
+                              onChange={e =>
+                                handleQuantityChange(
+                                  entry.machineId,
+                                  skuIndex,
+                                  'right',
+                                  parseInt(e.target.value) || 0
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="flex-shrink-0 mt-2 sm:mt-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() =>
+                              handleRemoveSku(entry.machineId, skuIndex)
+                            }
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddSku(entry.machineId)}
+                    >
+                      <PlusCircle className="mr-2 h-4 w-4" /> Add SKU
+                    </Button>
+                  </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </main>
+      <footer className="sticky bottom-0 z-10 flex h-20 items-center justify-between gap-4 border-t bg-background px-4">
+        <div className="hidden lg:block">
+          <Card>
+             <CardContent className="p-0">
+                <div className="flex items-center gap-6 p-2">
+                   <div>
+                     <p className="text-xs font-medium text-muted-foreground">
+                       Round Total
+                     </p>
+                     <p className="text-lg font-bold text-primary">
+                       {roundTotal.toLocaleString()}
+                     </p>
+                   </div>
+                    <div className="border-l h-10"></div>
+                   <div>
+                     <p className="text-xs font-medium text-muted-foreground">
+                       Shift Total (Saved)
+                     </p>
+                     <p className="text-lg font-bold text-accent">
+                       {cumulativeTotal.toLocaleString()}
+                     </p>
+                   </div>
+                </div>
+             </CardContent>
+          </Card>
+        </div>
+        <div className="flex items-center gap-2">
+           <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="lg:hidden">
                 <Sigma className="h-4 w-4" />
@@ -696,229 +926,14 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
           </Sheet>
           <Button
             onClick={handleSaveRound}
-            size="sm"
+            size="lg"
             className="bg-green-600 hover:bg-green-700 text-white"
           >
             <Save className="mr-2 h-4 w-4" />
             Save Round
           </Button>
         </div>
-      </header>
-      <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
-        <div className="w-full lg:w-3/4 p-4 space-y-4 overflow-y-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-green-600" />
-                <span>Green Tyre Stock</span>
-              </CardTitle>
-              <CardDescription>
-                Real-time availability of green tyres for curing.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-lg max-h-48 overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>SKU</TableHead>
-                      <TableHead className="text-right">
-                        Available Stock
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {greenTyreStock.map(item => (
-                      <TableRow key={item.sapCode}>
-                        <TableCell className="font-medium">{item.sku}</TableCell>
-                        <TableCell className="text-right font-bold">
-                          {item.currentTreadStock.toLocaleString()}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-           {isFetchingLog && (
-             <Card>
-               <CardContent className="p-10 text-center text-muted-foreground">
-                 <Loader />
-                 <p className="mt-2">Loading shift data...</p>
-               </CardContent>
-             </Card>
-          )}
-          {!isFetchingLog && entries.length === 0 && (
-            <Card>
-              <CardContent className="p-10 text-center text-muted-foreground">
-                <p>No curing presses available for data entry.</p>
-                <p className="text-sm">
-                  Please check machine availability in the Admin panel.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-          {!isFetchingLog && entries.map(entry => {
-            return (
-              <Card key={entry.machineId}>
-                <CardContent className="p-4 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
-                    <Label className="font-bold text-base sm:w-1/6">
-                      {entry.name}
-                    </Label>
-                    <div className="flex-1 sm:w-5/6">
-                        <Select
-                          value={entry.operatorId || ''}
-                          onValueChange={val =>
-                            handleOperatorChange(entry.machineId, val)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Operator" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableOperators.map(op => (
-                              <SelectItem key={op.cardNo} value={op.cardNo}>
-                                {op.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                    </div>
-                  </div>
-                    <div className="space-y-3 pl-4 border-l-2">
-                      {entry.skus.map((skuEntry, skuIndex) => (
-                        <div
-                          key={skuIndex}
-                          className="flex flex-col sm:flex-row sm:items-center sm:gap-4"
-                        >
-                          <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="space-y-1 sm:col-span-1">
-                              <Label
-                                htmlFor={`sku-${entry.machineId}-${skuIndex}`}
-                              >
-                                SKU
-                              </Label>
-                              <Select
-                                value={skuEntry.sku}
-                                onValueChange={val =>
-                                  handleSkuChange(entry.machineId, skuIndex, val)
-                                }
-                                disabled={allSkusFromPlan.length === 0}
-                              >
-                                <SelectTrigger
-                                  id={`sku-${entry.machineId}-${skuIndex}`}
-                                >
-                                  <SelectValue
-                                    placeholder={
-                                      allSkusFromPlan.length > 0
-                                        ? 'Select SKU'
-                                        : 'No SKUs'
-                                    }
-                                  />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {allSkusFromPlan.map(skuPlan => (
-                                    <SelectItem
-                                      key={`${skuPlan.sku}-${skuPlan.sapCode}`}
-                                      value={skuPlan.sku}
-                                    >
-                                      {skuPlan.sku}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-1">
-                              <Label
-                                htmlFor={`left-qty-${entry.machineId}-${skuIndex}`}
-                              >
-                                Left Qty
-                              </Label>
-                              <Input
-                                id={`left-qty-${entry.machineId}-${skuIndex}`}
-                                type="number"
-                                placeholder="0"
-                                value={
-                                  skuEntry.leftQty === 0
-                                    ? ''
-                                    : skuEntry.leftQty
-                                }
-                                onChange={e =>
-                                  handleQuantityChange(
-                                    entry.machineId,
-                                    skuIndex,
-                                    'left',
-                                    parseInt(e.target.value) || 0
-                                  )
-                                }
-                              />
-                            </div>
-                             <div className="space-y-1">
-                              <Label
-                                htmlFor={`right-qty-${entry.machineId}-${skuIndex}`}
-                              >
-                                Right Qty
-                              </Label>
-                              <Input
-                                id={`right-qty-${entry.machineId}-${skuIndex}`}
-                                type="number"
-                                placeholder="0"
-                                value={
-                                  skuEntry.rightQty === 0
-                                    ? ''
-                                    : skuEntry.rightQty
-                                }
-                                onChange={e =>
-                                  handleQuantityChange(
-                                    entry.machineId,
-                                    skuIndex,
-                                    'right',
-                                    parseInt(e.target.value) || 0
-                                  )
-                                }
-                              />
-                            </div>
-                          </div>
-                          <div className="flex-shrink-0 mt-2 sm:mt-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() =>
-                                handleRemoveSku(entry.machineId, skuIndex)
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAddSku(entry.machineId)}
-                      >
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add SKU
-                      </Button>
-                    </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-        <div className="hidden lg:block w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto border-l">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SummaryContent />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      </footer>
     </div>
   );
 }
