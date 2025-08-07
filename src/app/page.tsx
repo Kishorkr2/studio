@@ -663,58 +663,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     );
   };
 
-  const ControlsContent = () => (
-    <div className="space-y-4 p-4">
-      <div className="space-y-2">
-        <Label>Date</Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant={'outline'}
-              className={cn(
-                'w-full justify-start text-left font-normal',
-                !selectedDate && 'text-muted-foreground'
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedDate ? (
-                format(selectedDate, 'PPP')
-              ) : (
-                <span>Pick a date</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={handleDateChange}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-      <div className="space-y-2">
-        <Label>Shift</Label>
-        <Select
-          value={selectedShift?.name || ''}
-          onValueChange={handleShiftChange}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select shift" />
-          </SelectTrigger>
-          <SelectContent>
-            {allShifts.map(s => (
-              <SelectItem key={s.name} value={s.name}>
-                {s.name} ({s.startTime} - {s.endTime})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
-
   const SummaryContent = () => (
     <div className="space-y-4 p-4 text-center">
       <div>
@@ -741,13 +689,14 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
       <DropdownMenuTrigger asChild>
         <Button
           variant={isMobile ? 'ghost' : 'outline'}
-          className={isMobile ? 'flex flex-col h-auto p-2' : ''}
+          size={isMobile ? 'icon' : 'sm'}
+          className={isMobile ? 'h-auto p-2' : ''}
         >
           <Share2 className="h-5 w-5" />
           {isMobile ? (
-            <span className="text-xs">Share</span>
+            <span className="sr-only">Share</span>
           ) : (
-            <span className="hidden lg:inline ml-2">Share</span>
+            <span className="ml-2">Share</span>
           )}
         </Button>
       </DropdownMenuTrigger>
@@ -781,17 +730,60 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   return (
     <div className="flex flex-col h-screen">
-      <header className="flex-shrink-0 p-4 flex items-center justify-between gap-4 border-b">
-        <div className="flex-1">
-          <h1 className="text-lg font-bold tracking-tight">GT Prod Entry</h1>
-        </div>
-        <div className="flex-1 flex justify-center">
-          <div className="w-32">
+       <header className="flex-shrink-0 p-2 md:p-4 flex flex-wrap items-center justify-between gap-2 md:gap-4 border-b">
+         <h1 className="text-lg font-bold tracking-tight w-full md:w-auto text-center md:text-left">
+           GT Prod Entry
+         </h1>
+        <div className="flex-grow flex items-center justify-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={'outline'}
+                  size="sm"
+                  className={cn(
+                    'w-[150px] justify-start text-left font-normal',
+                    !selectedDate && 'text-muted-foreground'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate ? (
+                    format(selectedDate, 'PP')
+                  ) : (
+                    <span>Pick a date</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={handleDateChange}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          
+            <Select
+              value={selectedShift?.name || ''}
+              onValueChange={handleShiftChange}
+            >
+              <SelectTrigger className="w-[150px]" size="sm">
+                <SelectValue placeholder="Select shift" />
+              </SelectTrigger>
+              <SelectContent>
+                {allShifts.map(s => (
+                  <SelectItem key={s.name} value={s.name}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select
               value={selectedRound}
               onValueChange={handleSelectedRoundChange}
             >
-              <SelectTrigger className="font-semibold text-sm">
+              <SelectTrigger className="w-[150px] font-semibold text-sm" size="sm">
                 <div className="flex items-center gap-2">
                   <RoundStatusIndicator
                     status={productionLog[selectedRound]?.status}
@@ -812,31 +804,35 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
         </div>
-        <div className="flex-1 flex justify-end items-center gap-2">
-          <div className="hidden lg:flex items-center gap-2">
-            <Button
-              onClick={handleSaveRound}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Save Round
-            </Button>
-            <ShareMenu />
-          </div>
+        <div className="flex justify-end items-center gap-2 w-full md:w-auto">
+          <ShareMenu />
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="lg:hidden">
+                <Sigma className="h-4 w-4" />
+                <span className="ml-2">Summary</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom">
+              <SheetHeader>
+                <SheetTitle>Summary</SheetTitle>
+              </SheetHeader>
+              <SummaryContent />
+            </SheetContent>
+          </Sheet>
+          <Button
+            onClick={handleSaveRound}
+            size="sm"
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Save Round
+          </Button>
         </div>
       </header>
       <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
         <div className="hidden lg:block w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto border-r">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Controls</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ControlsContent />
-            </CardContent>
-          </Card>
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Summary</CardTitle>
@@ -846,7 +842,7 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
             </CardContent>
           </Card>
         </div>
-        <div className="w-full lg:w-3/4 p-4 space-y-4 overflow-y-auto pb-20 lg:pb-4">
+        <div className="w-full lg:w-3/4 p-4 space-y-4 overflow-y-auto">
           {isFetchingLog && (
              <Card>
                <CardContent className="p-10 text-center text-muted-foreground">
@@ -1000,44 +996,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
             );
           })}
         </div>
-      </div>
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t flex items-center justify-around z-50">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" className="flex flex-col h-auto p-2">
-              <Filter className="h-5 w-5" />
-              <span className="text-xs">Filters</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom">
-            <SheetHeader>
-              <SheetTitle>Filters</SheetTitle>
-            </SheetHeader>
-            <ControlsContent />
-          </SheetContent>
-        </Sheet>
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" className="flex flex-col h-auto p-2">
-              <Sigma className="h-5 w-5" />
-              <span className="text-xs">Summary</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom">
-            <SheetHeader>
-              <SheetTitle>Summary</SheetTitle>
-            </SheetHeader>
-            <SummaryContent />
-          </SheetContent>
-        </Sheet>
-        <Button
-          onClick={handleSaveRound}
-          className="flex flex-col h-auto p-2 bg-green-600 hover:bg-green-700 text-white"
-        >
-          <Save className="h-5 w-5" />
-          <span className="text-xs">Save</span>
-        </Button>
-        <ShareMenu isMobile={true} />
       </div>
     </div>
   );

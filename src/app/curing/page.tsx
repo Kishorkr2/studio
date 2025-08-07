@@ -16,7 +16,6 @@ import {
   CheckCircle,
   Clock,
   Eraser,
-  Filter,
   Package,
   PlusCircle,
   Save,
@@ -151,7 +150,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
   
   const machineOperatorMapRef = useRef<Record<string, string>>({});
-  const dataLoadedFor = useRef('');
+  const [isFetchingLog, setIsFetchingLog] = useState(false);
 
 
   const generateRoundTimes = useCallback((shift: ShiftInfo): string[] => {
@@ -256,7 +255,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
 
       const tyreProd: Record<string, number> = {};
       (historyLogs as any[])
-        .filter(log => log.machineName.startsWith('CP'))
+        .filter(log => log.machineName && log.machineName.startsWith('CP'))
         .forEach(entry => {
           if (entry.sapCode && entry.quantity > 0) {
             tyreProd[entry.sapCode] =
@@ -310,23 +309,27 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   useEffect(() => {
     if (loading || !selectedShift) return;
 
-    const key = `${format(selectedDate, 'yyyy-MM-dd')}-${selectedShift?.name}`;
-    if (dataLoadedFor.current === key) return;
-    
+    setIsFetchingLog(true);
     const fetchLog = async () => {
-      const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
-      setProductionLog(log);
-      dataLoadedFor.current = key;
+       try {
+        const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
+        setProductionLog(log);
+      } catch (error) {
+        console.error('Failed to fetch production log:', error);
+        toast({variant: 'destructive', title: 'Error fetching shift data.'});
+      } finally {
+        setIsFetchingLog(false);
+      }
     };
     fetchLog();
-  }, [selectedDate, selectedShift, loading]);
-
+  }, [selectedDate, selectedShift, loading, toast]);
+  
   useEffect(() => {
-    if (loading || !selectedShift) return;
+    if (loading || !selectedShift || isFetchingLog) return;
     machineOperatorMapRef.current = getLocalStorageItem('curingMachineOperatorMap', {});
     loadEntriesForRound(selectedRound, productionLog);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productionLog, selectedRound, loading, selectedShift]);
+  }, [productionLog, selectedRound, loading, selectedShift, isFetchingLog]);
   
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
@@ -525,7 +528,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     (name: string) => {
       const newShift = allShifts.find(s => s.name === name);
       if (newShift?.name !== selectedShift?.name) {
-        dataLoadedFor.current = '';
         setSelectedShift(newShift);
         if (newShift) {
           const newRoundTimes = generateRoundTimes(newShift);
@@ -539,10 +541,13 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
 
   const handleDateChange = useCallback((date: Date | undefined) => {
     if (date) {
-      dataLoadedFor.current = '';
-      setSelectedDate(date);
+      if (format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
+        setProductionLog({});
+        setEntries([]);
+        setSelectedDate(date);
+      }
     }
-  }, []);
+  }, [selectedDate]);
 
   const roundTotal = useMemo(() => {
     return entries.reduce(
@@ -576,58 +581,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     return <Clock className="h-4 w-4 text-muted-foreground" />;
   };
 
-  const ControlsContent = () => (
-    <div className="space-y-4 p-4">
-      <div className="space-y-2">
-        <Label>Date</Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant={'outline'}
-              className={cn(
-                'w-full justify-start text-left font-normal',
-                !selectedDate && 'text-muted-foreground'
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedDate ? (
-                format(selectedDate, 'PPP')
-              ) : (
-                <span>Pick a date</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={handleDateChange}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-      <div className="space-y-2">
-        <Label>Shift</Label>
-        <Select
-          value={selectedShift?.name || ''}
-          onValueChange={handleShiftChange}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select shift" />
-          </SelectTrigger>
-          <SelectContent>
-            {allShifts.map(s => (
-              <SelectItem key={s.name} value={s.name}>
-                {s.name} ({s.startTime} - {s.endTime})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
-
   const SummaryContent = () => (
     <div className="space-y-4 p-4 text-center">
       <div>
@@ -651,17 +604,60 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
 
   return (
     <div className="flex flex-col h-screen">
-      <header className="flex-shrink-0 p-4 flex items-center justify-between gap-4 border-b">
-        <div className="flex-1">
-          <h1 className="text-lg font-bold tracking-tight">Curing Prod Entry</h1>
-        </div>
-        <div className="flex-1 flex justify-center">
-          <div className="w-32">
+      <header className="flex-shrink-0 p-2 md:p-4 flex flex-wrap items-center justify-between gap-2 md:gap-4 border-b">
+         <h1 className="text-lg font-bold tracking-tight w-full md:w-auto text-center md:text-left">
+           Curing Prod Entry
+         </h1>
+        <div className="flex-grow flex items-center justify-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={'outline'}
+                  size="sm"
+                  className={cn(
+                    'w-[150px] justify-start text-left font-normal',
+                    !selectedDate && 'text-muted-foreground'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate ? (
+                    format(selectedDate, 'PP')
+                  ) : (
+                    <span>Pick a date</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={handleDateChange}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          
+            <Select
+              value={selectedShift?.name || ''}
+              onValueChange={handleShiftChange}
+            >
+              <SelectTrigger className="w-[150px]" size="sm">
+                <SelectValue placeholder="Select shift" />
+              </SelectTrigger>
+              <SelectContent>
+                {allShifts.map(s => (
+                  <SelectItem key={s.name} value={s.name}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select
               value={selectedRound}
               onValueChange={handleSelectedRoundChange}
             >
-              <SelectTrigger className="font-semibold text-sm">
+              <SelectTrigger className="w-[150px] font-semibold text-sm" size="sm">
                 <div className="flex items-center gap-2">
                   <RoundStatusIndicator
                     status={productionLog[selectedRound]?.status}
@@ -682,22 +678,34 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
         </div>
-        <div className="flex-1 flex justify-end items-center gap-2">
-          <div className="hidden lg:flex items-center gap-2">
-            <Button
-              onClick={handleSaveRound}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Save Round
-            </Button>
-          </div>
+        <div className="flex justify-end items-center gap-2 w-full md:w-auto">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="lg:hidden">
+                <Sigma className="h-4 w-4" />
+                <span className="ml-2">Summary</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom">
+              <SheetHeader>
+                <SheetTitle>Summary</SheetTitle>
+              </SheetHeader>
+              <SummaryContent />
+            </SheetContent>
+          </Sheet>
+          <Button
+            onClick={handleSaveRound}
+            size="sm"
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Save Round
+          </Button>
         </div>
       </header>
       <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
-        <div className="w-full lg:w-3/4 p-4 space-y-4 overflow-y-auto pb-20 lg:pb-4">
+        <div className="w-full lg:w-3/4 p-4 space-y-4 overflow-y-auto">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -733,7 +741,15 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
               </div>
             </CardContent>
           </Card>
-          {entries.length === 0 && !loading && (
+           {isFetchingLog && (
+             <Card>
+               <CardContent className="p-10 text-center text-muted-foreground">
+                 <Loader />
+                 <p className="mt-2">Loading shift data...</p>
+               </CardContent>
+             </Card>
+          )}
+          {!isFetchingLog && entries.length === 0 && (
             <Card>
               <CardContent className="p-10 text-center text-muted-foreground">
                 <p>No curing presses available for data entry.</p>
@@ -743,7 +759,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
               </CardContent>
             </Card>
           )}
-          {entries.map(entry => {
+          {!isFetchingLog && entries.map(entry => {
             return (
               <Card key={entry.machineId}>
                 <CardContent className="p-4 space-y-4">
@@ -895,14 +911,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         <div className="hidden lg:block w-full lg:w-1/4 lg:flex-shrink-0 space-y-4 p-4 overflow-y-auto border-l">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Controls</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ControlsContent />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
               <CardTitle className="text-lg">Summary</CardTitle>
             </CardHeader>
             <CardContent>
@@ -910,43 +918,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
             </CardContent>
           </Card>
         </div>
-      </div>
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t flex items-center justify-around z-50">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" className="flex flex-col h-auto p-2">
-              <Filter className="h-5 w-5" />
-              <span className="text-xs">Filters</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom">
-            <SheetHeader>
-              <SheetTitle>Filters</SheetTitle>
-            </SheetHeader>
-            <ControlsContent />
-          </SheetContent>
-        </Sheet>
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" className="flex flex-col h-auto p-2">
-              <Sigma className="h-5 w-5" />
-              <span className="text-xs">Summary</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom">
-            <SheetHeader>
-              <SheetTitle>Summary</SheetTitle>
-            </SheetHeader>
-            <SummaryContent />
-          </SheetContent>
-        </Sheet>
-        <Button
-          onClick={handleSaveRound}
-          className="flex flex-col h-auto p-2 bg-green-600 hover:bg-green-700 text-white"
-        >
-          <Save className="h-5 w-5" />
-          <span className="text-xs">Save</span>
-        </Button>
       </div>
     </div>
   );
