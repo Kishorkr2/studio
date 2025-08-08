@@ -352,7 +352,7 @@ export async function saveProductionRound(
           // Save even if quantity is 0, as long as SKU details are present with an operator.
           if (sku.sku || sku.sapCode) {
             await db.run(
-              `INSERT INTO productionLogEntries 
+              `INSERT OR REPLACE INTO productionLogEntries 
                (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, leftQty, rightQty, operatorId, userId, userName, remark) 
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
