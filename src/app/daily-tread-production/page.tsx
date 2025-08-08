@@ -86,7 +86,7 @@ export default function DailyTreadProductionPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, selectedShift]);
 
   useEffect(() => {
     loadData();
@@ -102,7 +102,7 @@ export default function DailyTreadProductionPage() {
         if (existing) {
           sapCodeMap.set(key, {
             ...existing,
-            quantity: existing.quantity + skuPlan.quantity,
+            quantity: (existing.quantity || 0) + (skuPlan.quantity || 0),
           });
         } else {
           sapCodeMap.set(key, {...skuPlan});
@@ -113,28 +113,11 @@ export default function DailyTreadProductionPage() {
   }, [productionPlan]);
 
   useEffect(() => {
-    const prevDate = dailyProductionLog[format(selectedDate, 'yyyy-MM-dd')];
-    if (prevDate && selectedShift) {
-      const prevShift = prevDate[selectedShift.name.replace(/\s+/g, '-')];
-      if (prevShift) {
-        const changed = Object.keys(prevShift).some(
-          sapCode =>
-            prevShift[sapCode].quantity !==
-              dailyProductionEntries[sapCode]?.quantity ||
-            prevShift[sapCode].trolleyNo !==
-              dailyProductionEntries[sapCode]?.trolleyNo
-        );
-        if (changed) {
-          handleSaveDailyProduction();
-        }
-      }
-    }
-
     if (!selectedDate || !selectedShift) return;
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
     setDailyProductionEntries(dailyProductionLog[dateKey]?.[shiftName] || {});
-  }, [selectedDate, selectedShift, dailyProductionLog, dailyProductionEntries]);
+  }, [selectedDate, selectedShift, dailyProductionLog]);
 
   const handleDailyProductionChange = (
     sapCode: string,
