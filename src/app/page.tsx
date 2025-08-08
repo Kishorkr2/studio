@@ -287,12 +287,12 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   useEffect(() => {
     const interval = setInterval(async () => {
-      if (!selectedShift || document.hidden) return;
+      if (!selectedShift || document.hidden || isFetchingLog) return;
       await fetchAndSetLog(selectedDate, selectedShift);
     }, 30000); // every 30 seconds
 
     return () => clearInterval(interval);
-  }, [selectedDate, selectedShift, fetchAndSetLog]);
+  }, [selectedDate, selectedShift, fetchAndSetLog, isFetchingLog]);
   
 
   const handleClearShiftData = useCallback(async () => {
@@ -509,18 +509,17 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     async (name: string) => {
       const newShift = allShifts.find(s => s.name === name);
       if (newShift && newShift?.name !== selectedShift?.name) {
+        setIsFetchingLog(true);
         setSelectedShift(newShift);
         const newRoundTimes = generateRoundTimes(newShift);
         setRoundTimes(newRoundTimes);
-        
-        // Reset and fetch data for the new shift
-        setProductionLog({});
-        setEntries([]);
-        
-        const log = await fetchAndSetLog(selectedDate, newShift);
         const currentRound = newRoundTimes[0] || '';
         setSelectedRound(currentRound);
+        setLocalStorageItem('selectedRound', currentRound);
+        
+        const log = await fetchAndSetLog(selectedDate, newShift);
         loadEntriesForRound(currentRound, log);
+        setIsFetchingLog(false);
       }
     },
     [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound]
@@ -528,16 +527,11 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   const handleDateChange = useCallback(async (date: Date | undefined) => {
     if (date && selectedShift && format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
-      // 1. Clear all relevant state
-      setProductionLog({});
-      setEntries([]);
-      
-      // 2. Set the new date
+      setIsFetchingLog(true);
       setSelectedDate(date);
-      
-      // 3. Fetch new data and update UI
       const log = await fetchAndSetLog(date, selectedShift);
       loadEntriesForRound(selectedRound, log);
+      setIsFetchingLog(false);
     }
   }, [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound]);
 
@@ -1016,5 +1010,3 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
-
-    
