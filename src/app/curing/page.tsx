@@ -328,15 +328,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     setAvailableOperators(allOperators.filter(op => !op.isAbsent));
   }, [allOperators]);
 
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      if (!selectedShift || document.hidden) return;
-      await fetchAndSetLog(selectedDate, selectedShift);
-    }, 30000); // every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [selectedDate, selectedShift, fetchAndSetLog]);
-  
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
     await actions.clearShiftData(selectedDate, selectedShift);
@@ -534,17 +525,19 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     async (name: string) => {
       const newShift = allShifts.find(s => s.name === name);
       if (newShift && newShift?.name !== selectedShift?.name) {
-        setSelectedShift(newShift);
-        const newRoundTimes = generateRoundTimes(newShift);
-        setRoundTimes(newRoundTimes);
-        
         setProductionLog({});
         setEntries([]);
+        setSelectedShift(newShift);
+        
+        setIsFetchingLog(true);
+        const newRoundTimes = generateRoundTimes(newShift);
+        setRoundTimes(newRoundTimes);
         
         const log = await fetchAndSetLog(selectedDate, newShift);
         const currentRound = newRoundTimes[0] || '';
         setSelectedRound(currentRound);
         loadEntriesForRound(currentRound, log);
+        setIsFetchingLog(false);
       }
     },
     [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound]
@@ -555,8 +548,11 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       setProductionLog({});
       setEntries([]);
       setSelectedDate(date);
+      
+      setIsFetchingLog(true);
       const log = await fetchAndSetLog(date, selectedShift);
       loadEntriesForRound(selectedRound, log);
+      setIsFetchingLog(false);
     }
   }, [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound]);
 
@@ -948,5 +944,3 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
-
-    

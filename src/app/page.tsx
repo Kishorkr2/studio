@@ -284,17 +284,6 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     setAvailableOperators(allOperators.filter(op => !op.isAbsent));
   }, [allOperators]);
   
-
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      if (!selectedShift || document.hidden || isFetchingLog) return;
-      await fetchAndSetLog(selectedDate, selectedShift);
-    }, 30000); // every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [selectedDate, selectedShift, fetchAndSetLog, isFetchingLog]);
-  
-
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
     await actions.clearShiftData(selectedDate, selectedShift);
@@ -509,15 +498,18 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
     async (name: string) => {
       const newShift = allShifts.find(s => s.name === name);
       if (newShift && newShift?.name !== selectedShift?.name) {
-        setIsFetchingLog(true);
+        setProductionLog({});
+        setEntries([]);
         setSelectedShift(newShift);
+        
+        setIsFetchingLog(true);
         const newRoundTimes = generateRoundTimes(newShift);
         setRoundTimes(newRoundTimes);
-        const currentRound = newRoundTimes[0] || '';
-        setSelectedRound(currentRound);
-        setLocalStorageItem('selectedRound', currentRound);
         
         const log = await fetchAndSetLog(selectedDate, newShift);
+        
+        const currentRound = newRoundTimes[0] || '';
+        setSelectedRound(currentRound);
         loadEntriesForRound(currentRound, log);
         setIsFetchingLog(false);
       }
@@ -527,13 +519,17 @@ export default function DashboardPage({setPageActions}: AppLayoutProps) {
 
   const handleDateChange = useCallback(async (date: Date | undefined) => {
     if (date && selectedShift && format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
-      setIsFetchingLog(true);
+      setProductionLog({});
+      setEntries([]);
       setSelectedDate(date);
+      
+      setIsFetchingLog(true);
       const log = await fetchAndSetLog(date, selectedShift);
       loadEntriesForRound(selectedRound, log);
       setIsFetchingLog(false);
     }
   }, [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound]);
+
 
   const roundTotal = useMemo(() => {
     return entries.reduce(
