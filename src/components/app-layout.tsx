@@ -20,7 +20,6 @@ import {
   Cog,
   LayoutDashboard,
   LineChart,
-  Truck,
   Wifi,
   WifiOff,
   ClipboardList,
@@ -30,6 +29,7 @@ import {
 } from 'lucide-react';
 import {useOnlineStatus} from '@/hooks/use-online-status';
 import {useAuth} from './auth-provider';
+import { RalsonTyreIcon } from './icons/ralson-tyre-icon';
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -89,7 +89,7 @@ export function AppLayout({children}: {children: React.ReactNode}) {
       <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background px-4">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
-            <Truck className="w-8 h-8 text-primary" />
+            <RalsonTyreIcon className="w-8 h-8 text-primary" />
             <span className="text-xl font-semibold">TyreTrack Pro</span>
           </Link>
         </div>

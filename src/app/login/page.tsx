@@ -15,10 +15,11 @@ import {
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {useToast} from '@/hooks/use-toast';
-import {Truck, LogIn} from 'lucide-react';
+import { LogIn} from 'lucide-react';
 import {useAuth} from '@/components/auth-provider';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
 import { Loader } from '@/components/ui/loader';
+import { RalsonTyreIcon } from '@/components/icons/ralson-tyre-icon';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -65,7 +66,7 @@ export default function LoginPage() {
         <Card>
           <CardHeader className="text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
-              <Truck className="w-10 h-10 text-primary" />
+              <RalsonTyreIcon className="w-10 h-10 text-primary" />
               <h1 className="text-2xl font-semibold">TyreTrack Pro</h1>
             </div>
             <CardTitle>Login</CardTitle>

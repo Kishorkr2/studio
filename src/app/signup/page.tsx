@@ -25,8 +25,9 @@ import {
 } from '@/components/ui/form';
 import {Input} from '@/components/ui/input';
 import {useToast} from '@/hooks/use-toast';
-import {Truck, UserPlus} from 'lucide-react';
+import {UserPlus} from 'lucide-react';
 import * as actions from '../actions';
+import { RalsonTyreIcon } from '@/components/icons/ralson-tyre-icon';
 
 const signUpSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -88,7 +89,7 @@ export default function SignUpPage() {
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardHeader className="text-center">
               <div className="flex justify-center items-center gap-2 mb-4">
-                <Truck className="w-10 h-10 text-primary" />
+                <RalsonTyreIcon className="w-10 h-10 text-primary" />
                 <h1 className="text-2xl font-semibold">TyreTrack Pro</h1>
               </div>
               <CardTitle>Create an Account</CardTitle>
