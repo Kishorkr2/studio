@@ -214,34 +214,83 @@ export default function ReportsPage() {
       });
       return;
     }
-
-    const exportData = filteredReportData.map((row) => ({
+  
+    // 1. Prepare detailed production data
+    const productionExportData = filteredReportData.map((row) => ({
       Date: format(parseISO(row.date), 'yyyy-MM-dd'),
       Shift: row.shift,
-      Operator: row.operatorName,
-      'TBM No': row.machineName,
-      SKU: row.sku,
       'SAP Code': row.sapCode,
-      'Entered By': row.userName || 'N/A',
+      SKU: row.sku,
       Quantity: row.quantity,
       Remark: row.remark || '-',
     }));
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'ProductionReport');
-    worksheet['!cols'] = [
+  
+    // 2. Prepare operator-wise summary data
+    const operatorSummary = productionByOperator.map(item => ({
+      'Operator Name': item.name,
+      'Total Quantity': item.quantity,
+    }));
+  
+    // 3. Create worksheets for both data sets
+    const productionWorksheet = XLSX.utils.json_to_sheet(productionExportData);
+    const operatorWorksheet = XLSX.utils.json_to_sheet(operatorSummary);
+  
+    // 4. Style the worksheets
+    const borderStyle = { style: 'thin', color: { auto: 1 } };
+    const boldStyle = { font: { bold: true } };
+    
+    const applyStyling = (worksheet: XLSX.WorkSheet) => {
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cell_address = { c: C, r: R };
+          const cell_ref = XLSX.utils.encode_cell(cell_address);
+          if (!worksheet[cell_ref]) continue;
+  
+          // Add borders to all cells
+          worksheet[cell_ref].s = {
+            ...(worksheet[cell_ref].s || {}),
+            border: {
+              top: borderStyle,
+              bottom: borderStyle,
+              left: borderStyle,
+              right: borderStyle,
+            },
+          };
+  
+          // Bold the header row
+          if (R === 0) {
+            worksheet[cell_ref].s.font = { ...boldStyle.font, ...worksheet[cell_ref].s.font };
+          }
+        }
+      }
+    };
+    
+    applyStyling(productionWorksheet);
+    applyStyling(operatorWorksheet);
+  
+    // Set column widths
+    productionWorksheet['!cols'] = [
       { wch: 12 }, // Date
       { wch: 15 }, // Shift
-      { wch: 20 }, // Operator
-      { wch: 12 }, // TBM No
-      { wch: 20 }, // SKU
       { wch: 15 }, // SAP Code
-      { wch: 20 }, // Entered By
+      { wch: 20 }, // SKU
       { wch: 10 }, // Quantity
       { wch: 30 }, // Remark
     ];
-    XLSX.writeFile(workbook, 'TyreTrack_Production_Report.xlsx');
+    operatorWorksheet['!cols'] = [
+      { wch: 25 }, // Operator Name
+      { wch: 15 }, // Total Quantity
+    ];
+  
+    // 5. Create workbook and append sheets
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, productionWorksheet, 'Production Report');
+    XLSX.utils.book_append_sheet(workbook, operatorWorksheet, 'Operator Summary');
+  
+    // 6. Write and download the file
+    XLSX.writeFile(workbook, 'TyreTrack_Report.xlsx');
+  
     toast({
       title: 'Report Exported',
       description: 'Your report has been downloaded successfully.',
