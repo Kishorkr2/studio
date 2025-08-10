@@ -89,8 +89,8 @@ export function AppLayout({children}: {children: React.ReactNode}) {
       <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background px-4">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
-            <RalsonTyreIcon className="w-8 h-8 text-primary" />
-            <span className="text-xl font-semibold">TyreTrack Pro</span>
+            <RalsonTyreIcon className="w-20 h-auto" />
+            <span className="text-xl font-semibold hidden sm:inline-block">TyreTrack Pro</span>
           </Link>
         </div>
         <div className="flex items-center gap-4">

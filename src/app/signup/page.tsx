@@ -88,11 +88,10 @@ export default function SignUpPage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardHeader className="text-center">
-              <div className="flex justify-center items-center gap-2 mb-4">
-                <RalsonTyreIcon className="w-10 h-10 text-primary" />
-                <h1 className="text-2xl font-semibold">TyreTrack Pro</h1>
+               <div className="flex justify-center items-center gap-2 mb-4">
+                <RalsonTyreIcon className="w-24 h-auto" />
               </div>
-              <CardTitle>Create an Account</CardTitle>
+              <CardTitle>Create a TyreTrack Pro Account</CardTitle>
               <CardDescription>
                 Enter your details to register.
               </CardDescription>

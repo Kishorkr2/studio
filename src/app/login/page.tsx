@@ -66,10 +66,9 @@ export default function LoginPage() {
         <Card>
           <CardHeader className="text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
-              <RalsonTyreIcon className="w-10 h-10 text-primary" />
-              <h1 className="text-2xl font-semibold">TyreTrack Pro</h1>
+              <RalsonTyreIcon className="w-24 h-auto" />
             </div>
-            <CardTitle>Login</CardTitle>
+            <CardTitle>TyreTrack Pro Login</CardTitle>
             <CardDescription>Enter your credentials to continue</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
