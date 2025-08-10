@@ -14,6 +14,8 @@ import {
   Package,
   Factory,
   UserCheck,
+  Users,
+  ChevronDown,
 } from 'lucide-react';
 import { addDays, format, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -61,6 +63,7 @@ import type {
   ReportDataRow,
 } from '@/lib/types';
 import * as actions from '../actions';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const mockOeeData = {
   overall: 75.8,
@@ -279,6 +282,18 @@ export default function ReportsPage() {
       .sort((a, b) => b.quantity - a.quantity);
   }, [filteredReportData]);
 
+  const productionBySku = React.useMemo(() => {
+    const skuData = filteredReportData.reduce((acc, item) => {
+      acc[item.sku] = (acc[item.sku] || 0) + item.quantity;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(skuData)
+      .map(([name, quantity]) => ({ name, quantity }))
+      .sort((a, b) => b.quantity - a.quantity);
+  }, [filteredReportData]);
+
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -477,66 +492,90 @@ export default function ReportsPage() {
                 </CardContent>
              </Card>
            </div>
+           
+          <Accordion type="multiple" className="w-full space-y-4">
+            <Card>
+              <AccordionItem value="summary-tables" className="border-b-0">
+                  <AccordionTrigger className="p-6">
+                    <div className="flex flex-col items-start">
+                     <h3 className="text-lg font-semibold">Summary Tables</h3>
+                     <p className="text-sm text-muted-foreground">Click to view detailed production summaries.</p>
+                    </div>
+                  </AccordionTrigger>
+                <AccordionContent>
+                  <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3 p-6 pt-0">
+                    <SummaryTable title="Production by SKU" data={productionBySku} col1Header="SKU" col2Header="Total Quantity" />
+                    <SummaryTable title="Production by Operator" data={productionByOperator} col1Header="Operator" col2Header="Total Quantity" />
+                    <SummaryTable title="Production by TBM" data={productionByTbm} col1Header="TBM" col2Header="Total Quantity" />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Production Details</CardTitle>
-              <CardDescription>
-                Detailed log based on your filter selection.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-lg max-h-[60vh] overflow-x-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-background z-10">
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Shift</TableHead>
-                      <TableHead>Operator</TableHead>
-                      <TableHead>TBM No</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>SAP Code</TableHead>
-                      <TableHead>Entered By</TableHead>
-                      <TableHead className="text-right">Quantity</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredReportData.length > 0 ? (
-                      filteredReportData.map((row, index) => (
-                        <TableRow
-                          key={`${row.date}-${row.shift}-${row.machineId}-${row.round}-${row.sapCode}-${index}`}
-                        >
-                          <TableCell>
-                            {format(parseISO(row.date), 'yyyy-MM-dd')}
-                          </TableCell>
-                          <TableCell>{row.shift}</TableCell>
-                          <TableCell className="font-medium">
-                            {row.operatorName}
-                          </TableCell>
-                          <TableCell>{row.machineName}</TableCell>
-                          <TableCell>{row.sku}</TableCell>
-                          <TableCell>{row.sapCode}</TableCell>
-                          <TableCell>{row.userName || 'N/A'}</TableCell>
-                          <TableCell className="text-right">
-                            {row.quantity}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell
-                          colSpan={8}
-                          className="text-center h-24 text-muted-foreground"
-                        >
-                          No data available for the selected filters.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+            <Card>
+               <AccordionItem value="detailed-log" className="border-b-0">
+                <AccordionTrigger className="p-6">
+                    <div className="flex flex-col items-start">
+                      <h3 className="text-lg font-semibold">Detailed Production Log</h3>
+                      <p className="text-sm text-muted-foreground">Click to view the line-item production log based on filters.</p>
+                    </div>
+                  </AccordionTrigger>
+                <AccordionContent>
+                  <div className="p-6 pt-0">
+                    <div className="border rounded-lg max-h-[60vh] overflow-x-auto">
+                      <Table>
+                        <TableHeader className="sticky top-0 bg-background z-10">
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Shift</TableHead>
+                            <TableHead>Operator</TableHead>
+                            <TableHead>TBM No</TableHead>
+                            <TableHead>SKU</TableHead>
+                            <TableHead>SAP Code</TableHead>
+                            <TableHead>Entered By</TableHead>
+                            <TableHead className="text-right">Quantity</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredReportData.length > 0 ? (
+                            filteredReportData.map((row, index) => (
+                              <TableRow
+                                key={`${row.date}-${row.shift}-${row.machineId}-${row.round}-${row.sapCode}-${index}`}
+                              >
+                                <TableCell>
+                                  {format(parseISO(row.date), 'yyyy-MM-dd')}
+                                </TableCell>
+                                <TableCell>{row.shift}</TableCell>
+                                <TableCell className="font-medium">
+                                  {row.operatorName}
+                                </TableCell>
+                                <TableCell>{row.machineName}</TableCell>
+                                <TableCell>{row.sku}</TableCell>
+                                <TableCell>{row.sapCode}</TableCell>
+                                <TableCell>{row.userName || 'N/A'}</TableCell>
+                                <TableCell className="text-right">
+                                  {row.quantity}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell
+                                colSpan={8}
+                                className="text-center h-24 text-muted-foreground"
+                              >
+                                No data available for the selected filters.
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Card>
+          </Accordion>
         </TabsContent>
 
         <TabsContent value="oee">
@@ -735,4 +774,32 @@ function DatePicker({
   );
 }
 
-    
+function SummaryTable({ title, data, col1Header, col2Header }: { title: string; data: { name: string, quantity: number }[], col1Header: string, col2Header: string }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-md">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="border rounded-lg max-h-60 overflow-y-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{col1Header}</TableHead>
+                <TableHead className="text-right">{col2Header}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.map((item, index) => (
+                <TableRow key={index}>
+                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell className="text-right">{item.quantity.toLocaleString()}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
