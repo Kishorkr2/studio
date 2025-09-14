@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.company.nextn',
   appName: 'nextn',
-  webDir: 'out'
+  webDir: '.next'
 };
 
 export default config;

@@ -34,12 +34,20 @@ export interface SkuProduction {
   remark?: string;
 }
 
+export interface OperatorEntry {
+  operatorId: string;
+  skus: SkuProduction[];
+  userId?: number;
+  userName?: string;
+}
+
 // Represents the data for a single machine card in a given round
 export interface MachineProductionData {
   machineId: string;
   name: string;
   operatorId?: string;
   skus: SkuProduction[];
+  operatorEntries?: OperatorEntry[];
   userId?: number;
   userName?: string;
 }

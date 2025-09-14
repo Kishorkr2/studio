@@ -540,15 +540,17 @@ export default function AdminPage() {
                 .filter(m => m.type === 'TBM')
                 .map(m => {
                   const match = m.name.match(/\d+/);
-                  return [match ? match[0] : null, m.id];
+                  const number = match ? match[0] : null;
+                  return [number ? String(parseInt(number)) : null, m.id];
                 })
             );
 
             for (const row of jsonFromSheet) {
               const tbmNoRaw = String(row['TBM No'] || '').trim();
               const tbmNumber = tbmNoRaw.match(/\d+/)?.[0];
-              const machineId = tbmNumber
-                ? machineNameToIdMap.get(tbmNumber)
+              const normalizedTbmNumber = tbmNumber ? String(parseInt(tbmNumber)) : null;
+              const machineId = normalizedTbmNumber
+                ? machineNameToIdMap.get(normalizedTbmNumber)
                 : null;
 
               if (machineId) {

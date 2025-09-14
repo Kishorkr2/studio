@@ -86,14 +86,14 @@ async function setup() {
       status TEXT,
       sku TEXT,
       sapCode TEXT,
-      quantity INTEGER,
+      quantity INTEGER DEFAULT 0,
       leftQty INTEGER,
       rightQty INTEGER,
       operatorId TEXT,
       userId INTEGER,
       userName TEXT,
       remark TEXT,
-      UNIQUE(date, shiftName, round, machineId, sapCode)
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE IF NOT EXISTS dailyTreadProduction (
       id TEXT PRIMARY KEY,

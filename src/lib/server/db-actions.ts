@@ -29,13 +29,21 @@ export async function getMachines(
 ): Promise<Machine[]> {
   const orderByClause =
     "ORDER BY type, CAST(SUBSTR(name, INSTR(name, ' ') + 1) AS INTEGER)";
+  let machines;
   if (type === 'all') {
-    return db.all(`SELECT * FROM machines ${orderByClause}`);
+    machines = await db.all(`SELECT * FROM machines ${orderByClause}`);
+  } else {
+    machines = await db.all(
+      `SELECT * FROM machines WHERE type = ? ${orderByClause}`,
+      type
+    );
   }
-  return db.all(
-    `SELECT * FROM machines WHERE type = ? ${orderByClause}`,
-    type
-  );
+  
+  // Convert isAvailable from 0/1 to boolean
+  return machines.map(m => ({
+    ...m,
+    isAvailable: Boolean(m.isAvailable)
+  }));
 }
 
 export async function getShifts(): Promise<ShiftInfo[]> {
@@ -246,17 +254,25 @@ export async function updateShifts(shifts: ShiftInfo[]) {
 }
 
 export async function updateProductionPlan(plan: ProductionPlanItem[]) {
-  await db.run('DELETE FROM productionPlanItems');
-  for (const item of plan) {
-    for (const sku of item.skus) {
-      await db.run(
-        'INSERT INTO productionPlanItems (machineId, sku, sapCode, quantity) VALUES (?, ?, ?, ?)',
-        item.machineId,
-        sku.sku,
-        sku.sapCode,
-        sku.quantity
-      );
+  await db.exec('BEGIN TRANSACTION');
+  try {
+    await db.run('DELETE FROM productionPlanItems');
+    for (const item of plan) {
+      for (const sku of item.skus) {
+        await db.run(
+          'INSERT INTO productionPlanItems (machineId, sku, sapCode, quantity) VALUES (?, ?, ?, ?)',
+          item.machineId,
+          sku.sku || '',
+          sku.sapCode || '',
+          sku.quantity || 0
+        );
+      }
     }
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    console.error('Failed to update production plan:', error);
+    throw error;
   }
 }
 
