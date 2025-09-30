@@ -445,7 +445,7 @@ export default function DashboardPage() {
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          {newEntries.length > 0 && newEntries.map((row, index) => (
+          {newEntries.length > 0 && newEntries.map((row) => (
             <div key={row.id} className="grid grid-cols-1 md:grid-cols-[1fr,1fr,1fr,0.5fr,auto] gap-2 items-center p-2 border rounded-md">
                <Select value={row.machineId} onValueChange={(value) => handleNewEntryChange(row.id, 'machineId', value)}>
                   <SelectTrigger>
@@ -536,5 +536,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
