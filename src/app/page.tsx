@@ -6,8 +6,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
   CalendarIcon,
-  CheckCircle,
-  Clock,
   Factory,
   PlusCircle,
   Save,
@@ -48,7 +46,6 @@ import type {
   ProductionLog,
   ProductionPlanItem,
   ShiftInfo,
-  SkuPlan,
 } from "@/lib/types";
 import { Loader } from "@/components/ui/loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -539,3 +536,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
