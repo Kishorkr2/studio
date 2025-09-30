@@ -3,36 +3,19 @@
 
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { AppLayoutProps } from "@/components/app-layout";
 import { format } from "date-fns";
 import {
   CalendarIcon,
   CheckCircle,
-  Clipboard,
   Clock,
-  Eraser,
-  Mail,
-  MessageSquare,
+  Factory,
   PlusCircle,
   Save,
-  Share2,
-  Sigma,
   Trash2,
 } from "lucide-react";
 
 import * as actions from "./actions";
 import { useAuth } from "@/components/auth-provider";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -43,14 +26,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -64,13 +39,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type {
@@ -83,8 +51,9 @@ import type {
   SkuPlan,
 } from "@/lib/types";
 import { Loader } from "@/components/ui/loader";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === "undefined") return defaultValue;
@@ -134,34 +103,23 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
   return shifts[0];
 };
 
-const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 32 32" {...props}>
-    <path
-      d="M19.11 17.205c-.372 0-1.088 1.39-1.518 1.39a.63.63 0 0 1-.315-.1c-.802-.402-1.504-.817-2.163-1.447-.545-.516-1.146-1.29-1.46-1.963a.426.426 0 0 1-.073-.215c0-.33.99-.945.99-1.962a.427.427 0 0 0-.073-.215c-.33-1.01-.99-2.512-.99-3.264 0-.426-.24-.426-.51-.426h-1.62a.63.63 0 0 0-.315.1c-.843.43-1.518 1.39-1.518 2.162 0 1.582 1.518 4.816 3.544 6.988 2.026 2.17 4.57 2.648 5.746 2.648.72 0 2.4-1.25 2.4-2.648s-.99-1.69-.99-1.69z"
-      fill="#fff"
-    ></path>
-    <path
-      d="M20.213 4.933a10.27 10.27 0 0 0-16.488 11.103L2.645 22.47l6.57-4.085a10.27 10.27 0 0 0 11.002-13.45z"
-      fill="#4caf50"
-    ></path>
-    <path
-      d="M19.11,17.205 c-0.372,0 -1.088,1.39 -1.518,1.39 a0.63,0.63 0,0 1,-0.315,-0.1 c-0.802,-0.402 -1.504,-0.817 -2.163,-1.447 c-0.545,-0.516 -1.146,-1.29 -1.46,-1.963 a0.426,0.426 0,0 1,-0.073,-0.215 c0,-0.33 0.99,-0.945 0.99,-1.962 a0.427,0.427 0,0 0,-0.073,-0.215 c-0.33,-1.01 -0.99,-2.512 -0.99,-3.264 c0,-0.426 -0.24,-0.426 -0.51,-0.426 h-1.62 a0.63,0.63 0,0 0,-0.315,0.1 c-0.843,0.43 -1.518,1.39 -1.518,2.162 c0,1.582 1.518,4.816 3.544,6.988 c2.026,2.17 4.57,2.648 5.746,2.648 c0.72,0 2.4,-1.25 2.4,-2.648 s-0.99,-1.69 -0.99,-1.69 z"
-      fill="#fff"
-    ></path>
-  </svg>
-);
-
-interface LocalEntry {
+interface NewEntryRow {
+  id: number;
   machineId: string;
-  machineName: string;
   operatorId: string;
-  operatorName: string;
   sku: string;
-  sapCode: string;
-  quantity: number;
+  quantity: number | "";
 }
 
-export default function DashboardPage({ setPageActions }: AppLayoutProps) {
+interface SavedEntry {
+  machineName: string;
+  operatorName: string;
+  sku: string;
+  quantity: number;
+  time: string;
+}
+
+export default function DashboardPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -171,21 +129,14 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
   const [allMachines, setAllMachines] = useState<Machine[]>([]);
   const [allOperators, setAllOperators] = useState<Operator[]>([]);
-  const [allProductionPlan, setAllProductionPlan] = useState<
-    ProductionPlanItem[]
-  >([]);
+  const [allProductionPlan, setAllProductionPlan] = useState<ProductionPlanItem[]>([]);
   const [roundTimes, setRoundTimes] = useState<string[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>("");
 
-  const [localEntries, setLocalEntries] = useState<LocalEntry[]>([]);
-
-  // States for the new entry form
-  const [newEntryMachineId, setNewEntryMachineId] = useState<string>("");
-  const [newEntryOperatorId, setNewEntryOperatorId] = useState<string>("");
-  const [newEntrySku, setNewEntrySku] = useState<string>("");
-  const [newEntryQuantity, setNewEntryQuantity] = useState<number | "">("");
-
+  const [newEntries, setNewEntries] = useState<NewEntryRow[]>([]);
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
+  const [savedEntries, setSavedEntries] = useState<SavedEntry[]>([]);
+
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
 
   const generateRoundTimes = useCallback((shift: ShiftInfo): string[] => {
@@ -194,14 +145,11 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
     const shiftName = shift.name.toLowerCase();
 
     if (shiftName.includes("night")) {
-      for (let h = 21; h <= 23; h++)
-        times.push(`${String(h).padStart(2, "0")}:00`);
-      for (let h = 0; h <= 6; h++)
-        times.push(`${String(h).padStart(2, "0")}:00`);
+      for (let h = 21; h <= 23; h++) times.push(`${String(h).padStart(2, "0")}:00`);
+      for (let h = 0; h <= 6; h++) times.push(`${String(h).padStart(2, "0")}:00`);
       times.push("07:00");
     } else {
-      for (let h = 9; h <= 18; h++)
-        times.push(`${String(h).padStart(2, "0")}:00`);
+      for (let h = 9; h <= 18; h++) times.push(`${String(h).padStart(2, "0")}:00`);
       times.push("19:00");
     }
 
@@ -214,59 +162,56 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
     });
   }, []);
 
-  const loadEntriesForRound = useCallback((round: string, log: ProductionLog) => {
-    const logForRound = log[round]?.entries || [];
-    const flattenedEntries: LocalEntry[] = [];
-    
-    logForRound.forEach(machineEntry => {
-      machineEntry.skus.forEach(sku => {
-        if(sku.quantity > 0) {
-          flattenedEntries.push({
-            machineId: machineEntry.machineId,
-            machineName: machineEntry.name,
-            operatorId: machineEntry.operatorId || '',
-            operatorName: allOperators.find(op => op.cardNo === machineEntry.operatorId)?.name || '',
-            sku: sku.sku,
-            sapCode: sku.sapCode,
-            quantity: sku.quantity
-          });
-        }
-      });
-    });
-    setLocalEntries(flattenedEntries);
-  }, [allOperators]);
+  const loadSavedEntriesForRound = useCallback((round: string, log: ProductionLog, operators: Operator[], machines: Machine[]) => {
+      const logForRound = log[round]?.entries || [];
+      const flattenedEntries: SavedEntry[] = [];
 
-  const fetchAndSetLog = useCallback(
-    async (date: Date, shift: ShiftInfo) => {
-      setIsFetchingLog(true);
-      try {
-        const log = await actions.getProductionLogForShift(date, shift);
-        setProductionLog(log);
-        return log;
-      } catch (error) {
-        console.error("Failed to fetch production log:", error);
-        toast({ variant: "destructive", title: "Error fetching shift data." });
-        return {};
-      } finally {
-        setIsFetchingLog(false);
-      }
+      logForRound.forEach(machineEntry => {
+        machineEntry.skus.forEach(sku => {
+          if (sku.quantity > 0) {
+            flattenedEntries.push({
+              machineName: machines.find(m => m.id === machineEntry.machineId)?.name || machineEntry.machineId,
+              operatorName: operators.find(op => op.cardNo === machineEntry.operatorId)?.name || 'N/A',
+              sku: sku.sku,
+              quantity: sku.quantity,
+              time: round,
+            });
+          }
+        });
+      });
+      setSavedEntries(flattenedEntries);
     },
-    [toast],
+    []
   );
+
+  const fetchAndSetLog = useCallback(async (date: Date, shift: ShiftInfo) => {
+    setIsFetchingLog(true);
+    try {
+      const log = await actions.getProductionLogForShift(date, shift);
+      setProductionLog(log);
+      return log;
+    } catch (error) {
+      console.error("Failed to fetch production log:", error);
+      toast({ variant: "destructive", title: "Error fetching shift data." });
+      return {};
+    } finally {
+      setIsFetchingLog(false);
+    }
+  }, [toast]);
 
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [shiftsData, machinesData, operatorsData, planData] =
-        await Promise.all([
-          actions.getShifts(),
-          actions.getMachines("TBM"),
-          actions.getOperators(),
-          actions.getProductionPlan(),
-        ]);
+      const [shiftsData, machinesData, operatorsData, planData] = await Promise.all([
+        actions.getShifts(),
+        actions.getMachines("TBM"),
+        actions.getOperators(),
+        actions.getProductionPlan(),
+      ]);
 
+      const availableMachines = machinesData.filter(m => m.isAvailable);
       setAllShifts(shiftsData);
-      setAllMachines(machinesData.filter(m => m.isAvailable));
+      setAllMachines(availableMachines);
       setAllOperators(operatorsData);
       setAllProductionPlan(planData);
       const currentShift = getCurrentShift(shiftsData);
@@ -277,13 +222,11 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
         setRoundTimes(newRoundTimes);
         
         const savedRound = getLocalStorageItem("selectedRound", "");
-        const currentRound = newRoundTimes.includes(savedRound)
-          ? savedRound
-          : newRoundTimes[0] || "";
+        const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || "";
         setSelectedRound(currentRound);
 
         const log = await fetchAndSetLog(selectedDate, currentShift);
-        loadEntriesForRound(currentRound, log);
+        loadSavedEntriesForRound(currentRound, log, operatorsData, availableMachines);
       }
     } catch (error) {
       console.error("Failed to load initial data:", error);
@@ -291,13 +234,7 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
     } finally {
       setLoading(false);
     }
-  }, [
-    toast,
-    generateRoundTimes,
-    fetchAndSetLog,
-    loadEntriesForRound,
-    selectedDate,
-  ]);
+  }, [toast, generateRoundTimes, fetchAndSetLog, loadSavedEntriesForRound, selectedDate]);
 
   useEffect(() => {
     loadInitialData();
@@ -308,298 +245,127 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
     setAvailableOperators(allOperators.filter((op) => !op.isAbsent));
   }, [allOperators]);
 
-  const handleClearShiftData = useCallback(async () => {
-    if (!selectedShift) return;
-    await actions.clearShiftData(selectedDate, selectedShift);
-    setProductionLog({});
-    setLocalEntries([]);
-    toast({
-      title: "Shift Data Cleared",
-      description: `All production entries for ${
-        selectedShift.name
-      } on ${format(selectedDate, "PPP")} have been removed.`,
-    });
-  }, [selectedDate, selectedShift, toast]);
-
-  useEffect(() => {
-    if (setPageActions) {
-      const pageActions = (
-        <>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>Page Actions</DropdownMenuLabel>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <DropdownMenuItem
-                onSelect={(e) => e.preventDefault()}
-                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-              >
-                <Eraser className="mr-2 h-4 w-4" />
-                Clear Shift Data
-              </DropdownMenuItem>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete all production data for the
-                  selected shift ({selectedShift?.name} on{" "}
-                  {selectedDate ? format(selectedDate, "PPP") : ""}). This
-                  action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearShiftData}>
-                  Continue
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
-      );
-      setPageActions(pageActions);
+  const handleSelectedRoundChange = useCallback(async (round: string) => {
+    if (round === selectedRound) return;
+    
+    setSelectedRound(round);
+    setLocalStorageItem("selectedRound", round);
+    setNewEntries([]);
+    
+    if (selectedShift) {
+      const log = await fetchAndSetLog(selectedDate, selectedShift);
+      loadSavedEntriesForRound(round, log, allOperators, allMachines);
     }
-    return () => {
-      if (setPageActions) {
-        setPageActions(null);
-      }
-    };
-  }, [handleClearShiftData, selectedDate, selectedShift, setPageActions]);
+  }, [selectedRound, selectedShift, selectedDate, fetchAndSetLog, loadSavedEntriesForRound, allOperators, allMachines]);
 
-  const handleSelectedRoundChange = useCallback(
-    async (round: string) => {
-      if (round === selectedRound) return;
-      
-      setSelectedRound(round);
-      setLocalStorageItem("selectedRound", round);
-      
-      if (selectedShift) {
-        const log = await fetchAndSetLog(selectedDate, selectedShift);
-        loadEntriesForRound(round, log);
-      }
-    },
-    [selectedRound, selectedShift, selectedDate, fetchAndSetLog, loadEntriesForRound],
-  );
-
-  const handleAddNewEntry = () => {
-    if (!newEntryMachineId || !newEntryOperatorId || !newEntrySku || !newEntryQuantity) {
-      toast({
-        variant: "destructive",
-        title: "Missing Information",
-        description: "Please fill out all fields to add an entry.",
-      });
-      return;
+  const handleDateChange = useCallback(async (date: Date | undefined) => {
+    if (!date || !selectedShift) return;
+    
+    const newDateStr = format(date, "yyyy-MM-dd");
+    const currentDateStr = format(selectedDate, "yyyy-MM-dd");
+    
+    if (newDateStr !== currentDateStr) {
+      setSelectedDate(date);
+      setNewEntries([]);
+      const log = await fetchAndSetLog(date, selectedShift);
+      loadSavedEntriesForRound(selectedRound, log, allOperators, allMachines);
     }
+  }, [selectedDate, selectedShift, fetchAndSetLog, loadSavedEntriesForRound, selectedRound, allOperators, allMachines]);
 
-    const machine = allMachines.find(m => m.id === newEntryMachineId);
-    const operator = allOperators.find(op => op.cardNo === newEntryOperatorId);
-    const planItem = allProductionPlan.find(p => p.machineId === newEntryMachineId);
-    const skuPlan = planItem?.skus.find(s => s.sku === newEntrySku);
+  const handleShiftChange = useCallback(async (name: string) => {
+    const newShift = allShifts.find((s) => s.name === name);
+    if (!newShift || newShift.name === selectedShift?.name) return;
+    
+    setSelectedShift(newShift);
+    setNewEntries([]);
 
-    if (!machine || !operator || !skuPlan) {
-      toast({
-        variant: "destructive",
-        title: "Invalid Data",
-        description: "Could not find matching machine, operator, or SKU.",
-      });
-      return;
-    }
+    const newRoundTimes = generateRoundTimes(newShift);
+    setRoundTimes(newRoundTimes);
+    const currentRound = newRoundTimes[0] || '';
+    setSelectedRound(currentRound);
 
-    const newLocalEntry: LocalEntry = {
-      machineId: machine.id,
-      machineName: machine.name,
-      operatorId: operator.cardNo,
-      operatorName: operator.name,
-      sku: skuPlan.sku,
-      sapCode: skuPlan.sapCode,
-      quantity: Number(newEntryQuantity),
-    };
+    const log = await fetchAndSetLog(selectedDate, newShift);
+    loadSavedEntriesForRound(currentRound, log, allOperators, allMachines);
+  }, [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadSavedEntriesForRound, allOperators, allMachines]);
 
-    setLocalEntries(prev => [...prev, newLocalEntry]);
-
-    // Reset form
-    setNewEntryMachineId("");
-    setNewEntryOperatorId("");
-    setNewEntrySku("");
-    setNewEntryQuantity("");
+  const handleAddEntryRow = () => {
+    setNewEntries(prev => [...prev, { id: Date.now(), machineId: '', operatorId: '', sku: '', quantity: '' }]);
   };
 
-  const handleRemoveLocalEntry = (index: number) => {
-    setLocalEntries(prev => prev.filter((_, i) => i !== index));
+  const handleRemoveEntryRow = (id: number) => {
+    setNewEntries(prev => prev.filter(row => row.id !== id));
   };
-  
 
-  const handleSaveRound = useCallback(async () => {
+  const handleNewEntryChange = (id: number, field: keyof NewEntryRow, value: string | number) => {
+    setNewEntries(prev => prev.map(row => row.id === id ? { ...row, [field]: value, ...(field === 'machineId' && { sku: '' }) } : row));
+  };
+
+  const handleSaveAllEntries = useCallback(async () => {
     if (!selectedRound || !selectedShift) {
-      toast({ variant: "destructive", title: "Cannot Save", description: "Select shift and round." });
+      toast({ variant: "destructive", title: "Cannot Save", description: "Select shift and hour." });
       return;
     }
     if (!user) {
       toast({ variant: "destructive", title: "Cannot Save", description: "User not logged in." });
       return;
     }
-    if (localEntries.length === 0) {
-      toast({ variant: "destructive", title: "Nothing to Save", description: "Add production data first." });
+    
+    const validEntries = newEntries.filter(e => e.machineId && e.operatorId && e.sku && e.quantity && e.quantity > 0);
+
+    if (validEntries.length === 0) {
+      toast({ variant: "destructive", title: "Nothing to Save", description: "Add valid production data first." });
       return;
     }
 
-    const entriesByMachine = localEntries.reduce<Record<string, MachineProductionData>>((acc, entry) => {
-      if (!acc[entry.machineId]) {
-        acc[entry.machineId] = {
+    const entriesToSave: MachineProductionData[] = validEntries.reduce<MachineProductionData[]>((acc, entry) => {
+      const machineName = allMachines.find(m => m.id === entry.machineId)?.name || '';
+      const sapCode = allProductionPlan
+        .flatMap(p => p.skus)
+        .find(s => s.sku === entry.sku)?.sapCode || '';
+
+      let machineData = acc.find(m => m.machineId === entry.machineId && m.operatorId === entry.operatorId);
+      if (!machineData) {
+        machineData = {
           machineId: entry.machineId,
-          name: entry.machineName,
+          name: machineName,
           operatorId: entry.operatorId,
           skus: [],
           userId: user.id,
           userName: user.name,
         };
+        acc.push(machineData);
       }
       
-      acc[entry.machineId].skus.push({
+      machineData.skus.push({
         sku: entry.sku,
-        sapCode: entry.sapCode,
-        quantity: entry.quantity,
+        sapCode: sapCode,
+        quantity: Number(entry.quantity),
       });
 
       return acc;
-    }, {});
+    }, []);
     
-    const entriesToSave = Object.values(entriesByMachine);
-
     try {
       await actions.saveProductionRound(selectedDate, selectedShift, selectedRound, entriesToSave);
       const log = await fetchAndSetLog(selectedDate, selectedShift);
-      setProductionLog(log);
+      loadSavedEntriesForRound(selectedRound, log, allOperators, allMachines);
+      setNewEntries([]);
       
       toast({
         title: "✅ Data Saved Successfully!",
-        description: `${entriesToSave.length} machine summaries saved for ${selectedRound}`,
+        description: `${validEntries.length} production entries saved for ${selectedRound}.`,
       });
     } catch (error) {
       console.error('Save error:', error);
       toast({ variant: "destructive", title: "❌ Save Failed", description: "Please try again." });
     }
-  }, [selectedDate, selectedShift, selectedRound, localEntries, toast, user, fetchAndSetLog]);
-
-  const handleShiftChange = useCallback(
-    async (name: string) => {
-      const newShift = allShifts.find((s) => s.name === name);
-      if (!newShift || newShift.name === selectedShift?.name) return;
-      
-      setSelectedShift(newShift);
-
-      const newRoundTimes = generateRoundTimes(newShift);
-      setRoundTimes(newRoundTimes);
-      const currentRound = newRoundTimes[0] || '';
-      setSelectedRound(currentRound);
-
-      const log = await fetchAndSetLog(selectedDate, newShift);
-      loadEntriesForRound(currentRound, log);
-    },
-    [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound],
-  );
-
-  const handleDateChange = useCallback(
-    async (date: Date | undefined) => {
-      if (!date || !selectedShift) return;
-      
-      const newDateStr = format(date, "yyyy-MM-dd");
-      const currentDateStr = format(selectedDate, "yyyy-MM-dd");
-      
-      if (newDateStr !== currentDateStr) {
-        setSelectedDate(date);
-        
-        const log = await fetchAndSetLog(date, selectedShift);
-        loadEntriesForRound(selectedRound, log);
-      }
-    },
-    [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound],
-  );
-
-  const roundTotal = useMemo(() => {
-    return localEntries.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
-  }, [localEntries]);
-
-  const cumulativeTotal = useMemo(() => {
-    const total = Object.values(productionLog)
-      .flatMap((logEntry) => logEntry.entries)
-      .flatMap((machineEntry) => machineEntry.skus)
-      .reduce((acc, sku) => acc + (sku.quantity || 0), 0);
-    return total;
-  }, [productionLog]);
-
-  const generateShareText = useCallback(() => {
-    if (!selectedShift || !selectedRound) return "";
-    let text = `*Hourly Production Report*\n\n`;
-    text += `*Date:* ${format(selectedDate, "PPP")}\n`;
-    text += `*Shift:* ${selectedShift.name}\n`;
-    text += `*Time:* ${selectedRound}\n\n`;
-    text += `*Round Production:* ${roundTotal}\n`;
-    text += `*Shift Cumulative:* ${cumulativeTotal}\n\n`;
-    const producedEntries = localEntries.filter((entry) => entry.quantity > 0);
-
-    if (producedEntries.length > 0) {
-      text += `*TBM wise production:*\n`;
-      const entriesByTBM = producedEntries.reduce<Record<string, LocalEntry[]>>((acc, entry) => {
-        if (!acc[entry.machineName]) {
-          acc[entry.machineName] = [];
-        }
-        acc[entry.machineName].push(entry);
-        return acc;
-      }, {});
-
-      Object.entries(entriesByTBM).forEach(([machineName, entries]) => {
-        const operatorName = entries[0]?.operatorName || 'N/A';
-        const skuTexts = entries.map(e => `${e.sku}: ${e.quantity}`).join(", ");
-        if (skuTexts) {
-          text += `- *${machineName}* (${operatorName}): ${skuTexts}\n`;
-        }
-      });
-    } else {
-      text += `*No production was recorded for this round.*\n`;
-    }
-    return text;
-  }, [localEntries, cumulativeTotal, roundTotal, selectedDate, selectedRound, selectedShift]);
-
-  const handleShare = useCallback(
-    async (type: "native" | "whatsapp" | "sms" | "email" | "copy") => {
-      const shareText = generateShareText();
-      if (!shareText) {
-        toast({ variant: "destructive", title: "Cannot Share", description: "Please select a date, shift, and round." });
-        return;
-      }
-      const encodedText = encodeURIComponent(shareText);
-      if (type === "native" && navigator.share) {
-        try {
-          await navigator.share({ title: "Hourly Production Report", text: shareText });
-        } catch (error) {
-          console.log("Share was cancelled or failed", error);
-        }
-      } else if (type === "whatsapp") {
-        window.open(`https://wa.me/?text=${encodedText}`, "_blank");
-      } else if (type === "sms") {
-        window.open(`sms:?body=${encodedText}`, "_blank");
-      } else if (type === "email") {
-        window.open(`mailto:?subject=Hourly Production Report&body=${encodedText}`, "_blank");
-      } else {
-        try {
-          await navigator.clipboard.writeText(shareText);
-          toast({ title: "Report Copied!", description: "Copied to clipboard." });
-        } catch {
-          toast({ variant: "destructive", title: "Share Failed", description: "Could not copy the report." });
-        }
-      }
-    },
-    [generateShareText, toast],
-  );
-
-  const availableSkusForMachine = useMemo(() => {
-    if (!newEntryMachineId) return [];
-    const planItem = allProductionPlan.find(p => p.machineId === newEntryMachineId);
-    return planItem?.skus || [];
-  }, [newEntryMachineId, allProductionPlan]);
+  }, [selectedDate, selectedShift, selectedRound, newEntries, toast, user, allMachines, allProductionPlan, fetchAndSetLog, loadSavedEntriesForRound, allOperators]);
 
 
+  const totalSavedQty = useMemo(() => {
+    return savedEntries.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
+  }, [savedEntries]);
+  
   if (loading) {
     return (
       <div className="flex h-full flex-1 items-center justify-center">
@@ -608,307 +374,168 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
     );
   }
 
-  const RoundStatusIndicator = ({
-    status,
-  }: {
-    status?: "synced" | "pending";
-  }) => {
-    if (status === "synced") {
-      return <CheckCircle className="h-4 w-4 text-green-500" title="Synced" />;
-    }
-    return (
-      <Clock className="h-4 w-4 text-muted-foreground" title="Not Synced" />
-    );
+  const availableSkus = (machineId: string) => {
+    if (!machineId) return [];
+    return allProductionPlan.find(p => p.machineId === machineId)?.skus || [];
   };
 
-  const SummaryContent = () => (
-    <div className="space-y-4 p-4 text-center">
-      <div>
-        <p className="text-sm font-medium text-muted-foreground">Round Total</p>
-        <p className="text-2xl font-bold text-primary">
-          {roundTotal.toLocaleString()}
-        </p>
-      </div>
-      <div>
-        <p className="text-sm font-medium text-muted-foreground">
-          Shift Total (Saved)
-        </p>
-        <p className="text-2xl font-bold text-accent">
-          {cumulativeTotal.toLocaleString()}
-        </p>
-      </div>
-    </div>
-  );
-
-  const ShareMenu = () => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-        >
-          <Share2 className="h-5 w-5" />
-          <span className="ml-2">Share</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Share Report</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => handleShare("native")}>
-          <Share2 className="mr-2 h-4 w-4" />
-          <span>General Share</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => handleShare("whatsapp")}>
-          <WhatsAppIcon className="mr-2 h-4 w-4" />
-          <span>WhatsApp</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => handleShare("sms")}>
-          <MessageSquare className="mr-2 h-4 w-4" />
-          <span>SMS / Message</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => handleShare("email")}>
-          <Mail className="mr-2 h-4 w-4" />
-          <span>Email</span>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => handleShare("copy")}>
-          <Clipboard className="mr-2 h-4 w-4" />
-          <span>Copy to Clipboard</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-
   return (
-    <div className="flex flex-col h-screen">
-      <header className="flex-shrink-0 p-2 md:p-4 border-b">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-          <h1 className="text-lg font-bold tracking-tight">GT Prod Entry</h1>
-          <div className="flex items-center gap-2">
+    <div className="space-y-6 p-4 md:p-8">
+      <div className="flex items-center justify-center gap-2">
+        <Factory className="h-8 w-8 text-primary" />
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-center">GT Production Entry</h1>
+      </div>
+      
+      <Card className="shadow-md">
+        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="date-picker">Date</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
+                  id="date-picker"
                   variant={"outline"}
-                  size="sm"
-                  className={cn(
-                    "w-[150px] justify-start text-left font-normal",
-                    !selectedDate && "text-muted-foreground",
-                  )}
+                  className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? (
-                    format(selectedDate, "PP")
-                  ) : (
-                    <span>Pick a date</span>
-                  )}
+                  {selectedDate ? format(selectedDate, "dd-MM-yyyy") : <span>Pick a date</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleDateChange}
-                  initialFocus
-                />
+                <Calendar mode="single" selected={selectedDate} onSelect={handleDateChange} initialFocus />
               </PopoverContent>
             </Popover>
-
-            <Select
-              value={selectedShift?.name || ""}
-              onValueChange={handleShiftChange}
-            >
-              <SelectTrigger className="w-[150px]" size="sm">
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="shift-select">Shift</Label>
+            <Select value={selectedShift?.name || ""} onValueChange={handleShiftChange}>
+              <SelectTrigger id="shift-select">
                 <SelectValue placeholder="Select shift" />
               </SelectTrigger>
               <SelectContent>
                 {allShifts.map((s) => (
                   <SelectItem key={s.name} value={s.name}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={selectedRound}
-              onValueChange={handleSelectedRoundChange}
-            >
-              <SelectTrigger
-                className="w-[150px] font-semibold text-sm"
-                size="sm"
-              >
-                <div className="flex items-center gap-2">
-                  <RoundStatusIndicator
-                    status={productionLog[selectedRound]?.status}
-                  />
-                  <SelectValue placeholder="Select time" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                {roundTimes.map((time) => (
-                  <SelectItem key={time} value={time}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{time}</span>
-                      <RoundStatusIndicator
-                        status={productionLog[time]?.status}
-                      />
-                    </div>
+                    {s.name} ({s.startTime} - {s.endTime})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        </div>
-      </header>
-      <main className="flex-1 overflow-y-auto p-4 space-y-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-              <div className="space-y-2">
-                <Label htmlFor="tbm-select">TBM No</Label>
-                <Select value={newEntryMachineId} onValueChange={setNewEntryMachineId}>
-                  <SelectTrigger id="tbm-select">
-                    <SelectValue placeholder="Select TBM" />
+          <div className="space-y-2">
+            <Label htmlFor="hour-select">Hour</Label>
+            <Select value={selectedRound} onValueChange={handleSelectedRoundChange}>
+              <SelectTrigger id="hour-select">
+                <SelectValue placeholder="Select hour" />
+              </SelectTrigger>
+              <SelectContent>
+                {roundTimes.map((time) => (
+                  <SelectItem key={time} value={time}>
+                    {time}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+      
+      <Card className="shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Production Entries</CardTitle>
+          <Button variant="outline" size="sm" onClick={handleAddEntryRow}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Entry
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {newEntries.length > 0 && newEntries.map((row, index) => (
+            <div key={row.id} className="grid grid-cols-1 md:grid-cols-[1fr,1fr,1fr,0.5fr,auto] gap-2 items-center p-2 border rounded-md">
+               <Select value={row.machineId} onValueChange={(value) => handleNewEntryChange(row.id, 'machineId', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="TBM No" />
                   </SelectTrigger>
                   <SelectContent>
                     {allMachines.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="operator-select">Operator</Label>
-                <Select value={newEntryOperatorId} onValueChange={setNewEntryOperatorId}>
-                  <SelectTrigger id="operator-select">
-                    <SelectValue placeholder="Select Operator" />
+                <Select value={row.operatorId} onValueChange={(value) => handleNewEntryChange(row.id, 'operatorId', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Operator Name" />
                   </SelectTrigger>
                   <SelectContent>
                     {availableOperators.map(op => <SelectItem key={op.cardNo} value={op.cardNo}>{op.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sku-select">SKU</Label>
-                <Select value={newEntrySku} onValueChange={setNewEntrySku} disabled={!newEntryMachineId}>
-                  <SelectTrigger id="sku-select">
-                    <SelectValue placeholder="Select SKU" />
+                <Select value={row.sku} onValueChange={(value) => handleNewEntryChange(row.id, 'sku', value)} disabled={!row.machineId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="SKU" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableSkusForMachine.map(s => <SelectItem key={s.sku} value={s.sku}>{s.sku}</SelectItem>)}
+                    {availableSkus(row.machineId).map(s => <SelectItem key={s.sku} value={s.sku}>{s.sku}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="quantity-input">Quantity</Label>
-                <Input id="quantity-input" type="number" placeholder="0" value={newEntryQuantity} onChange={e => setNewEntryQuantity(e.target.value === '' ? '' : Number(e.target.value))} />
-              </div>
-              <Button onClick={handleAddNewEntry} className="w-full md:w-auto">
-                <PlusCircle className="mr-2" />
-                <span>Add</span>
-              </Button>
+                <Input type="number" placeholder="Quantity" value={row.quantity} onChange={e => handleNewEntryChange(row.id, 'quantity', e.target.value === '' ? '' : Number(e.target.value))} />
+                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoveEntryRow(row.id)}>
+                    <Trash2 className="h-4 w-4" />
+                </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        {isFetchingLog ? (
-          <Card>
-            <CardContent className="p-10 text-center text-muted-foreground">
-              <Loader />
-              <p className="mt-2">Loading shift data...</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto max-h-[calc(100vh-350px)]">
-                <Table>
-                  <TableHeader>
+          ))}
+          {newEntries.length > 0 && (
+             <Button onClick={handleSaveAllEntries} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                <Save className="mr-2 h-4 w-4" />
+                SAVE ALL ENTRIES
+            </Button>
+          )}
+           {newEntries.length === 0 && (
+            <p className="text-center text-muted-foreground py-4">Click "Add Entry" to start adding production data.</p>
+           )}
+        </CardContent>
+      </Card>
+      
+      <Card className="shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between">
+           <CardTitle>Saved Entries ({savedEntries.length} records)</CardTitle>
+           <Badge variant="secondary" className="text-base">Total Qty: {totalSavedQty}</Badge>
+        </CardHeader>
+        <CardContent>
+            <div className="border rounded-lg max-h-[40vh] overflow-auto">
+                 <Table>
+                  <TableHeader className="sticky top-0 bg-muted/50">
                     <TableRow>
                       <TableHead>TBM No</TableHead>
-                      <TableHead>Operator</TableHead>
+                      <TableHead>Operator Name</TableHead>
                       <TableHead>SKU</TableHead>
                       <TableHead>Quantity</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>Time</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {localEntries.length > 0 ? localEntries.map((entry, index) => (
+                    {isFetchingLog ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                          <Loader />
+                        </TableCell>
+                      </TableRow>
+                    ) : savedEntries.length > 0 ? savedEntries.map((entry, index) => (
                       <TableRow key={index}>
                         <TableCell>{entry.machineName}</TableCell>
                         <TableCell>{entry.operatorName}</TableCell>
                         <TableCell>{entry.sku}</TableCell>
                         <TableCell>{entry.quantity}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveLocalEntry(index)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
+                        <TableCell>{entry.time}</TableCell>
                       </TableRow>
                     )) : (
                       <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                          No production data added for this round yet.
+                          No entries found for selected date, shift, and hour.
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </main>
-      <footer className="sticky bottom-0 z-10 flex h-20 items-center justify-between gap-4 border-t bg-background px-4">
-        <div className="hidden lg:block">
-          <Card>
-            <CardContent className="p-0">
-              <div className="flex items-center gap-6 p-2">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Round Total
-                  </p>
-                  <p className="text-lg font-bold text-primary">
-                    {roundTotal.toLocaleString()}
-                  </p>
-                </div>
-                <div className="border-l h-10"></div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Shift Total (Saved)
-                  </p>
-                  <p className="text-lg font-bold text-accent">
-                    {cumulativeTotal.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        <div className="flex items-center gap-2">
-          <ShareMenu />
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="lg:hidden">
-                <Sigma className="h-4 w-4" />
-                <span className="ml-2">Summary</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="bottom">
-              <SheetHeader>
-                <SheetTitle>Summary</SheetTitle>
-              </SheetHeader>
-              <SummaryContent />
-            </SheetContent>
-          </Sheet>
-          <Button
-            onClick={handleSaveRound}
-            size="lg"
-            className="bg-green-600 hover:bg-green-700 text-white"
-          >
-            <Save className="mr-2 h-4 w-4" />
-            Save Round
-          </Button>
-        </div>
-      </footer>
+            </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
