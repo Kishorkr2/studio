@@ -887,56 +887,6 @@ export default function AdminPage() {
       )
     },
     {
-      value: 'shifts',
-      title: 'Shifts',
-      description: 'Configure shift timings',
-      icon: Clock,
-      content: (
-        <Card>
-          <CardHeader>
-            <CardTitle>Shift Management</CardTitle>
-            <CardDescription>
-              Set the timings for the day and night shifts.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {managedShifts.map((s, index) => (
-              <div key={s.name} className="p-4 border rounded-lg">
-                <h3 className="text-lg font-semibold mb-2">{s.name}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor={`start-time-${index}`}>Start Time</Label>
-                    <Input
-                      id={`start-time-${index}`}
-                      type="time"
-                      value={s.startTime}
-                      onChange={e =>
-                        handleShiftChange(index, 'startTime', e.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={`end-time-${index}`}>End Time</Label>
-                    <Input
-                      id={`end-time-${index}`}
-                      type="time"
-                      value={s.endTime}
-                      onChange={e =>
-                        handleShiftChange(index, 'endTime', e.target.value)
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-          <CardFooter>
-            <Button onClick={handleSaveShifts}>Save All Shifts</Button>
-          </CardFooter>
-        </Card>
-      )
-    },
-    {
       value: 'plan',
       title: 'Production Plan',
       description: 'Upload and manage production plans',
@@ -1338,6 +1288,51 @@ export default function AdminPage() {
     },
   ];
 
+  const shiftsContent = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Shift Management</CardTitle>
+        <CardDescription>
+          Set the timings for the day and night shifts.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {managedShifts.map((s, index) => (
+          <div key={s.name} className="p-4 border rounded-lg">
+            <h3 className="text-lg font-semibold mb-2">{s.name}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor={`start-time-${index}`}>Start Time</Label>
+                <Input
+                  id={`start-time-${index}`}
+                  type="time"
+                  value={s.startTime}
+                  onChange={e =>
+                    handleShiftChange(index, 'startTime', e.target.value)
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`end-time-${index}`}>End Time</Label>
+                <Input
+                  id={`end-time-${index}`}
+                  type="time"
+                  value={s.endTime}
+                  onChange={e =>
+                    handleShiftChange(index, 'endTime', e.target.value)
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+      <CardFooter>
+        <Button onClick={handleSaveShifts}>Save All Shifts</Button>
+      </CardFooter>
+    </Card>
+  );
+
   if (loading) {
     return (
       <div className="flex h-full flex-1 items-center justify-center">
@@ -1350,7 +1345,7 @@ export default function AdminPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold tracking-tight">Admin Panel</h1>
       
-      <Accordion type="multiple" className="w-full space-y-4">
+      <Accordion type="multiple" className="w-full space-y-4" defaultValue={['users']}>
         {managementSections.map(section => {
             const Icon = section.icon;
             return (
@@ -1372,7 +1367,27 @@ export default function AdminPage() {
               </AccordionItem>
             )
         })}
+
+        {/* Manually render the shifts section to isolate it */}
+        <AccordionItem value="shifts">
+           <AccordionTrigger className="hover:no-underline">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                  <Clock className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg text-left">Shifts</h3>
+                  <p className="text-sm text-muted-foreground text-left">Configure shift timings</p>
+                </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-4">
+              {shiftsContent}
+            </AccordionContent>
+        </AccordionItem>
       </Accordion>
     </div>
   );
 }
+
+    
