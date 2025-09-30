@@ -717,490 +717,191 @@ export default function AdminPage() {
     );
   }
 
-  const Section = ({ title, description, icon: Icon, children, value }: { title: string, description: string, icon: React.ElementType, children: React.ReactNode, value: string }) => (
-    <AccordionItem value={value}>
-      <AccordionTrigger className="hover:no-underline">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-            <Icon className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-lg text-left">{title}</h3>
-            <p className="text-sm text-muted-foreground text-left">{description}</p>
-          </div>
-        </div>
-      </AccordionTrigger>
-      <AccordionContent className="pt-4">
-        {children}
-      </AccordionContent>
-    </AccordionItem>
-  );
-
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold tracking-tight">Admin Panel</h1>
       
       <Accordion type="multiple" className="w-full space-y-4">
-        <Section title="User Management" description="Manage user accounts and permissions" icon={Users} value="users">
-           <UserManagement users={users} onApprove={handleApproveUser} onDelete={handleDeleteUser} />
-        </Section>
-        
-        <Section title="Operators" description="Manage operator profiles and skills" icon={UserPlus} value="operators">
-           <Card>
-            <CardHeader>
-              <CardTitle>Operators Management</CardTitle>
-              <CardDescription>
-                Manage operator profiles, skills, and upload bulk data.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Upload Section */}
-              <div className="p-4 border-2 border-dashed border-muted rounded-lg bg-muted/10">
-                <div className="flex flex-col items-center justify-center space-y-4">
-                  <UploadCloud className="h-12 w-12 text-muted-foreground" />
-                  <div className="text-center">
-                    <h3 className="font-semibold mb-2">Upload Operators Data</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Upload Excel file with columns: Card No, Name, Builder No, Skill Rating
-                    </p>
-                    <Input
-                      id="operators-upload"
-                      type="file"
-                      className="sr-only"
-                      accept=".xls,.xlsx"
-                      onChange={handleOperatorsUpload}
-                    />
-                    <Button asChild variant="outline">
-                      <Label htmlFor="operators-upload" className="cursor-pointer">
-                        <FileSpreadsheet className="mr-2 h-4 w-4" />
-                        Select Excel File
-                      </Label>
-                    </Button>
-                  </div>
-                </div>
+        <AccordionItem value="users">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                <Users className="h-6 w-6 text-muted-foreground" />
               </div>
-
-              {/* Add New Operator Form */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Add New Operator</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="new-card-no">Card No</Label>
-                      <Input
-                        id="new-card-no"
-                        placeholder="OP-001"
-                        value={newOperator.cardNo}
-                        onChange={e => setNewOperator(prev => ({...prev, cardNo: e.target.value}))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="new-name">Name</Label>
-                      <Input
-                        id="new-name"
-                        placeholder="Operator Name"
-                        value={newOperator.name}
-                        onChange={e => setNewOperator(prev => ({...prev, name: e.target.value}))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="new-builder-no">Builder No</Label>
-                      <Input
-                        id="new-builder-no"
-                        placeholder="B-01"
-                        value={newOperator.builderNo}
-                        onChange={e => setNewOperator(prev => ({...prev, builderNo: e.target.value}))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Skill Rating</Label>
-                      <div className="flex items-center gap-2">
-                        <Slider
-                          value={[newOperator.skillRating]}
-                          onValueChange={([val]) => setNewOperator(prev => ({...prev, skillRating: val}))}
-                          min={1}
-                          max={5}
-                          step={1}
-                          className="flex-1"
-                        />
-                        <Badge variant="secondary" className="w-8 h-6 flex items-center justify-center">
-                          {newOperator.skillRating}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                  <Button 
-                    onClick={handleAddNewOperator} 
-                    className="mt-4"
-                    disabled={!newOperator.cardNo || !newOperator.name}
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Operator
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Operators List */}
-              <div className="border rounded-lg overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Card No</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Builder No</TableHead>
-                      <TableHead>Skill Rating</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {operators.map(op => (
-                      <TableRow key={op.cardNo}>
-                        <TableCell className="font-medium">{op.cardNo}</TableCell>
-                        <TableCell>{op.name}</TableCell>
-                        <TableCell>
-                          <Input
-                            value={op.builderNo}
-                            onChange={e => handleOperatorChange(op.cardNo, 'builderNo', e.target.value)}
-                            className="w-24"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Slider
-                              value={[op.skillRating]}
-                              onValueChange={([val]) => handleOperatorChange(op.cardNo, 'skillRating', val)}
-                              min={1}
-                              max={5}
-                              step={1}
-                              className="w-20"
-                            />
-                            <Badge variant="secondary" className="w-6 h-6 text-xs">
-                              {op.skillRating}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={!op.isAbsent}
-                              onCheckedChange={checked => handleOperatorChange(op.cardNo, 'isAbsent', !checked)}
-                            />
-                            <span className="text-xs">{op.isAbsent ? 'Absent' : 'Available'}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteOperator(op.cardNo)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div>
+                <h3 className="font-semibold text-lg text-left">User Management</h3>
+                <p className="text-sm text-muted-foreground text-left">Manage user accounts and permissions</p>
               </div>
-            </CardContent>
-          </Card>
-        </Section>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-4">
+             <UserManagement users={users} onApprove={handleApproveUser} onDelete={handleDeleteUser} />
+          </AccordionContent>
+        </AccordionItem>
         
-        <Section title="Shifts" description="Configure shift timings" icon={Clock} value="shifts">
-           <Card>
-            <CardHeader>
-              <CardTitle>Shift Management</CardTitle>
-              <CardDescription>
-                Set the timings for the day and night shifts.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {managedShifts.map((s, index) => (
-                <div key={s.name} className="p-4 border rounded-lg">
-                  <h3 className="text-lg font-semibold mb-2">{s.name}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor={`start-time-${index}`}>Start Time</Label>
-                      <Input
-                        id={`start-time-${index}`}
-                        type="time"
-                        value={s.startTime}
-                        onChange={e =>
-                          handleShiftChange(index, 'startTime', e.target.value)
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`end-time-${index}`}>End Time</Label>
-                      <Input
-                        id={`end-time-${index}`}
-                        type="time"
-                        value={s.endTime}
-                        onChange={e =>
-                          handleShiftChange(index, 'endTime', e.target.value)
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-            <CardFooter>
-              <Button onClick={handleSaveShifts}>Save All Shifts</Button>
-            </CardFooter>
-          </Card>
-        </Section>
-        
-        <Section title="Production Plan" description="Upload and manage production plans" icon={FileSpreadsheet} value="plan">
-          <div className="space-y-6">
-            <Card>
+        <AccordionItem value="operators">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                <UserPlus className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg text-left">Operators</h3>
+                <p className="text-sm text-muted-foreground text-left">Manage operator profiles and skills</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-4">
+             <Card>
               <CardHeader>
-                <CardTitle>Upload Production Plan</CardTitle>
+                <CardTitle>Operators Management</CardTitle>
                 <CardDescription>
-                  Upload an Excel file to set the production plan. This will
-                  replace the existing plan.
+                  Manage operator profiles, skills, and upload bulk data.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted rounded-lg">
-                  <UploadCloud className="h-12 w-12 text-muted-foreground" />
-                  <h3 className="mt-4 text-lg font-semibold">
-                    Drop your plan file here or click to upload
-                  </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Supports: .xls, .xlsx
-                  </p>
-                  <Input
-                    id="plan-upload"
-                    type="file"
-                    className="sr-only"
-                    onChange={handlePlanUpload}
-                    accept=".xls,.xlsx"
-                  />
-                  <Button asChild className="mt-4">
-                    <Label htmlFor="plan-upload">
-                      <FileSpreadsheet className="mr-2 h-4 w-4" />
-                      Select File
-                    </Label>
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="text-md font-semibold">File Format Template</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Your Excel file should contain four columns with these exact
-                    headers: <strong>TBM No</strong>, <strong>SAP Code</strong>,{' '}
-                    <strong>SKU</strong>, and <strong>Quantity</strong>.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {uploadedPlan && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Uploaded Plan Preview</CardTitle>
-                  <CardDescription>
-                    Review the data parsed from your file before saving.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="border rounded-lg max-h-60 overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>TBM No</TableHead>
-                          <TableHead>Assigned SKUs</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {uploadedPlan.map(item => (
-                          <TableRow key={item.machineId}>
-                            <TableCell>
-                              {machines.find(m => m.id === item.machineId)?.name}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-col gap-1">
-                                {item.skus.map((sku, idx) => (
-                                  <Badge
-                                    key={idx}
-                                    variant="secondary"
-                                    className="text-left justify-start"
-                                  >
-                                    {sku.sku} (SAP: {sku.sapCode}, Qty: {sku.quantity})
-                                  </Badge>
-                                ))}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-                <CardFooter className="justify-end gap-2">
-                  <Button variant="outline" onClick={() => setUploadedPlan(null)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSaveUploadedPlan}>
-                    <Save className="mr-2 h-4 w-4" /> Save Uploaded Plan
-                  </Button>
-                </CardFooter>
-              </Card>
-            )}
-
-            <Card>
-              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div>
-                  <CardTitle>Manual Production Plan</CardTitle>
-                  <CardDescription>
-                    Total Planned Quantity: <span className="font-bold text-foreground">{totalPlanQuantity.toLocaleString()}</span>
-                  </CardDescription>
-                </div>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm">
-                        <Trash className="mr-2 h-4 w-4" />
-                        Delete Plan
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently delete the entire production plan. This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleClearProductionPlan}>
-                          Confirm & Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-              </CardHeader>
               <CardContent className="space-y-6">
-                <div className="p-4 border rounded-lg space-y-4">
-                  <h3 className="font-semibold text-lg">Add New Plan Item</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-                    <div className="space-y-2">
-                      <Label htmlFor="manual-machine-select">TBM No</Label>
-                      <Select
-                        value={newPlanMachineId}
-                        onValueChange={setNewPlanMachineId}
-                      >
-                        <SelectTrigger id="manual-machine-select">
-                          <SelectValue placeholder="Select a TBM" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {machines
-                            .filter(m => m.type === 'TBM')
-                            .map(m => (
-                            <SelectItem key={m.id} value={m.id}>
-                              {m.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="manual-sku">SKU</Label>
+                {/* Upload Section */}
+                <div className="p-4 border-2 border-dashed border-muted rounded-lg bg-muted/10">
+                  <div className="flex flex-col items-center justify-center space-y-4">
+                    <UploadCloud className="h-12 w-12 text-muted-foreground" />
+                    <div className="text-center">
+                      <h3 className="font-semibold mb-2">Upload Operators Data</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Upload Excel file with columns: Card No, Name, Builder No, Skill Rating
+                      </p>
                       <Input
-                        id="manual-sku"
-                        value={newPlanSku}
-                        onChange={e => setNewPlanSku(e.target.value)}
-                        placeholder="Enter SKU"
+                        id="operators-upload"
+                        type="file"
+                        className="sr-only"
+                        accept=".xls,.xlsx"
+                        onChange={handleOperatorsUpload}
                       />
+                      <Button asChild variant="outline">
+                        <Label htmlFor="operators-upload" className="cursor-pointer">
+                          <FileSpreadsheet className="mr-2 h-4 w-4" />
+                          Select Excel File
+                        </Label>
+                      </Button>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="manual-sap-code">SAP Code</Label>
-                      <Input
-                        id="manual-sap-code"
-                        value={newPlanSapCode}
-                        onChange={e => setNewPlanSapCode(e.target.value)}
-                        placeholder="SAP Code"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="manual-quantity">Quantity</Label>
-                      <Input
-                        id="manual-quantity"
-                        type="number"
-                        value={newPlanQuantity === 0 ? '' : newPlanQuantity}
-                        onChange={e => setNewPlanQuantity(Number(e.target.value))}
-                        placeholder="Quantity"
-                      />
-                    </div>
-                    <Button onClick={handleAddPlanItem}>
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      Add Item
-                    </Button>
                   </div>
                 </div>
 
+                {/* Add New Operator Form */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Add New Operator</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="new-card-no">Card No</Label>
+                        <Input
+                          id="new-card-no"
+                          placeholder="OP-001"
+                          value={newOperator.cardNo}
+                          onChange={e => setNewOperator(prev => ({...prev, cardNo: e.target.value}))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new-name">Name</Label>
+                        <Input
+                          id="new-name"
+                          placeholder="Operator Name"
+                          value={newOperator.name}
+                          onChange={e => setNewOperator(prev => ({...prev, name: e.target.value}))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new-builder-no">Builder No</Label>
+                        <Input
+                          id="new-builder-no"
+                          placeholder="B-01"
+                          value={newOperator.builderNo}
+                          onChange={e => setNewOperator(prev => ({...prev, builderNo: e.target.value}))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Skill Rating</Label>
+                        <div className="flex items-center gap-2">
+                          <Slider
+                            value={[newOperator.skillRating]}
+                            onValueChange={([val]) => setNewOperator(prev => ({...prev, skillRating: val}))}
+                            min={1}
+                            max={5}
+                            step={1}
+                            className="flex-1"
+                          />
+                          <Badge variant="secondary" className="w-8 h-6 flex items-center justify-center">
+                            {newOperator.skillRating}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={handleAddNewOperator} 
+                      className="mt-4"
+                      disabled={!newOperator.cardNo || !newOperator.name}
+                    >
+                      <PlusCircle className="mr-2 h-4 w-4" /> Add Operator
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Operators List */}
                 <div className="border rounded-lg overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[150px]">TBM No</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead className="w-[150px]">SAP Code</TableHead>
-                        <TableHead className="w-[120px]">Quantity</TableHead>
-                        <TableHead className="text-right w-[80px]">Actions</TableHead>
+                        <TableHead>Card No</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Builder No</TableHead>
+                        <TableHead>Skill Rating</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {editablePlan.map((item, index) => (
-                        <TableRow key={`${item.originalMachineId}-${item.originalSapCode}-${index}`}>
-                          <TableCell>
-                            <Select
-                              value={item.machineId}
-                              onValueChange={(value) => handleEditablePlanChange(index, 'machineId', value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select TBM" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {machines
-                                  .filter(m => m.type === 'TBM')
-                                  .map(m => (
-                                  <SelectItem key={m.id} value={m.id}>
-                                    {m.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
+                      {operators.map(op => (
+                        <TableRow key={op.cardNo}>
+                          <TableCell className="font-medium">{op.cardNo}</TableCell>
+                          <TableCell>{op.name}</TableCell>
                           <TableCell>
                             <Input
-                                value={item.sku}
-                                onChange={(e) => handleEditablePlanChange(index, 'sku', e.target.value)}
-                                placeholder="SKU"
+                              value={op.builderNo}
+                              onChange={e => handleOperatorChange(op.cardNo, 'builderNo', e.target.value)}
+                              className="w-24"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Slider
+                                value={[op.skillRating]}
+                                onValueChange={([val]) => handleOperatorChange(op.cardNo, 'skillRating', val)}
+                                min={1}
+                                max={5}
+                                step={1}
+                                className="w-20"
                               />
+                              <Badge variant="secondary" className="w-6 h-6 text-xs">
+                                {op.skillRating}
+                              </Badge>
+                            </div>
                           </TableCell>
                           <TableCell>
-                            <Input
-                              value={item.sapCode}
-                              onChange={(e) => handleEditablePlanChange(index, 'sapCode', e.target.value)}
-                              placeholder="SAP Code"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => handleEditablePlanChange(index, 'quantity', Number(e.target.value))}
-                              placeholder="Quantity"
-                            />
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={!op.isAbsent}
+                                onCheckedChange={checked => handleOperatorChange(op.cardNo, 'isAbsent', !checked)}
+                              />
+                              <span className="text-xs">{op.isAbsent ? 'Absent' : 'Available'}</span>
+                            </div>
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleDeletePlanSku(index)}
+                              onClick={() => handleDeleteOperator(op.cardNo)}
+                              className="text-destructive hover:text-destructive"
                             >
                               <Trash className="h-4 w-4" />
                             </Button>
@@ -1211,131 +912,500 @@ export default function AdminPage() {
                   </Table>
                 </div>
               </CardContent>
-              <CardFooter className="justify-end">
-                <Button onClick={handleSavePlan}>
-                  <Save className="mr-2 h-4 w-4" /> Save Plan
-                </Button>
+            </Card>
+          </AccordionContent>
+        </AccordionItem>
+        
+        <AccordionItem value="shifts">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                <Clock className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg text-left">Shifts</h3>
+                <p className="text-sm text-muted-foreground text-left">Configure shift timings</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-4">
+             <Card>
+              <CardHeader>
+                <CardTitle>Shift Management</CardTitle>
+                <CardDescription>
+                  Set the timings for the day and night shifts.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {managedShifts.map((s, index) => (
+                  <div key={s.name} className="p-4 border rounded-lg">
+                    <h3 className="text-lg font-semibold mb-2">{s.name}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor={`start-time-${index}`}>Start Time</Label>
+                        <Input
+                          id={`start-time-${index}`}
+                          type="time"
+                          value={s.startTime}
+                          onChange={e =>
+                            handleShiftChange(index, 'startTime', e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`end-time-${index}`}>End Time</Label>
+                        <Input
+                          id={`end-time-${index}`}
+                          type="time"
+                          value={s.endTime}
+                          onChange={e =>
+                            handleShiftChange(index, 'endTime', e.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+              <CardFooter>
+                <Button onClick={handleSaveShifts}>Save All Shifts</Button>
               </CardFooter>
             </Card>
-          </div>
-        </Section>
+          </AccordionContent>
+        </AccordionItem>
         
-        <Section title="TBM Machines" description="Manage TBM machine inventory" icon={Cog} value="tbm">
-          <MachineManagement 
-            title="TBM Management"
-            description="View and edit your TBM inventory."
-            machines={machines}
-            productionPlan={productionPlan}
-            onMachineChange={handleMachineChange}
-            onAddMachine={() => handleAddMachine('TBM')}
-            onDeleteMachine={handleDeleteMachine}
-            onSaveChanges={handleSaveAllMachineChanges}
-            machineType="TBM"
-          />
-        </Section>
-        
-        <Section title="Curing Presses" description="Manage curing press inventory" icon={DatabaseZap} value="curing">
-          <MachineManagement 
-            title="Curing Press Management"
-            description="View and edit your curing press inventory."
-            machines={machines}
-            productionPlan={productionPlan}
-            onMachineChange={handleMachineChange}
-            onAddMachine={() => handleAddMachine('CuringPress')}
-            onDeleteMachine={handleDeleteMachine}
-            onSaveChanges={handleSaveAllMachineChanges}
-            machineType="CuringPress"
-          />
-        </Section>
-        
-        <Section title="Settings" description="Advanced system settings" icon={ShieldAlert} value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Advanced Settings</CardTitle>
-              <CardDescription>
-                Manage advanced and dangerous application settings.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="p-4 border border-destructive/50 rounded-lg bg-destructive/10 space-y-4">
-                <div>
-                  <h4 className="font-semibold text-destructive">
-                    Dangerous Actions
-                  </h4>
-                  <p className="text-sm text-destructive/80 mt-1">
-                    These actions are irreversible. Please proceed with caution.
-                  </p>
-                </div>
-                <AlertDialog onOpenChange={open => !open && setPassword('')}>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive">
-                      <ShieldAlert className="mr-2 h-4 w-4" />
-                      Clear Production Data
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        Are you absolutely sure?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently
-                        delete all production log and tread stock data from the
-                        cloud. It will NOT delete operators, TBMs, or the
-                        production plan. Please type <strong>admin123</strong>{' '}
-                        to confirm.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="space-y-2 py-2">
-                      <Label
-                        htmlFor="clear-data-password"
-                        className="sr-only"
-                      >
-                        Password
+        <AccordionItem value="plan">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                <FileSpreadsheet className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg text-left">Production Plan</h3>
+                <p className="text-sm text-muted-foreground text-left">Upload and manage production plans</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-4">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upload Production Plan</CardTitle>
+                  <CardDescription>
+                    Upload an Excel file to set the production plan. This will
+                    replace the existing plan.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-muted rounded-lg">
+                    <UploadCloud className="h-12 w-12 text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-semibold">
+                      Drop your plan file here or click to upload
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Supports: .xls, .xlsx
+                    </p>
+                    <Input
+                      id="plan-upload"
+                      type="file"
+                      className="sr-only"
+                      onChange={handlePlanUpload}
+                      accept=".xls,.xlsx"
+                    />
+                    <Button asChild className="mt-4">
+                      <Label htmlFor="plan-upload">
+                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                        Select File
                       </Label>
-                      <Input
-                        id="clear-data-password"
-                        type="password"
-                        placeholder="Enter password to confirm"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        autoFocus
-                      />
-                    </div>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleClearDataConfirm}
-                        disabled={password !== 'admin123'}
-                      >
-                        Confirm & Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-md font-semibold">File Format Template</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Your Excel file should contain four columns with these exact
+                      headers: <strong>TBM No</strong>, <strong>SAP Code</strong>,{' '}
+                      <strong>SKU</strong>, and <strong>Quantity</strong>.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
-              <div className="p-4 border border-yellow-500/50 rounded-lg bg-yellow-500/10 mt-6 space-y-4">
-                <div>
-                  <h4 className="font-semibold text-yellow-700 dark:text-yellow-300">
-                    Troubleshooting
-                  </h4>
-                  <p className="text-sm text-yellow-700/80 dark:text-yellow-300/80 mt-1">
-                    If the application is behaving unexpectedly or not loading
-                    data, a page reload can often resolve the issue.
-                    This action is safe and will not delete any data.
-                  </p>
-                </div>
-                <Button variant="outline" onClick={handleClearCache}>
-                  <DatabaseZap className="mr-2 h-4 w-4" /> Reload Page
-                </Button>
+              {uploadedPlan && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Uploaded Plan Preview</CardTitle>
+                    <CardDescription>
+                      Review the data parsed from your file before saving.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="border rounded-lg max-h-60 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>TBM No</TableHead>
+                            <TableHead>Assigned SKUs</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {uploadedPlan.map(item => (
+                            <TableRow key={item.machineId}>
+                              <TableCell>
+                                {machines.find(m => m.id === item.machineId)?.name}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-1">
+                                  {item.skus.map((sku, idx) => (
+                                    <Badge
+                                      key={idx}
+                                      variant="secondary"
+                                      className="text-left justify-start"
+                                    >
+                                      {sku.sku} (SAP: {sku.sapCode}, Qty: {sku.quantity})
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="justify-end gap-2">
+                    <Button variant="outline" onClick={() => setUploadedPlan(null)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSaveUploadedPlan}>
+                      <Save className="mr-2 h-4 w-4" /> Save Uploaded Plan
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <CardTitle>Manual Production Plan</CardTitle>
+                    <CardDescription>
+                      Total Planned Quantity: <span className="font-bold text-foreground">{totalPlanQuantity.toLocaleString()}</span>
+                    </CardDescription>
+                  </div>
+                  <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                          <Trash className="mr-2 h-4 w-4" />
+                          Delete Plan
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete the entire production plan. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleClearProductionPlan}>
+                            Confirm & Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="p-4 border rounded-lg space-y-4">
+                    <h3 className="font-semibold text-lg">Add New Plan Item</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                      <div className="space-y-2">
+                        <Label htmlFor="manual-machine-select">TBM No</Label>
+                        <Select
+                          value={newPlanMachineId}
+                          onValueChange={setNewPlanMachineId}
+                        >
+                          <SelectTrigger id="manual-machine-select">
+                            <SelectValue placeholder="Select a TBM" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {machines
+                              .filter(m => m.type === 'TBM')
+                              .map(m => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="manual-sku">SKU</Label>
+                        <Input
+                          id="manual-sku"
+                          value={newPlanSku}
+                          onChange={e => setNewPlanSku(e.target.value)}
+                          placeholder="Enter SKU"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="manual-sap-code">SAP Code</Label>
+                        <Input
+                          id="manual-sap-code"
+                          value={newPlanSapCode}
+                          onChange={e => setNewPlanSapCode(e.target.value)}
+                          placeholder="SAP Code"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="manual-quantity">Quantity</Label>
+                        <Input
+                          id="manual-quantity"
+                          type="number"
+                          value={newPlanQuantity === 0 ? '' : newPlanQuantity}
+                          onChange={e => setNewPlanQuantity(Number(e.target.value))}
+                          placeholder="Quantity"
+                        />
+                      </div>
+                      <Button onClick={handleAddPlanItem}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Add Item
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="border rounded-lg overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[150px]">TBM No</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead className="w-[150px]">SAP Code</TableHead>
+                          <TableHead className="w-[120px]">Quantity</TableHead>
+                          <TableHead className="text-right w-[80px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {editablePlan.map((item, index) => (
+                          <TableRow key={`${item.originalMachineId}-${item.originalSapCode}-${index}`}>
+                            <TableCell>
+                              <Select
+                                value={item.machineId}
+                                onValueChange={(value) => handleEditablePlanChange(index, 'machineId', value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select TBM" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {machines
+                                    .filter(m => m.type === 'TBM')
+                                    .map(m => (
+                                    <SelectItem key={m.id} value={m.id}>
+                                      {m.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                  value={item.sku}
+                                  onChange={(e) => handleEditablePlanChange(index, 'sku', e.target.value)}
+                                  placeholder="SKU"
+                                />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={item.sapCode}
+                                onChange={(e) => handleEditablePlanChange(index, 'sapCode', e.target.value)}
+                                placeholder="SAP Code"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={item.quantity}
+                                onChange={(e) => handleEditablePlanChange(index, 'quantity', Number(e.target.value))}
+                                placeholder="Quantity"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeletePlanSku(index)}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+                <CardFooter className="justify-end">
+                  <Button onClick={handleSavePlan}>
+                    <Save className="mr-2 h-4 w-4" /> Save Plan
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+        
+        <AccordionItem value="tbm">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                <Cog className="h-6 w-6 text-muted-foreground" />
               </div>
-            </CardContent>
-          </Card>
-        </Section>
+              <div>
+                <h3 className="font-semibold text-lg text-left">TBM Machines</h3>
+                <p className="text-sm text-muted-foreground text-left">Manage TBM machine inventory</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-4">
+            <MachineManagement 
+              title="TBM Management"
+              description="View and edit your TBM inventory."
+              machines={machines}
+              productionPlan={productionPlan}
+              onMachineChange={handleMachineChange}
+              onAddMachine={() => handleAddMachine('TBM')}
+              onDeleteMachine={handleDeleteMachine}
+              onSaveChanges={handleSaveAllMachineChanges}
+              machineType="TBM"
+            />
+          </AccordionContent>
+        </AccordionItem>
+        
+        <AccordionItem value="curing">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                <DatabaseZap className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg text-left">Curing Presses</h3>
+                <p className="text-sm text-muted-foreground text-left">Manage curing press inventory</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-4">
+            <MachineManagement 
+              title="Curing Press Management"
+              description="View and edit your curing press inventory."
+              machines={machines}
+              productionPlan={productionPlan}
+              onMachineChange={handleMachineChange}
+              onAddMachine={() => handleAddMachine('CuringPress')}
+              onDeleteMachine={handleDeleteMachine}
+              onSaveChanges={handleSaveAllMachineChanges}
+              machineType="CuringPress"
+            />
+          </AccordionContent>
+        </AccordionItem>
+        
+        <AccordionItem value="settings">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                <ShieldAlert className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg text-left">Settings</h3>
+                <p className="text-sm text-muted-foreground text-left">Advanced system settings</p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Advanced Settings</CardTitle>
+                <CardDescription>
+                  Manage advanced and dangerous application settings.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 border border-destructive/50 rounded-lg bg-destructive/10 space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-destructive">
+                      Dangerous Actions
+                    </h4>
+                    <p className="text-sm text-destructive/80 mt-1">
+                      These actions are irreversible. Please proceed with caution.
+                    </p>
+                  </div>
+                  <AlertDialog onOpenChange={open => !open && setPassword('')}>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive">
+                        <ShieldAlert className="mr-2 h-4 w-4" />
+                        Clear Production Data
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          Are you absolutely sure?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently
+                          delete all production log and tread stock data from the
+                          cloud. It will NOT delete operators, TBMs, or the
+                          production plan. Please type <strong>admin123</strong>{' '}
+                          to confirm.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <div className="space-y-2 py-2">
+                        <Label
+                          htmlFor="clear-data-password"
+                          className="sr-only"
+                        >
+                          Password
+                        </Label>
+                        <Input
+                          id="clear-data-password"
+                          type="password"
+                          placeholder="Enter password to confirm"
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleClearDataConfirm}
+                          disabled={password !== 'admin123'}
+                        >
+                          Confirm & Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+
+                <div className="p-4 border border-yellow-500/50 rounded-lg bg-yellow-500/10 mt-6 space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-yellow-700 dark:text-yellow-300">
+                      Troubleshooting
+                    </h4>
+                    <p className="text-sm text-yellow-700/80 dark:text-yellow-300/80 mt-1">
+                      If the application is behaving unexpectedly or not loading
+                      data, a page reload can often resolve the issue.
+                      This action is safe and will not delete any data.
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={handleClearCache}>
+                    <DatabaseZap className="mr-2 h-4 w-4" /> Reload Page
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </AccordionContent>
+        </AccordionItem>
       </Accordion>
     </div>
   );
 }
-
-    
