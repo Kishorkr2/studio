@@ -890,7 +890,7 @@ export default function AdminPage() {
       value: 'shifts',
       title: 'Shifts',
       description: 'Configure shift timings',
-      icon: Clock,
+      icon: Calendar,
       content: (
         <Card>
           <CardHeader>
