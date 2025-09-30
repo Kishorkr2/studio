@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -47,7 +46,6 @@ import {
 } from "@/components/ui/table";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -83,8 +81,11 @@ import type {
   ProductionLog,
   ProductionPlanItem,
   ShiftInfo,
+  SkuPlan,
+  SkuProduction,
 } from "@/lib/types";
 import { Loader } from "@/components/ui/loader";
+import { Card, CardContent } from "@/components/ui/card";
 
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === "undefined") return defaultValue;
@@ -150,6 +151,16 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+interface LocalEntry {
+  machineId: string;
+  machineName: string;
+  operatorId: string;
+  operatorName: string;
+  sku: string;
+  sapCode: string;
+  quantity: number;
+}
+
 export default function DashboardPage({ setPageActions }: AppLayoutProps) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -165,21 +176,17 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
   >([]);
   const [roundTimes, setRoundTimes] = useState<string[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>("");
-  const [entries, setEntries] = useState<MachineProductionData[]>([]);
+
+  const [localEntries, setLocalEntries] = useState<LocalEntry[]>([]);
+
+  // States for the new entry form
+  const [newEntryMachineId, setNewEntryMachineId] = useState<string>("");
+  const [newEntryOperatorId, setNewEntryOperatorId] = useState<string>("");
+  const [newEntrySku, setNewEntrySku] = useState<string>("");
+  const [newEntryQuantity, setNewEntryQuantity] = useState<number | "">("");
+
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
-  const machineOperatorMapRef = useRef<Record<string, string>>({});
-
-  const [columnVisibility, setColumnVisibility] = useState(() =>
-    getLocalStorageItem("columnVisibility", {
-      operator: true,
-      sku: true,
-    }),
-  );
-
-  useEffect(() => {
-    setLocalStorageItem("columnVisibility", columnVisibility);
-  }, [columnVisibility]);
 
   const generateRoundTimes = useCallback((shift: ShiftInfo): string[] => {
     if (!shift) return [];
@@ -193,7 +200,6 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
         times.push(`${String(h).padStart(2, "0")}:00`);
       times.push("07:00");
     } else {
-      // Day shift
       for (let h = 9; h <= 18; h++)
         times.push(`${String(h).padStart(2, "0")}:00`);
       times.push("19:00");
@@ -203,41 +209,32 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
       const [h] = t.split(":").map(Number);
       const ampm = h >= 12 ? "PM" : "AM";
       let displayHour = h % 12;
-      if (displayHour === 0) displayHour = 12; // Handle midnight and noon
+      if (displayHour === 0) displayHour = 12;
       return `${String(displayHour).padStart(2, "0")}:00 ${ampm}`;
     });
   }, []);
 
-  const loadEntriesForRound = useCallback(
-    (round: string, log: ProductionLog) => {
-      const logForRound = log[round]?.entries || [];
-      const availableMachines = allMachines.filter(
-        (machine) => machine.isAvailable,
-      );
-
-      const newEntries = availableMachines.map((machine) => {
-        const loggedEntry = logForRound.find((e) => e.machineId === machine.id);
-        const skus = loggedEntry?.skus || [];
-        const operatorId = loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id] || "";
-
-        // Update operator map with saved data
-        if (loggedEntry?.operatorId) {
-          machineOperatorMapRef.current[machine.id] = loggedEntry.operatorId;
+  const loadEntriesForRound = useCallback((log: ProductionLog) => {
+    const logForRound = log[selectedRound]?.entries || [];
+    const flattenedEntries: LocalEntry[] = [];
+    
+    logForRound.forEach(machineEntry => {
+      machineEntry.skus.forEach(sku => {
+        if(sku.quantity > 0) {
+          flattenedEntries.push({
+            machineId: machineEntry.machineId,
+            machineName: machineEntry.name,
+            operatorId: machineEntry.operatorId || '',
+            operatorName: allOperators.find(op => op.cardNo === machineEntry.operatorId)?.name || '',
+            sku: sku.sku,
+            sapCode: sku.sapCode,
+            quantity: sku.quantity
+          });
         }
-
-        return {
-          machineId: machine.id,
-          name: machine.name,
-          operatorId: operatorId,
-          skus: skus.length > 0 ? skus : [{ sku: "", sapCode: "", quantity: 0 }],
-        };
       });
-
-      setEntries(newEntries);
-      setLocalStorageItem("machineOperatorMap", machineOperatorMapRef.current);
-    },
-    [allMachines],
-  );
+    });
+    setLocalEntries(flattenedEntries);
+  }, [selectedRound, allOperators]);
 
   const fetchAndSetLog = useCallback(
     async (date: Date, shift: ShiftInfo) => {
@@ -286,12 +283,7 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
           ? savedRound
           : newRoundTimes[0] || "";
         setSelectedRound(currentRound);
-
-        machineOperatorMapRef.current = getLocalStorageItem(
-          "machineOperatorMap",
-          {},
-        );
-        loadEntriesForRound(currentRound, log);
+        loadEntriesForRound(log);
       }
     } catch (error) {
       console.error("Failed to load initial data:", error);
@@ -309,6 +301,7 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
 
   useEffect(() => {
     loadInitialData();
+     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -319,16 +312,14 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
     if (!selectedShift) return;
     await actions.clearShiftData(selectedDate, selectedShift);
     setProductionLog({});
-    loadEntriesForRound(selectedRound, {});
-    machineOperatorMapRef.current = {};
-    setLocalStorageItem("machineOperatorMap", {});
+    setLocalEntries([]);
     toast({
       title: "Shift Data Cleared",
       description: `All production entries for ${
         selectedShift.name
       } on ${format(selectedDate, "PPP")} have been removed.`,
     });
-  }, [selectedDate, selectedShift, toast, selectedRound, loadEntriesForRound]);
+  }, [selectedDate, selectedShift, toast]);
 
   useEffect(() => {
     if (setPageActions) {
@@ -373,12 +364,7 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
         setPageActions(null);
       }
     };
-  }, [
-    handleClearShiftData,
-    selectedDate,
-    selectedShift,
-    setPageActions,
-  ]);
+  }, [handleClearShiftData, selectedDate, selectedShift, setPageActions]);
 
   const handleSelectedRoundChange = useCallback(
     async (round: string) => {
@@ -386,170 +372,133 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
       
       setSelectedRound(round);
       setLocalStorageItem("selectedRound", round);
-
+      setLocalEntries([]);
+      
       if (selectedShift) {
-        if (Object.keys(productionLog).length > 0 && productionLog[round]) {
-          loadEntriesForRound(round, productionLog);
-        } else {
-          const log = await fetchAndSetLog(selectedDate, selectedShift);
-          loadEntriesForRound(round, log);
-        }
+        const log = await fetchAndSetLog(selectedDate, selectedShift);
+        const logForRound = log[round]?.entries || [];
+        const flattenedEntries: LocalEntry[] = [];
+        
+        logForRound.forEach(machineEntry => {
+          machineEntry.skus.forEach(sku => {
+            if (sku.quantity > 0) {
+              flattenedEntries.push({
+                machineId: machineEntry.machineId,
+                machineName: machineEntry.name,
+                operatorId: machineEntry.operatorId || '',
+                operatorName: allOperators.find(op => op.cardNo === machineEntry.operatorId)?.name || '',
+                sku: sku.sku,
+                sapCode: sku.sapCode,
+                quantity: sku.quantity
+              });
+            }
+          });
+        });
+        setLocalEntries(flattenedEntries);
       }
     },
-    [selectedRound, selectedShift, selectedDate, fetchAndSetLog, loadEntriesForRound, productionLog],
+    [selectedRound, selectedShift, selectedDate, fetchAndSetLog, allOperators],
   );
 
-  const handleOperatorChange = (machineId: string, operatorId: string) => {
-    setEntries((prev) =>
-      prev.map((entry) =>
-        entry.machineId === machineId ? { ...entry, operatorId } : entry,
-      ),
-    );
-    machineOperatorMapRef.current[machineId] = operatorId;
-    setLocalStorageItem("machineOperatorMap", machineOperatorMapRef.current);
+  const handleAddNewEntry = () => {
+    if (!newEntryMachineId || !newEntryOperatorId || !newEntrySku || !newEntryQuantity) {
+      toast({
+        variant: "destructive",
+        title: "Missing Information",
+        description: "Please fill out all fields to add an entry.",
+      });
+      return;
+    }
+
+    const machine = allMachines.find(m => m.id === newEntryMachineId);
+    const operator = allOperators.find(op => op.cardNo === newEntryOperatorId);
+    const planItem = allProductionPlan.find(p => p.machineId === newEntryMachineId);
+    const skuPlan = planItem?.skus.find(s => s.sku === newEntrySku);
+
+    if (!machine || !operator || !skuPlan) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Data",
+        description: "Could not find matching machine, operator, or SKU.",
+      });
+      return;
+    }
+
+    const newLocalEntry: LocalEntry = {
+      machineId: machine.id,
+      machineName: machine.name,
+      operatorId: operator.cardNo,
+      operatorName: operator.name,
+      sku: skuPlan.sku,
+      sapCode: skuPlan.sapCode,
+      quantity: Number(newEntryQuantity),
+    };
+
+    setLocalEntries(prev => [...prev, newLocalEntry]);
+
+    // Reset form
+    setNewEntryMachineId("");
+    setNewEntryOperatorId("");
+    setNewEntrySku("");
+    setNewEntryQuantity("");
   };
 
-  const handleSkuChange = (
-    machineId: string,
-    skuIndex: number,
-    newSku: string,
-  ) => {
-    const planItem = allProductionPlan.find((p) => p.machineId === machineId);
-    const newSkuPlan = planItem?.skus.find((s) => s.sku === newSku);
-    setEntries((prev) =>
-      prev.map((entry) => {
-        if (entry.machineId === machineId) {
-          const updatedSkus = [...entry.skus];
-          updatedSkus[skuIndex] = {
-            ...updatedSkus[skuIndex],
-            sku: newSku,
-            sapCode: newSkuPlan?.sapCode || "",
-          };
-          return { ...entry, skus: updatedSkus };
-        }
-        return entry;
-      }),
-    );
+  const handleRemoveLocalEntry = (index: number) => {
+    setLocalEntries(prev => prev.filter((_, i) => i !== index));
   };
-
-  const handleQuantityChange = (
-    machineId: string,
-    skuIndex: number,
-    quantity: number,
-  ) => {
-    setEntries((prev) =>
-      prev.map((entry) => {
-        if (entry.machineId === machineId) {
-          const updatedSkus = [...entry.skus];
-          updatedSkus[skuIndex] = {
-            ...updatedSkus[skuIndex],
-            quantity: isNaN(quantity) ? 0 : quantity,
-          };
-          return { ...entry, skus: updatedSkus };
-        }
-        return entry;
-      }),
-    );
-  };
-
-  const handleAddSku = (machineId: string) => {
-    setEntries((prev) =>
-      prev.map((entry) => {
-        if (entry.machineId === machineId) {
-          return {
-            ...entry,
-            skus: [...entry.skus, { sku: "", sapCode: "", quantity: 0 }],
-          };
-        }
-        return entry;
-      }),
-    );
-  };
-
-  const handleRemoveSku = (machineId: string, skuIndex: number) => {
-    setEntries((prev) =>
-      prev.map((entry) => {
-        if (entry.machineId === machineId) {
-          const updatedSkus = entry.skus.filter(
-            (_, index) => index !== skuIndex,
-          );
-          return { ...entry, skus: updatedSkus };
-        }
-        return entry;
-      }),
-    );
-  };
+  
 
   const handleSaveRound = useCallback(async () => {
     if (!selectedRound || !selectedShift) {
-      toast({
-        variant: "destructive",
-        title: "Cannot Save",
-        description: "Please select a shift and round time first.",
-      });
+      toast({ variant: "destructive", title: "Cannot Save", description: "Select shift and round." });
       return;
     }
     if (!user) {
-      toast({
-        variant: "destructive",
-        title: "Cannot Save",
-        description: "User information not available. Please log in again.",
-      });
+      toast({ variant: "destructive", title: "Cannot Save", description: "User not logged in." });
       return;
     }
-    
-    const entriesToSave = entries
-      .filter(entry => {
-        const hasOperator = entry.operatorId && entry.operatorId.trim() !== '';
-        const hasProduction = entry.skus.some(sku => (sku.quantity || 0) > 0);
-        const hasSkuData = entry.skus.some(sku => sku.sku && sku.sku.trim() !== '');
-        return hasOperator && (hasProduction || hasSkuData);
-      })
-      .map(entry => ({
-        machineId: entry.machineId,
-        name: entry.name,
-        operatorId: entry.operatorId,
-        skus: entry.skus.filter(sku => (sku.sku && sku.sku.trim() !== '') || (sku.quantity || 0) > 0),
-        userId: user.id,
-        userName: user.name,
-      }));
-    
-    if (entriesToSave.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "Nothing to Save",
-        description: "Please assign operators and enter production data first.",
-      });
+    if (localEntries.length === 0) {
+      toast({ variant: "destructive", title: "Nothing to Save", description: "Add production data first." });
       return;
     }
-    
-    try {
-      await actions.saveProductionRound(
-        selectedDate,
-        selectedShift,
-        selectedRound,
-        entriesToSave,
-      );
+
+    const entriesByMachine = localEntries.reduce<Record<string, MachineProductionData>>((acc, entry) => {
+      if (!acc[entry.machineId]) {
+        acc[entry.machineId] = {
+          machineId: entry.machineId,
+          name: entry.machineName,
+          operatorId: entry.operatorId,
+          skus: [],
+          userId: user.id,
+          userName: user.name,
+        };
+      }
       
-      const log = await actions.getProductionLogForShift(
-        selectedDate,
-        selectedShift,
-      );
+      acc[entry.machineId].skus.push({
+        sku: entry.sku,
+        sapCode: entry.sapCode,
+        quantity: entry.quantity,
+      });
+
+      return acc;
+    }, {});
+    
+    const entriesToSave = Object.values(entriesByMachine);
+
+    try {
+      await actions.saveProductionRound(selectedDate, selectedShift, selectedRound, entriesToSave);
+      const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
       setProductionLog(log);
       
       toast({
         title: "✅ Data Saved Successfully!",
-        description: `${entriesToSave.length} entries saved for ${selectedRound}`,
+        description: `${entriesToSave.length} machine summaries saved for ${selectedRound}`,
       });
     } catch (error) {
       console.error('Save error:', error);
-      toast({
-        variant: "destructive",
-        title: "❌ Save Failed",
-        description: "Failed to save production data. Please try again.",
-      });
+      toast({ variant: "destructive", title: "❌ Save Failed", description: "Please try again." });
     }
-  }, [selectedDate, selectedShift, selectedRound, entries, toast, user]);
+  }, [selectedDate, selectedShift, selectedRound, localEntries, toast, user]);
 
   const handleShiftChange = useCallback(
     async (name: string) => {
@@ -558,15 +507,13 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
       
       setSelectedShift(newShift);
       setProductionLog({});
-      setEntries([]);
+      setLocalEntries([]);
 
       const newRoundTimes = generateRoundTimes(newShift);
       setRoundTimes(newRoundTimes);
 
       const log = await fetchAndSetLog(selectedDate, newShift);
-      const currentRound = newRoundTimes[0] || "";
-      setSelectedRound(currentRound);
-      loadEntriesForRound(currentRound, log);
+      loadEntriesForRound(log);
     },
     [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound],
   );
@@ -581,24 +528,18 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
       if (newDateStr !== currentDateStr) {
         setSelectedDate(date);
         setProductionLog({});
-        setEntries([]);
+        setLocalEntries([]);
 
         const log = await fetchAndSetLog(date, selectedShift);
-        loadEntriesForRound(selectedRound, log);
+        loadEntriesForRound(log);
       }
     },
-    [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound],
+    [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound],
   );
 
   const roundTotal = useMemo(() => {
-    return entries.reduce((acc, entry) => {
-      const entryTotal = entry.skus.reduce(
-        (skuAcc, sku) => skuAcc + (sku.quantity || 0),
-        0,
-      );
-      return acc + entryTotal;
-    }, 0);
-  }, [entries]);
+    return localEntries.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
+  }, [localEntries]);
 
   const cumulativeTotal = useMemo(() => {
     const total = Object.values(productionLog)
@@ -610,60 +551,48 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
 
   const generateShareText = useCallback(() => {
     if (!selectedShift || !selectedRound) return "";
-    const operatorMap = new Map(allOperators.map((op) => [op.cardNo, op.name]));
     let text = `*Hourly Production Report*\n\n`;
     text += `*Date:* ${format(selectedDate, "PPP")}\n`;
     text += `*Shift:* ${selectedShift.name}\n`;
     text += `*Time:* ${selectedRound}\n\n`;
     text += `*Round Production:* ${roundTotal}\n`;
     text += `*Shift Cumulative:* ${cumulativeTotal}\n\n`;
-    const producedEntries = entries.filter((entry) =>
-      entry.skus.some((sku) => sku.quantity > 0),
-    );
+    const producedEntries = localEntries.filter((entry) => entry.quantity > 0);
+
     if (producedEntries.length > 0) {
       text += `*TBM wise production:*\n`;
-      producedEntries.forEach((entry) => {
-        const operatorName = operatorMap.get(entry.operatorId || "") || "N/A";
-        const skuTexts = entry.skus
-          .filter((s) => s.quantity > 0)
-          .map((s) => `${s.sku}: ${s.quantity}`)
-          .join(", ");
+      const entriesByTBM = producedEntries.reduce<Record<string, LocalEntry[]>>((acc, entry) => {
+        if (!acc[entry.machineName]) {
+          acc[entry.machineName] = [];
+        }
+        acc[entry.machineName].push(entry);
+        return acc;
+      }, {});
+
+      Object.entries(entriesByTBM).forEach(([machineName, entries]) => {
+        const operatorName = entries[0]?.operatorName || 'N/A';
+        const skuTexts = entries.map(e => `${e.sku}: ${e.quantity}`).join(", ");
         if (skuTexts) {
-          text += `- *${entry.name}* (${operatorName}): ${skuTexts}\n`;
+          text += `- *${machineName}* (${operatorName}): ${skuTexts}\n`;
         }
       });
     } else {
       text += `*No production was recorded for this round.*\n`;
     }
     return text;
-  }, [
-    allOperators,
-    cumulativeTotal,
-    entries,
-    roundTotal,
-    selectedDate,
-    selectedRound,
-    selectedShift,
-  ]);
+  }, [localEntries, cumulativeTotal, roundTotal, selectedDate, selectedRound, selectedShift]);
 
   const handleShare = useCallback(
     async (type: "native" | "whatsapp" | "sms" | "email" | "copy") => {
       const shareText = generateShareText();
       if (!shareText) {
-        toast({
-          variant: "destructive",
-          title: "Cannot Share",
-          description: "Please select a date, shift, and round.",
-        });
+        toast({ variant: "destructive", title: "Cannot Share", description: "Please select a date, shift, and round." });
         return;
       }
       const encodedText = encodeURIComponent(shareText);
       if (type === "native" && navigator.share) {
         try {
-          await navigator.share({
-            title: "Hourly Production Report",
-            text: shareText,
-          });
+          await navigator.share({ title: "Hourly Production Report", text: shareText });
         } catch (error) {
           console.log("Share was cancelled or failed", error);
         }
@@ -672,43 +601,25 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
       } else if (type === "sms") {
         window.open(`sms:?body=${encodedText}`, "_blank");
       } else if (type === "email") {
-        window.open(
-          `mailto:?subject=Hourly Production Report&body=${encodedText}`,
-          "_blank",
-        );
+        window.open(`mailto:?subject=Hourly Production Report&body=${encodedText}`, "_blank");
       } else {
         try {
           await navigator.clipboard.writeText(shareText);
-          toast({
-            title: "Report Copied!",
-            description:
-              "The production report has been copied to your clipboard.",
-          });
-        } catch (copyError) {
-          // Fallback for clipboard API issues
-          const textArea = document.createElement('textarea');
-          textArea.value = shareText;
-          document.body.appendChild(textArea);
-          textArea.select();
-          try {
-            document.execCommand('copy');
-            toast({
-              title: "Report Copied!",
-              description: "The production report has been copied to your clipboard.",
-            });
-          } catch (fallbackError) {
-            toast({
-              variant: "destructive",
-              title: "Share Failed",
-              description: "Could not copy the report.",
-            });
-          }
-          document.body.removeChild(textArea);
+          toast({ title: "Report Copied!", description: "Copied to clipboard." });
+        } catch {
+          toast({ variant: "destructive", title: "Share Failed", description: "Could not copy the report." });
         }
       }
     },
     [generateShareText, toast],
   );
+
+  const availableSkusForMachine = useMemo(() => {
+    if (!newEntryMachineId) return [];
+    const planItem = allProductionPlan.find(p => p.machineId === newEntryMachineId);
+    return planItem?.skus || [];
+  }, [newEntryMachineId, allProductionPlan]);
+
 
   if (loading) {
     return (
@@ -750,20 +661,15 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
     </div>
   );
 
-  const ShareMenu = ({ isMobile = false }) => (
+  const ShareMenu = () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant={isMobile ? "ghost" : "outline"}
-          size={isMobile ? "icon" : "sm"}
-          className={isMobile ? "h-auto p-2" : ""}
+          variant="outline"
+          size="sm"
         >
           <Share2 className="h-5 w-5" />
-          {isMobile ? (
-            <span className="sr-only">Share</span>
-          ) : (
-            <span className="ml-2">Share</span>
-          )}
+          <span className="ml-2">Share</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -875,134 +781,101 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
           </div>
         </div>
       </header>
-      <main className="flex-1 overflow-y-auto p-4">
-        {isFetchingLog && (
+      <main className="flex-1 overflow-y-auto p-4 space-y-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+              <div className="space-y-2 md:col-span-1">
+                <label>TBM No</label>
+                <Select value={newEntryMachineId} onValueChange={setNewEntryMachineId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select TBM" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allMachines.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-1">
+                <label>Operator</label>
+                <Select value={newEntryOperatorId} onValueChange={setNewEntryOperatorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Operator" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableOperators.map(op => <SelectItem key={op.cardNo} value={op.cardNo}>{op.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-1">
+                <label>SKU</label>
+                <Select value={newEntrySku} onValueChange={setNewEntrySku} disabled={!newEntryMachineId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select SKU" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSkusForMachine.map(s => <SelectItem key={s.sku} value={s.sku}>{s.sku}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-1">
+                <label>Quantity</label>
+                <Input type="number" placeholder="0" value={newEntryQuantity} onChange={e => setNewEntryQuantity(e.target.value === '' ? '' : Number(e.target.value))} />
+              </div>
+              <Button onClick={handleAddNewEntry} className="w-full md:w-auto">
+                <PlusCircle />
+                <span>Add</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {isFetchingLog ? (
           <Card>
             <CardContent className="p-10 text-center text-muted-foreground">
               <Loader />
               <p className="mt-2">Loading shift data...</p>
             </CardContent>
           </Card>
-        )}
-        {!isFetchingLog && entries.length === 0 && (
+        ) : (
           <Card>
-            <CardContent className="p-10 text-center text-muted-foreground">
-              <p>No machines available for data entry.</p>
-              <p className="text-sm">
-                Total machines loaded: {allMachines.length}, Available:{" "}
-                {allMachines.filter((m) => m.isAvailable).length}
-              </p>
-              <p className="text-sm">
-                Please check machine availability in the Admin panel.
-              </p>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto max-h-[calc(100vh-350px)]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>TBM No</TableHead>
+                      <TableHead>Operator</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {localEntries.length > 0 ? localEntries.map((entry, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{entry.machineName}</TableCell>
+                        <TableCell>{entry.operatorName}</TableCell>
+                        <TableCell>{entry.sku}</TableCell>
+                        <TableCell>{entry.quantity}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveLocalEntry(index)}>
+                            <Trash2 className="text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                          No production data added for this round yet.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
-        )}
-        {!isFetchingLog && entries.length > 0 && (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[120px]">TBM No</TableHead>
-                    <TableHead className="w-[200px]">Operator</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead className="w-[120px]">Quantity</TableHead>
-                    <TableHead className="w-[80px]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {entries.map((entry) => {
-                      const planItem = allProductionPlan.find(
-                        (p) => p.machineId === entry.machineId,
-                      );
-                      const machineSkus = planItem?.skus || [];
-                      return (
-                        <React.Fragment key={entry.machineId}>
-                          {entry.skus.map((skuEntry, skuIndex) => (
-                            <TableRow key={`${entry.machineId}-${skuIndex}`}>
-                              {skuIndex === 0 && (
-                                <TableCell rowSpan={entry.skus.length} className="font-bold align-top pt-6">
-                                  {entry.name}
-                                </TableCell>
-                              )}
-                              {skuIndex === 0 && (
-                                <TableCell rowSpan={entry.skus.length} className="align-top pt-4">
-                                  <Select
-                                    value={entry.operatorId || ""}
-                                    onValueChange={(val) => handleOperatorChange(entry.machineId, val)}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select Operator" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {availableOperators.map((op) => (
-                                        <SelectItem key={op.cardNo} value={op.cardNo}>
-                                          {op.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </TableCell>
-                              )}
-                              <TableCell>
-                                <Select
-                                  value={skuEntry.sku}
-                                  onValueChange={(val) => handleSkuChange(entry.machineId, skuIndex, val)}
-                                  disabled={machineSkus.length === 0}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder={machineSkus.length > 0 ? "Select SKU" : "No SKUs"} />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {machineSkus.map((skuPlan) => (
-                                      <SelectItem key={`${skuPlan.sku}-${skuPlan.sapCode}`} value={skuPlan.sku}>
-                                        {skuPlan.sku}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  placeholder="0"
-                                  value={skuEntry.quantity === 0 ? "" : skuEntry.quantity}
-                                  onChange={(e) => handleQuantityChange(entry.machineId, skuIndex, parseInt(e.target.value) || 0)}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-destructive hover:text-destructive"
-                                    onClick={() => handleRemoveSku(entry.machineId, skuIndex)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                  {skuIndex === entry.skus.length - 1 && (
-                                     <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleAddSku(entry.machineId)}
-                                      >
-                                        <PlusCircle className="h-4 w-4" />
-                                      </Button>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </React.Fragment>
-                      )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
         )}
       </main>
       <footer className="sticky bottom-0 z-10 flex h-20 items-center justify-between gap-4 border-t bg-background px-4">
@@ -1060,5 +933,3 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
     </div>
   );
 }
-
-    
