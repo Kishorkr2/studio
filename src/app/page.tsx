@@ -94,6 +94,7 @@ const getLocalStorageItem = (key: string, defaultValue: any) => {
     return item ? JSON.parse(item) : defaultValue;
   } catch (error) {
     console.warn(`Error reading localStorage key "${key}":`, error);
+    window.localStorage.removeItem(key);
     return defaultValue;
   }
 };
@@ -276,13 +277,13 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
         const newRoundTimes = generateRoundTimes(currentShift);
         setRoundTimes(newRoundTimes);
         
-        const log = await fetchAndSetLog(selectedDate, currentShift);
-
         const savedRound = getLocalStorageItem("selectedRound", "");
         const currentRound = newRoundTimes.includes(savedRound)
           ? savedRound
           : newRoundTimes[0] || "";
         setSelectedRound(currentRound);
+
+        const log = await fetchAndSetLog(selectedDate, currentShift);
         loadEntriesForRound(log);
       }
     } catch (error) {
@@ -487,7 +488,7 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
 
     try {
       await actions.saveProductionRound(selectedDate, selectedShift, selectedRound, entriesToSave);
-      const log = await actions.getProductionLogForShift(selectedDate, selectedShift);
+      const log = await fetchAndSetLog(selectedDate, selectedShift);
       setProductionLog(log);
       
       toast({
@@ -498,7 +499,7 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
       console.error('Save error:', error);
       toast({ variant: "destructive", title: "❌ Save Failed", description: "Please try again." });
     }
-  }, [selectedDate, selectedShift, selectedRound, localEntries, toast, user]);
+  }, [selectedDate, selectedShift, selectedRound, localEntries, toast, user, fetchAndSetLog]);
 
   const handleShiftChange = useCallback(
     async (name: string) => {
@@ -511,6 +512,8 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
 
       const newRoundTimes = generateRoundTimes(newShift);
       setRoundTimes(newRoundTimes);
+      const currentRound = newRoundTimes[0] || '';
+      setSelectedRound(currentRound);
 
       const log = await fetchAndSetLog(selectedDate, newShift);
       loadEntriesForRound(log);
@@ -823,7 +826,7 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
                 <Input type="number" placeholder="0" value={newEntryQuantity} onChange={e => setNewEntryQuantity(e.target.value === '' ? '' : Number(e.target.value))} />
               </div>
               <Button onClick={handleAddNewEntry} className="w-full md:w-auto">
-                <PlusCircle />
+                <PlusCircle className="mr-2" />
                 <span>Add</span>
               </Button>
             </div>
@@ -933,3 +936,5 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
     </div>
   );
 }
+
+    
