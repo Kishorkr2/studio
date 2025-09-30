@@ -106,14 +106,22 @@ export async function getProductionLogForShift(
 ): Promise<ProductionLog> {
   const dateKey = format(date, 'yyyy-MM-dd');
   const shiftName = shift.name.replace(/\s+/g, '-');
+  console.log('Fetching production log for:', { dateKey, shiftName });
+  
   const rows = await db.all<FlatProductionLogEntry[]>(
-    'SELECT * FROM productionLogEntries WHERE date = ? AND shiftName = ?',
+    'SELECT * FROM productionLogEntries WHERE date = ? AND shiftName = ? ORDER BY round, machineId',
     [dateKey, shiftName]
   );
+  
+  console.log('Found rows:', rows.length, 'for date:', dateKey, 'shift:', shiftName);
   const log: ProductionLog = {};
 
   for (const row of rows) {
-    if (!row.round || !row.machineId) continue;
+    console.log('Processing row:', row);
+    if (!row.round || !row.machineId) {
+      console.log('Skipping row - missing round or machineId');
+      continue;
+    }
 
     if (!log[row.round]) {
       log[row.round] = {entries: [], status: 'synced'};
@@ -122,66 +130,50 @@ export async function getProductionLogForShift(
     let machineEntry = log[row.round].entries.find(
       e => e.machineId === row.machineId
     );
-    
-    // Skip placeholder remarks if actual production data exists for the machine
-    if (row.remark === 'Operator Assigned' && machineEntry && machineEntry.skus.some(s => s.quantity > 0)) {
-        continue;
-    }
 
     const skuProduction = {
-      sku: row.sku,
-      sapCode: row.sapCode,
-      quantity: row.quantity,
+      sku: row.sku || '',
+      sapCode: row.sapCode || '',
+      quantity: row.quantity || 0,
       leftQty: row.leftQty,
       rightQty: row.rightQty,
     };
-    
-    if (row.remark === 'Operator Assigned') {
-      skuProduction.quantity = 0;
-    }
-
 
     if (machineEntry) {
-       // Avoid adding placeholder if real data is already there
-      if (skuProduction.quantity > 0) {
-        // If the existing one was a placeholder, replace it. Otherwise, add to it.
-        const placeholderIndex = machineEntry.skus.findIndex(s => s.remark === 'Operator Assigned');
-        if (placeholderIndex > -1) {
-          machineEntry.skus.splice(placeholderIndex, 1, skuProduction);
-        } else {
-          machineEntry.skus.push(skuProduction);
-        }
-      } else if (machineEntry.skus.length === 0) {
-         machineEntry.skus.push(skuProduction);
-      }
+      machineEntry.skus.push(skuProduction);
     } else {
       const newMachineEntry: MachineProductionData = {
         machineId: row.machineId,
-        name: row.name,
-        operatorId: row.operatorId,
-        skus: row.sku ? [skuProduction] : [], // Only add if there's an actual sku
+        name: row.name || '',
+        operatorId: row.operatorId || '',
+        skus: [skuProduction],
         userId: row.userId,
         userName: row.userName,
       };
       log[row.round].entries.push(newMachineEntry);
     }
   }
+  
+  console.log('Processed log:', Object.keys(log).length, 'rounds');
   return log;
 }
 
 export async function getDailyTreadProductionLog() {
   const rows = await db.all('SELECT * FROM dailyTreadProduction');
+  console.log('Retrieved daily production rows:', rows.length);
   const log: Record<
     string,
     Record<string, Record<string, DailyProductionEntry>>
   > = {};
   rows.forEach(row => {
     try {
+      console.log(`Parsing data for ${row.id}:`, row.data);
       log[row.id] = JSON.parse(row.data);
     } catch (e) {
       console.error(`Failed to parse daily tread production for ${row.id}:`, e);
     }
   });
+  console.log('Final log object keys:', Object.keys(log));
   return log;
 }
 
@@ -328,6 +320,8 @@ export async function saveProductionRound(
   const dateKey = format(date, 'yyyy-MM-dd');
   const shiftName = shift.name.replace(/\s+/g, '-');
 
+  console.log('Saving production round:', { dateKey, shiftName, round, entriesCount: entries.length });
+
   await db.exec('BEGIN TRANSACTION');
   try {
     // Delete all existing entries for this specific round first.
@@ -339,12 +333,41 @@ export async function saveProductionRound(
 
     // Now, insert the new entries from the UI.
     for (const entry of entries) {
+      console.log('Processing entry:', entry.machineId, entry.operatorId, entry.skus.length);
+      
       // Only save if an operator is assigned.
-      if (!entry.operatorId) continue;
+      if (!entry.operatorId) {
+        console.log('Skipping entry - no operator assigned');
+        continue;
+      }
 
-      // If there are no SKUs or all SKUs have 0 quantity, save a single entry for the operator assignment.
-      const hasProduction = entry.skus.some(s => (s.quantity || 0) > 0);
-      if (!hasProduction) {
+      // Save each SKU entry
+      if (entry.skus && entry.skus.length > 0) {
+        for (const sku of entry.skus) {
+          console.log('Saving SKU:', sku.sku, sku.quantity);
+          await db.run(
+            `INSERT INTO productionLogEntries 
+             (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              dateKey,
+              shiftName,
+              round,
+              entry.machineId,
+              entry.name,
+              'Online',
+              sku.sku || '',
+              sku.sapCode || '',
+              sku.quantity || 0,
+              entry.operatorId,
+              entry.userId || null,
+              entry.userName || null,
+            ]
+          );
+        }
+      } else {
+        // Save operator assignment only
+        console.log('Saving operator assignment only');
         await db.run(
           `INSERT INTO productionLogEntries 
            (date, shiftName, round, machineId, name, status, operatorId, userId, userName, quantity) 
@@ -357,43 +380,15 @@ export async function saveProductionRound(
             entry.name,
             'Online',
             entry.operatorId,
-            entry.userId,
-            entry.userName,
-            0 // quantity
+            entry.userId || null,
+            entry.userName || null,
+            0
           ]
         );
-      } else {
-        // Otherwise, save each SKU with its production quantity.
-        for (const sku of entry.skus) {
-          // Save even if quantity is 0, as long as SKU details are present with an operator.
-          if (sku.sku || sku.sapCode) {
-            await db.run(
-              `INSERT OR REPLACE INTO productionLogEntries 
-               (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, leftQty, rightQty, operatorId, userId, userName, remark) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                dateKey,
-                shiftName,
-                round,
-                entry.machineId,
-                entry.name,
-                'Online',
-                sku.sku,
-                sku.sapCode,
-                sku.quantity || 0,
-                sku.leftQty,
-                sku.rightQty,
-                entry.operatorId,
-                entry.userId,
-                entry.userName,
-                sku.remark || null,
-              ]
-            );
-          }
-        }
       }
     }
     await db.exec('COMMIT');
+    console.log('Production round saved successfully');
   } catch (error) {
     await db.exec('ROLLBACK');
     console.error('Failed to save production round:', error);
@@ -413,14 +408,17 @@ export async function clearShiftData(date: Date, shift: ShiftInfo) {
 export async function saveDailyProductionLog(
   log: Record<string, Record<string, Record<string, DailyProductionEntry>>>
 ) {
+  console.log('Saving daily production log:', Object.keys(log));
   for (const [dateKey, dateData] of Object.entries(log)) {
     const dataJson = JSON.stringify(dateData);
+    console.log(`Saving data for ${dateKey}:`, dataJson);
     await db.run(
       'INSERT OR REPLACE INTO dailyTreadProduction (id, data) VALUES (?, ?)',
       dateKey,
       dataJson
     );
   }
+  console.log('Daily production log saved successfully');
 }
 
 export async function saveTreadOpeningStock(stock: TreadStock[]) {

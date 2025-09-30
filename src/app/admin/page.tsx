@@ -46,6 +46,8 @@ import {
   Save,
   DatabaseZap,
   CheckCircle,
+  Clock,
+  Cog,
 } from 'lucide-react';
 import {useToast} from '@/hooks/use-toast';
 import {Badge} from '@/components/ui/badge';
@@ -213,6 +215,7 @@ function MachineManagement({
 
 export default function AdminPage() {
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('users');
   const [operators, setOperators] = useState<Operator[]>([]);
   const [managedShifts, setManagedShifts] = useState<ShiftInfo[]>([]);
   const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>(
@@ -230,6 +233,12 @@ export default function AdminPage() {
 
   const [password, setPassword] = useState('');
   const [isRenaming, setIsRenaming] = useState<string | null>(null);
+  const [newOperator, setNewOperator] = useState({
+    cardNo: '',
+    name: '',
+    builderNo: '',
+    skillRating: 3,
+  });
 
   const [uploadedPlan, setUploadedPlan] = useState<
     ProductionPlanItem[] | null
@@ -316,18 +325,79 @@ export default function AdminPage() {
   };
 
 
-  const handleAddOperator = async () => {
-    const newOperator = {
-      cardNo: `OP-${Date.now()}`,
-      name: 'New Operator',
-      builderNo: `B-${Math.floor(Math.random() * 100)}`,
-      skillRating: 3,
+  const handleAddNewOperator = async () => {
+    if (!newOperator.cardNo || !newOperator.name) return;
+    
+    const operatorData = {
+      ...newOperator,
       isAbsent: false,
     };
-    await actions.addOperator(newOperator);
-    setOperators(prev => [...prev, newOperator]);
-    toast({title: 'Operator Added'});
+    
+    try {
+      await actions.addOperator(operatorData);
+      setOperators(prev => [...prev, operatorData]);
+      setNewOperator({ cardNo: '', name: '', builderNo: '', skillRating: 3 });
+      toast({title: 'Operator Added Successfully'});
+    } catch (error) {
+      toast({variant: 'destructive', title: 'Failed to add operator'});
+    }
   };
+
+  const handleOperatorsUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const {read, utils} = await import('xlsx');
+        const data = e.target?.result;
+        const workbook = read(data);
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData: any[] = utils.sheet_to_json(worksheet);
+        
+        if (!jsonData || jsonData.length === 0) {
+          toast({variant: 'destructive', title: 'No data found', description: 'Excel file appears to be empty'});
+          return;
+        }
+        
+        const newOperators = jsonData.map(row => ({
+          cardNo: String(row['Card No'] || row['CardNo'] || row['cardNo'] || '').trim(),
+          name: String(row['Name'] || row['name'] || '').trim(),
+          builderNo: String(row['Builder No'] || row['BuilderNo'] || row['builderNo'] || '').trim(),
+          skillRating: Number(row['Skill Rating'] || row['SkillRating'] || row['skillRating'] || 3),
+          isAbsent: false,
+        })).filter(op => op.cardNo && op.name);
+        
+        if (newOperators.length === 0) {
+          toast({variant: 'destructive', title: 'No valid operators found', description: 'Check that Card No and Name columns exist'});
+          return;
+        }
+        
+        let addedCount = 0;
+        for (const op of newOperators) {
+          try {
+            await actions.addOperator(op);
+            addedCount++;
+          } catch (error) {
+            console.log(`Skipped duplicate operator: ${op.cardNo}`);
+          }
+        }
+        
+        if (addedCount > 0) {
+          const addedOperators = await actions.getOperators();
+          setOperators(addedOperators);
+        }
+        toast({title: `${addedCount} operators uploaded successfully${newOperators.length - addedCount > 0 ? ` (${newOperators.length - addedCount} duplicates skipped)` : ''}`});
+      } catch (error) {
+        console.error('Upload error:', error);
+        toast({variant: 'destructive', title: 'Upload failed', description: error instanceof Error ? error.message : 'Please check file format'});
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    
+    if (event.target) event.target.value = '';
+  }, [toast]);
 
   const handleOperatorChange = async (
     originalCardNo: string,
@@ -648,8 +718,80 @@ export default function AdminPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold tracking-tight">Admin Panel</h1>
-      <Tabs defaultValue="users">
-        <TabsList className="grid w-full grid-cols-1 md:grid-cols-4 lg:grid-cols-7 h-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('users')}>
+          <CardContent className="p-6 text-center">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <ShieldAlert className="h-6 w-6 text-blue-600" />
+            </div>
+            <h3 className="font-semibold mb-2">User Management</h3>
+            <p className="text-sm text-muted-foreground">Manage user accounts and permissions</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('operators')}>
+          <CardContent className="p-6 text-center">
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <PlusCircle className="h-6 w-6 text-green-600" />
+            </div>
+            <h3 className="font-semibold mb-2">Operators</h3>
+            <p className="text-sm text-muted-foreground">Manage operator profiles and skills</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('shifts')}>
+          <CardContent className="p-6 text-center">
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <Clock className="h-6 w-6 text-purple-600" />
+            </div>
+            <h3 className="font-semibold mb-2">Shifts</h3>
+            <p className="text-sm text-muted-foreground">Configure shift timings</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('plan')}>
+          <CardContent className="p-6 text-center">
+            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <FileSpreadsheet className="h-6 w-6 text-orange-600" />
+            </div>
+            <h3 className="font-semibold mb-2">Production Plan</h3>
+            <p className="text-sm text-muted-foreground">Upload and manage production plans</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('tbm')}>
+          <CardContent className="p-6 text-center">
+            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <Cog className="h-6 w-6 text-red-600" />
+            </div>
+            <h3 className="font-semibold mb-2">TBM Machines</h3>
+            <p className="text-sm text-muted-foreground">Manage TBM machine inventory</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('curing')}>
+          <CardContent className="p-6 text-center">
+            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <DatabaseZap className="h-6 w-6 text-yellow-600" />
+            </div>
+            <h3 className="font-semibold mb-2">Curing Presses</h3>
+            <p className="text-sm text-muted-foreground">Manage curing press inventory</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('settings')}>
+          <CardContent className="p-6 text-center">
+            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <Cog className="h-6 w-6 text-gray-600" />
+            </div>
+            <h3 className="font-semibold mb-2">Settings</h3>
+            <p className="text-sm text-muted-foreground">Advanced system settings</p>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="hidden">
           <TabsTrigger value="users">User Management</TabsTrigger>
           <TabsTrigger value="operators">Operators</TabsTrigger>
           <TabsTrigger value="shifts">Shifts</TabsTrigger>
@@ -666,13 +808,101 @@ export default function AdminPage() {
         <TabsContent value="operators">
           <Card>
             <CardHeader>
-              <CardTitle>Operators</CardTitle>
+              <CardTitle>Operators Management</CardTitle>
               <CardDescription>
-                Manage your list of approved operators.
+                Manage operator profiles, skills, and upload bulk data.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
+            <CardContent className="space-y-6">
+              {/* Upload Section */}
+              <div className="p-4 border-2 border-dashed border-muted rounded-lg bg-muted/10">
+                <div className="flex flex-col items-center justify-center space-y-4">
+                  <UploadCloud className="h-12 w-12 text-muted-foreground" />
+                  <div className="text-center">
+                    <h3 className="font-semibold mb-2">Upload Operators Data</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Upload Excel file with columns: Card No, Name, Builder No, Skill Rating
+                    </p>
+                    <Input
+                      id="operators-upload"
+                      type="file"
+                      className="sr-only"
+                      accept=".xls,.xlsx"
+                      onChange={handleOperatorsUpload}
+                    />
+                    <Button asChild variant="outline">
+                      <Label htmlFor="operators-upload" className="cursor-pointer">
+                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                        Select Excel File
+                      </Label>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Add New Operator Form */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Add New Operator</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="new-card-no">Card No</Label>
+                      <Input
+                        id="new-card-no"
+                        placeholder="OP-001"
+                        value={newOperator.cardNo}
+                        onChange={e => setNewOperator(prev => ({...prev, cardNo: e.target.value}))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="new-name">Name</Label>
+                      <Input
+                        id="new-name"
+                        placeholder="Operator Name"
+                        value={newOperator.name}
+                        onChange={e => setNewOperator(prev => ({...prev, name: e.target.value}))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="new-builder-no">Builder No</Label>
+                      <Input
+                        id="new-builder-no"
+                        placeholder="B-01"
+                        value={newOperator.builderNo}
+                        onChange={e => setNewOperator(prev => ({...prev, builderNo: e.target.value}))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Skill Rating</Label>
+                      <div className="flex items-center gap-2">
+                        <Slider
+                          value={[newOperator.skillRating]}
+                          onValueChange={([val]) => setNewOperator(prev => ({...prev, skillRating: val}))}
+                          min={1}
+                          max={5}
+                          step={1}
+                          className="flex-1"
+                        />
+                        <Badge variant="secondary" className="w-8 h-6 flex items-center justify-center">
+                          {newOperator.skillRating}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={handleAddNewOperator} 
+                    className="mt-4"
+                    disabled={!newOperator.cardNo || !newOperator.name}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Operator
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Operators List */}
+              <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -680,46 +910,19 @@ export default function AdminPage() {
                       <TableHead>Name</TableHead>
                       <TableHead>Builder No</TableHead>
                       <TableHead>Skill Rating</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {operators.map(op => (
                       <TableRow key={op.cardNo}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {isRenaming === op.cardNo ? (
-                              <Loader className="h-4 w-4" />
-                            ) : null}
-                            <Input
-                              defaultValue={op.cardNo}
-                              disabled={isRenaming === op.cardNo}
-                              onBlur={e =>
-                                handleRenameOperator(op.cardNo, e.target.value)
-                              }
-                              className="font-mono text-xs w-28"
-                            />
-                          </div>
-                        </TableCell>
+                        <TableCell className="font-medium">{op.cardNo}</TableCell>
+                        <TableCell>{op.name}</TableCell>
                         <TableCell>
                           <Input
-                            defaultValue={op.name}
-                            onBlur={e =>
-                              handleOperatorChange(op.cardNo, 'name', e.target.value)
-                            }
-                            className="w-36"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            defaultValue={op.builderNo}
-                            onBlur={e =>
-                              handleOperatorChange(
-                                op.cardNo,
-                                'builderNo',
-                                e.target.value
-                              )
-                            }
+                            value={op.builderNo}
+                            onChange={e => handleOperatorChange(op.cardNo, 'builderNo', e.target.value)}
                             className="w-24"
                           />
                         </TableCell>
@@ -727,20 +930,24 @@ export default function AdminPage() {
                           <div className="flex items-center gap-2">
                             <Slider
                               value={[op.skillRating]}
-                              onValueChange={([val]) =>
-                                handleOperatorChange(op.cardNo, 'skillRating', val)
-                              }
+                              onValueChange={([val]) => handleOperatorChange(op.cardNo, 'skillRating', val)}
                               min={1}
                               max={5}
                               step={1}
-                              className="w-24"
+                              className="w-20"
                             />
-                            <Badge
-                              variant="secondary"
-                              className="w-8 h-6 flex items-center justify-center"
-                            >
+                            <Badge variant="secondary" className="w-6 h-6 text-xs">
                               {op.skillRating}
                             </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={!op.isAbsent}
+                              onCheckedChange={checked => handleOperatorChange(op.cardNo, 'isAbsent', !checked)}
+                            />
+                            <span className="text-xs">{op.isAbsent ? 'Absent' : 'Available'}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
@@ -748,6 +955,7 @@ export default function AdminPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleDeleteOperator(op.cardNo)}
+                            className="text-destructive hover:text-destructive"
                           >
                             <Trash className="h-4 w-4" />
                           </Button>
@@ -758,11 +966,6 @@ export default function AdminPage() {
                 </Table>
               </div>
             </CardContent>
-            <CardFooter>
-              <Button onClick={handleAddOperator}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Operator
-              </Button>
-            </CardFooter>
           </Card>
         </TabsContent>
 

@@ -6,19 +6,29 @@ This is a Next.js application designed to manage and track tyre manufacturing pr
 
 To get this application running on your computer, you'll need to follow these steps.
 
-### 1. Set Up Your Environment Variables (API Key)
+### 1. Set Up Your Environment Variables (API Keys & Firebase)
 
-The AI features in this app (like the AI Optimizer) are powered by Google's Gemini models. To use them, you need an API key.
+The app uses Google's Gemini AI models and Firebase for online data storage.
 
-1.  **Get a Gemini API Key:** If you don't already have one, you can create a free API key in [Google AI Studio](https://aistudio.google.com/app/apikey).
+1.  **Get a Gemini API Key:** Create a free API key in [Google AI Studio](https://aistudio.google.com/app/apikey).
 
-2.  **Create the Environment File:** In the project's root folder, you'll find a file named `.env.example`. Make a copy of this file and rename the copy to just `.env`.
+2.  **Set Up Firebase Project:**
+    - Go to [Firebase Console](https://console.firebase.google.com/)
+    - Create a new project or use existing one
+    - Enable Firestore Database
+    - Get your Firebase configuration from Project Settings
 
-3.  **Add Your Key:** Open the new `.env` file in a text editor and paste your API key into it, like this:
+3.  **Create the Environment File:** Copy `.env.example` to `.env` and add your keys:
     ```
-    GEMINI_API_KEY=your_api_key_here
+    GEMINI_API_KEY=your_gemini_api_key_here
+    
+    NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+    NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
     ```
-    Make sure to save the file.
 
 ### 2. Install Project Dependencies
 

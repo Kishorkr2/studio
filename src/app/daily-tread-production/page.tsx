@@ -116,7 +116,9 @@ export default function DailyTreadProductionPage() {
     if (!selectedDate || !selectedShift) return;
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
-    setDailyProductionEntries(dailyProductionLog[dateKey]?.[shiftName] || {});
+    const entries = dailyProductionLog[dateKey]?.[shiftName] || {};
+    console.log('Loading entries for', dateKey, shiftName, ':', entries);
+    setDailyProductionEntries(entries);
   }, [selectedDate, selectedShift, dailyProductionLog]);
 
   const handleDailyProductionChange = (
@@ -149,22 +151,47 @@ export default function DailyTreadProductionPage() {
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
 
+    console.log('Saving production data:', {
+      dateKey,
+      shiftName,
+      entries: dailyProductionEntries
+    });
+
     const updatedLogForDate = {
       ...(dailyProductionLog[dateKey] || {}),
       [shiftName]: dailyProductionEntries,
     };
 
     const newLog = {...dailyProductionLog, [dateKey]: updatedLogForDate};
+    console.log('New log to save:', newLog);
 
-    await actions.saveDailyProductionLog(newLog);
-    setDailyProductionLog(newLog);
-    toast({
-      title: 'Success!',
-      description: `Tread production for ${
-        selectedShift.name
-      } on ${format(selectedDate, 'PPP')} has been saved.`,
-      action: <Save className="text-green-500" />,
-    });
+    try {
+      const result = await actions.saveDailyProductionLog(newLog);
+      console.log('Save result:', result);
+      setDailyProductionLog(newLog);
+      
+      if (result && result.success) {
+        toast({
+          title: 'Success!',
+          description: `Tread production for ${
+            selectedShift.name
+          } on ${format(selectedDate, 'PPP')} has been saved locally and synced to Firebase.`,
+          action: <Save className="text-green-500" />,
+        });
+      } else {
+        toast({
+          title: 'Saved Locally',
+          description: `Data saved locally. ${result?.error || 'Firebase sync may have failed.'}`,
+        });
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save production data.',
+      });
+    }
   };
 
   const filteredSkus = useMemo(() => {
@@ -258,7 +285,7 @@ export default function DailyTreadProductionPage() {
               </Select>
             </div>
             <Button onClick={handleSaveDailyProduction}>
-              <Save className="mr-2 h-4 w-4" /> Save Daily Production
+              <Save className="mr-2 h-4 w-4" /> Save to Local & Firebase
             </Button>
           </div>
 

@@ -2,6 +2,7 @@
 'use server';
 
 import * as dbActions from '@/lib/server/db-actions';
+import * as firebaseActions from '@/lib/server/firebase-actions';
 import type {
   Operator,
   Machine,
@@ -54,7 +55,24 @@ export const clearShiftData = async (date: Date, shift: ShiftInfo) =>
   dbActions.clearShiftData(date, shift);
 export const saveDailyProductionLog = async (
   log: Record<string, Record<string, Record<string, DailyProductionEntry>>>
-) => dbActions.saveDailyProductionLog(log);
+) => {
+  try {
+    // Save to local SQLite database first
+    await dbActions.saveDailyProductionLog(log);
+    
+    // Try to save to Firebase online
+    try {
+      const firebaseResult = await firebaseActions.saveDailyProductionToFirebase(log);
+      return firebaseResult;
+    } catch (firebaseError) {
+      console.error('Firebase save failed:', firebaseError);
+      return { success: false, error: 'Firebase sync failed but data saved locally' };
+    }
+  } catch (error) {
+    console.error('Local save failed:', error);
+    return { success: false, error: 'Failed to save data' };
+  }
+};
 export const saveTreadOpeningStock = async (stock: TreadStock[]) =>
   dbActions.saveTreadOpeningStock(stock);
 export const clearProductionPlan = async () => dbActions.clearProductionPlan();

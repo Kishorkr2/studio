@@ -19,9 +19,11 @@ export const db = await open({
 async function setup() {
   await db.exec('PRAGMA journal_mode = WAL;');
   
-  await db.exec('DROP TABLE IF EXISTS productionLogEntries;').catch(() => {
-    // Ignore errors if the table doesn't exist
-  });
+  // Only recreate table if it doesn't exist properly
+  const tableInfo = await db.all("PRAGMA table_info(productionLogEntries)").catch(() => []);
+  if (tableInfo.length === 0) {
+    console.log('Creating productionLogEntries table');
+  }
 
   const existingColumns = await db.all("PRAGMA table_info(machines)").catch(() => []);
   const hasTypeColumn = existingColumns.some(col => col.name === 'type');
