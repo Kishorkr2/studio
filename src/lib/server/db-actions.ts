@@ -76,12 +76,14 @@ export async function getProductionPlan(): Promise<ProductionPlanItem[]> {
 }
 
 export async function getProductionLogs(): Promise<ReportDataRow[]> {
-  const operatorMap = new Map(
-    (await getOperators()).map(op => [op.cardNo, op.name])
-  );
-  const machineMap = new Map((await getMachines()).map(m => [m.id, m.name]));
+  const [operators, machines, logs] = await Promise.all([
+    db.all('SELECT cardNo, name FROM operators'),
+    db.all('SELECT id, name FROM machines'),
+    db.all('SELECT * FROM productionLogEntries')
+  ]);
 
-  const logs = await db.all('SELECT * FROM productionLogEntries');
+  const operatorMap = new Map(operators.map(op => [op.cardNo, op.name]));
+  const machineMap = new Map(machines.map(m => [m.id, m.name]));
 
   return logs.map(log => ({
     date: log.date,
@@ -106,20 +108,16 @@ export async function getProductionLogForShift(
 ): Promise<ProductionLog> {
   const dateKey = format(date, 'yyyy-MM-dd');
   const shiftName = shift.name.replace(/\s+/g, '-');
-  console.log('Fetching production log for:', { dateKey, shiftName });
   
   const rows = await db.all<FlatProductionLogEntry[]>(
     'SELECT * FROM productionLogEntries WHERE date = ? AND shiftName = ? ORDER BY round, machineId',
     [dateKey, shiftName]
   );
   
-  console.log('Found rows:', rows.length, 'for date:', dateKey, 'shift:', shiftName);
   const log: ProductionLog = {};
 
   for (const row of rows) {
-    console.log('Processing row:', row);
     if (!row.round || !row.machineId) {
-      console.log('Skipping row - missing round or machineId');
       continue;
     }
 
@@ -140,13 +138,15 @@ export async function getProductionLogForShift(
     };
 
     if (machineEntry) {
-      machineEntry.skus.push(skuProduction);
+      if(skuProduction.sku) {
+         machineEntry.skus.push(skuProduction);
+      }
     } else {
       const newMachineEntry: MachineProductionData = {
         machineId: row.machineId,
         name: row.name || '',
         operatorId: row.operatorId || '',
-        skus: [skuProduction],
+        skus: skuProduction.sku ? [skuProduction] : [],
         userId: row.userId,
         userName: row.userName,
       };
@@ -154,26 +154,22 @@ export async function getProductionLogForShift(
     }
   }
   
-  console.log('Processed log:', Object.keys(log).length, 'rounds');
   return log;
 }
 
 export async function getDailyTreadProductionLog() {
   const rows = await db.all('SELECT * FROM dailyTreadProduction');
-  console.log('Retrieved daily production rows:', rows.length);
   const log: Record<
     string,
     Record<string, Record<string, DailyProductionEntry>>
   > = {};
   rows.forEach(row => {
     try {
-      console.log(`Parsing data for ${row.id}:`, row.data);
       log[row.id] = JSON.parse(row.data);
     } catch (e) {
       console.error(`Failed to parse daily tread production for ${row.id}:`, e);
     }
   });
-  console.log('Final log object keys:', Object.keys(log));
   return log;
 }
 
@@ -320,35 +316,26 @@ export async function saveProductionRound(
   const dateKey = format(date, 'yyyy-MM-dd');
   const shiftName = shift.name.replace(/\s+/g, '-');
 
-  console.log('Saving production round:', { dateKey, shiftName, round, entriesCount: entries.length });
-
   await db.exec('BEGIN TRANSACTION');
   try {
-    // Delete all existing entries for this specific round first.
     await db.run(
       `DELETE FROM productionLogEntries 
        WHERE date = ? AND shiftName = ? AND round = ?`,
       [dateKey, shiftName, round]
     );
 
-    // Now, insert the new entries from the UI.
     for (const entry of entries) {
-      console.log('Processing entry:', entry.machineId, entry.operatorId, entry.skus.length);
-      
-      // Only save if an operator is assigned.
-      if (!entry.operatorId) {
-        console.log('Skipping entry - no operator assigned');
+      if (!entry.operatorId && (!entry.skus || entry.skus.length === 0)) {
         continue;
       }
 
-      // Save each SKU entry
       if (entry.skus && entry.skus.length > 0) {
         for (const sku of entry.skus) {
-          console.log('Saving SKU:', sku.sku, sku.quantity);
+          if (!sku.sku && !sku.sapCode) continue;
           await db.run(
             `INSERT INTO productionLogEntries 
-             (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, operatorId, userId, userName) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             (date, shiftName, round, machineId, name, status, sku, sapCode, quantity, leftQty, rightQty, operatorId, userId, userName, remark) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               dateKey,
               shiftName,
@@ -359,15 +346,16 @@ export async function saveProductionRound(
               sku.sku || '',
               sku.sapCode || '',
               sku.quantity || 0,
-              entry.operatorId,
+              sku.leftQty,
+              sku.rightQty,
+              entry.operatorId || null,
               entry.userId || null,
               entry.userName || null,
+              sku.remark || null,
             ]
           );
         }
-      } else {
-        // Save operator assignment only
-        console.log('Saving operator assignment only');
+      } else if (entry.operatorId) {
         await db.run(
           `INSERT INTO productionLogEntries 
            (date, shiftName, round, machineId, name, status, operatorId, userId, userName, quantity) 
@@ -388,7 +376,6 @@ export async function saveProductionRound(
       }
     }
     await db.exec('COMMIT');
-    console.log('Production round saved successfully');
   } catch (error) {
     await db.exec('ROLLBACK');
     console.error('Failed to save production round:', error);
@@ -408,17 +395,14 @@ export async function clearShiftData(date: Date, shift: ShiftInfo) {
 export async function saveDailyProductionLog(
   log: Record<string, Record<string, Record<string, DailyProductionEntry>>>
 ) {
-  console.log('Saving daily production log:', Object.keys(log));
   for (const [dateKey, dateData] of Object.entries(log)) {
     const dataJson = JSON.stringify(dateData);
-    console.log(`Saving data for ${dateKey}:`, dataJson);
     await db.run(
       'INSERT OR REPLACE INTO dailyTreadProduction (id, data) VALUES (?, ?)',
       dateKey,
       dataJson
     );
   }
-  console.log('Daily production log saved successfully');
 }
 
 export async function saveTreadOpeningStock(stock: TreadStock[]) {
