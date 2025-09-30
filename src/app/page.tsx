@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AppLayoutProps } from "@/components/app-layout";
 import { format } from "date-fns";
 import {
@@ -11,7 +11,6 @@ import {
   Clipboard,
   Clock,
   Eraser,
-  Filter,
   Mail,
   MessageSquare,
   PlusCircle,
@@ -82,10 +81,10 @@ import type {
   ProductionPlanItem,
   ShiftInfo,
   SkuPlan,
-  SkuProduction,
 } from "@/lib/types";
 import { Loader } from "@/components/ui/loader";
 import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === "undefined") return defaultValue;
@@ -215,8 +214,8 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
     });
   }, []);
 
-  const loadEntriesForRound = useCallback((log: ProductionLog) => {
-    const logForRound = log[selectedRound]?.entries || [];
+  const loadEntriesForRound = useCallback((round: string, log: ProductionLog) => {
+    const logForRound = log[round]?.entries || [];
     const flattenedEntries: LocalEntry[] = [];
     
     logForRound.forEach(machineEntry => {
@@ -235,7 +234,7 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
       });
     });
     setLocalEntries(flattenedEntries);
-  }, [selectedRound, allOperators]);
+  }, [allOperators]);
 
   const fetchAndSetLog = useCallback(
     async (date: Date, shift: ShiftInfo) => {
@@ -284,7 +283,7 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
         setSelectedRound(currentRound);
 
         const log = await fetchAndSetLog(selectedDate, currentShift);
-        loadEntriesForRound(log);
+        loadEntriesForRound(currentRound, log);
       }
     } catch (error) {
       console.error("Failed to load initial data:", error);
@@ -373,32 +372,13 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
       
       setSelectedRound(round);
       setLocalStorageItem("selectedRound", round);
-      setLocalEntries([]);
       
       if (selectedShift) {
         const log = await fetchAndSetLog(selectedDate, selectedShift);
-        const logForRound = log[round]?.entries || [];
-        const flattenedEntries: LocalEntry[] = [];
-        
-        logForRound.forEach(machineEntry => {
-          machineEntry.skus.forEach(sku => {
-            if (sku.quantity > 0) {
-              flattenedEntries.push({
-                machineId: machineEntry.machineId,
-                machineName: machineEntry.name,
-                operatorId: machineEntry.operatorId || '',
-                operatorName: allOperators.find(op => op.cardNo === machineEntry.operatorId)?.name || '',
-                sku: sku.sku,
-                sapCode: sku.sapCode,
-                quantity: sku.quantity
-              });
-            }
-          });
-        });
-        setLocalEntries(flattenedEntries);
+        loadEntriesForRound(round, log);
       }
     },
-    [selectedRound, selectedShift, selectedDate, fetchAndSetLog, allOperators],
+    [selectedRound, selectedShift, selectedDate, fetchAndSetLog, loadEntriesForRound],
   );
 
   const handleAddNewEntry = () => {
@@ -507,8 +487,6 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
       if (!newShift || newShift.name === selectedShift?.name) return;
       
       setSelectedShift(newShift);
-      setProductionLog({});
-      setLocalEntries([]);
 
       const newRoundTimes = generateRoundTimes(newShift);
       setRoundTimes(newRoundTimes);
@@ -516,7 +494,7 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
       setSelectedRound(currentRound);
 
       const log = await fetchAndSetLog(selectedDate, newShift);
-      loadEntriesForRound(log);
+      loadEntriesForRound(currentRound, log);
     },
     [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound],
   );
@@ -530,14 +508,12 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
       
       if (newDateStr !== currentDateStr) {
         setSelectedDate(date);
-        setProductionLog({});
-        setLocalEntries([]);
-
+        
         const log = await fetchAndSetLog(date, selectedShift);
-        loadEntriesForRound(log);
+        loadEntriesForRound(selectedRound, log);
       }
     },
-    [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound],
+    [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound],
   );
 
   const roundTotal = useMemo(() => {
@@ -788,10 +764,10 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
         <Card>
           <CardContent className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-              <div className="space-y-2 md:col-span-1">
-                <label>TBM No</label>
+              <div className="space-y-2">
+                <Label htmlFor="tbm-select">TBM No</Label>
                 <Select value={newEntryMachineId} onValueChange={setNewEntryMachineId}>
-                  <SelectTrigger>
+                  <SelectTrigger id="tbm-select">
                     <SelectValue placeholder="Select TBM" />
                   </SelectTrigger>
                   <SelectContent>
@@ -799,10 +775,10 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2 md:col-span-1">
-                <label>Operator</label>
+              <div className="space-y-2">
+                <Label htmlFor="operator-select">Operator</Label>
                 <Select value={newEntryOperatorId} onValueChange={setNewEntryOperatorId}>
-                  <SelectTrigger>
+                  <SelectTrigger id="operator-select">
                     <SelectValue placeholder="Select Operator" />
                   </SelectTrigger>
                   <SelectContent>
@@ -810,10 +786,10 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2 md:col-span-1">
-                <label>SKU</label>
+              <div className="space-y-2">
+                <Label htmlFor="sku-select">SKU</Label>
                 <Select value={newEntrySku} onValueChange={setNewEntrySku} disabled={!newEntryMachineId}>
-                  <SelectTrigger>
+                  <SelectTrigger id="sku-select">
                     <SelectValue placeholder="Select SKU" />
                   </SelectTrigger>
                   <SelectContent>
@@ -821,9 +797,9 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2 md:col-span-1">
-                <label>Quantity</label>
-                <Input type="number" placeholder="0" value={newEntryQuantity} onChange={e => setNewEntryQuantity(e.target.value === '' ? '' : Number(e.target.value))} />
+              <div className="space-y-2">
+                <Label htmlFor="quantity-input">Quantity</Label>
+                <Input id="quantity-input" type="number" placeholder="0" value={newEntryQuantity} onChange={e => setNewEntryQuantity(e.target.value === '' ? '' : Number(e.target.value))} />
               </div>
               <Button onClick={handleAddNewEntry} className="w-full md:w-auto">
                 <PlusCircle className="mr-2" />
@@ -851,7 +827,7 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
                       <TableHead>Operator</TableHead>
                       <TableHead>SKU</TableHead>
                       <TableHead>Quantity</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -861,9 +837,9 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
                         <TableCell>{entry.operatorName}</TableCell>
                         <TableCell>{entry.sku}</TableCell>
                         <TableCell>{entry.quantity}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => handleRemoveLocalEntry(index)}>
-                            <Trash2 className="text-destructive" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -936,5 +912,3 @@ export default function DashboardPage({ setPageActions }: AppLayoutProps) {
     </div>
   );
 }
-
-    
