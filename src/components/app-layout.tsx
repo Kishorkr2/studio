@@ -26,6 +26,7 @@ import {
   ListPlus,
   LogOut,
   Flame,
+  Menu,
 } from 'lucide-react';
 import {useOnlineStatus} from '@/hooks/use-online-status';
 import {useAuth} from './auth-provider';
@@ -105,7 +106,7 @@ export function AppLayout({children}: {children: React.ReactNode}) {
 }
 
 function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
-  const {logout} = useAuth();
+  const {logout, user} = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -117,20 +118,15 @@ function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="icon" className="rounded-full">
-          <Avatar>
-            <AvatarImage
-              src="https://placehold.co/40x40"
-              alt="User"
-              data-ai-hint="user avatar"
-            />
-            <AvatarFallback>AD</AvatarFallback>
-          </Avatar>
+        <Button variant="outline" size="icon">
+          <Menu className="h-5 w-5" />
           <span className="sr-only">Toggle user menu</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Admin</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          {user?.name || 'Admin'}
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {navItems.map(item => (
           <DropdownMenuItem key={item.href} asChild>
