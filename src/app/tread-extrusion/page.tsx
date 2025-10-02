@@ -23,7 +23,7 @@ import {useToast} from '@/hooks/use-toast';
 import type {
   ProductionPlanItem,
   TreadStock,
-  MachineProductionData,
+  Machine,
   SkuPlan,
 } from '@/lib/types';
 import {
@@ -45,6 +45,11 @@ import {
 import {Skeleton} from '@/components/ui/skeleton';
 import * as actions from '../actions';
 
+interface EnrichedSkuPlan extends SkuPlan {
+  machineId: string;
+  machineName: string;
+}
+
 export default function TreadExtrusionPage() {
   const {toast} = useToast();
 
@@ -52,6 +57,7 @@ export default function TreadExtrusionPage() {
   const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>(
     []
   );
+  const [allMachines, setAllMachines] = useState<Machine[]>([]);
   const [openingStockData, setOpeningStockData] = useState<TreadStock[]>([]);
   const [tyreProductionData, setTyreProductionData] = useState<
     Record<string, number>
@@ -61,6 +67,7 @@ export default function TreadExtrusionPage() {
   >({});
 
   const [columnVisibility, setColumnVisibility] = useState({
+    tbmNo: true,
     sapCode: true,
     quantity: true,
     openingStock: true,
@@ -76,14 +83,16 @@ export default function TreadExtrusionPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [plan, stock, dailyLogs, historyLogs] = await Promise.all([
+      const [plan, machines, stock, dailyLogs, historyLogs] = await Promise.all([
         actions.getProductionPlan(),
+        actions.getMachines('TBM'),
         actions.getTreadOpeningStock(),
         actions.getDailyTreadProductionLog(),
         actions.getProductionLogs(),
       ]);
 
       setProductionPlan(plan);
+      setAllMachines(machines);
       setOpeningStockData(stock);
 
       const dailyTotals: Record<string, number> = {};
@@ -99,12 +108,14 @@ export default function TreadExtrusionPage() {
       setTotalProductionBySapCode(dailyTotals);
 
       const tyreProd: Record<string, number> = {};
-      (historyLogs as MachineProductionData[]).forEach(entry => {
-        if (entry.sapCode && entry.quantity > 0) {
-          tyreProd[entry.sapCode] =
-            (tyreProd[entry.sapCode] || 0) + entry.quantity;
-        }
-      });
+      (historyLogs as any[])
+        .filter(log => log.machineName && log.machineName.startsWith('CP'))
+        .forEach(entry => {
+          if (entry.sapCode && entry.quantity > 0) {
+            tyreProd[entry.sapCode] =
+              (tyreProd[entry.sapCode] || 0) + (entry.quantity || 0);
+          }
+        });
       setTyreProductionData(tyreProd);
     } catch (error) {
       console.error('Failed to load data', error);
@@ -118,25 +129,16 @@ export default function TreadExtrusionPage() {
     loadData();
   }, [loadData]);
 
-  const allSkusFromPlan = useMemo((): SkuPlan[] => {
-    const sapCodeMap = new Map<string, SkuPlan>();
-    productionPlan.forEach(item => {
-      item.skus.forEach(skuPlan => {
-        if (!skuPlan.sapCode) return;
-        const key = skuPlan.sapCode;
-        const existing = sapCodeMap.get(key);
-        if (existing) {
-          sapCodeMap.set(key, {
-            ...existing,
-            quantity: existing.quantity + skuPlan.quantity,
-          });
-        } else {
-          sapCodeMap.set(key, {...skuPlan});
-        }
-      });
-    });
-    return Array.from(sapCodeMap.values());
-  }, [productionPlan]);
+  const allSkusFromPlan = useMemo((): EnrichedSkuPlan[] => {
+    const machineMap = new Map(allMachines.map(m => [m.id, m.name]));
+    return productionPlan.flatMap(item =>
+      item.skus.map(skuPlan => ({
+        ...skuPlan,
+        machineId: item.machineId,
+        machineName: machineMap.get(item.machineId) || item.machineId,
+      }))
+    );
+  }, [productionPlan, allMachines]);
 
   const handleOpeningStockChange = useCallback(
     (sapCode: string, value: string) => {
@@ -160,6 +162,7 @@ export default function TreadExtrusionPage() {
             sapCode: sapCode,
             openingStock: numericValue,
             production: 0,
+            currentTreadStock: 0,
           },
         ];
       });
@@ -218,20 +221,27 @@ export default function TreadExtrusionPage() {
     1 + Object.values(columnVisibility).filter(Boolean).length;
 
   const summary = useMemo(() => {
-    const totalRequirement = combinedData.reduce(
+    const totalRequirement = allSkusFromPlan.reduce(
       (acc, item) => acc + (item.quantity || 0),
       0
     );
-    const totalProduction = combinedData.reduce(
-      (acc, item) => acc + (item.production || 0),
+    // Use a Set to avoid double-counting production for a SAP code that might appear multiple times
+    const uniqueSapCodes = [...new Set(allSkusFromPlan.map(s => s.sapCode))];
+    const totalProduction = uniqueSapCodes.reduce(
+      (acc, sapCode) => acc + (totalProductionBySapCode[sapCode] || 0),
       0
     );
-    const totalCurrentStock = combinedData.reduce(
-      (acc, item) => acc + (item.currentTreadStock || 0),
+    const totalCurrentStock = uniqueSapCodes.reduce(
+      (acc, sapCode) => {
+          const openingStockInfo = openingStockData.find(t => t.sapCode === sapCode) || { openingStock: 0 };
+          const production = totalProductionBySapCode[sapCode] || 0;
+          const consumption = tyreProductionData[sapCode] || 0;
+          return acc + (openingStockInfo.openingStock + production - consumption);
+      },
       0
     );
     return {totalRequirement, totalProduction, totalCurrentStock};
-  }, [combinedData]);
+  }, [allSkusFromPlan, openingStockData, totalProductionBySapCode, tyreProductionData]);
 
   if (loading) {
     return (
@@ -333,6 +343,14 @@ export default function TreadExtrusionPage() {
                 <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem
+                  checked={columnVisibility.tbmNo}
+                  onCheckedChange={value =>
+                    setColumnVisibility(prev => ({...prev, tbmNo: !!value}))
+                  }
+                >
+                  TBM No
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
                   checked={columnVisibility.sapCode}
                   onCheckedChange={value =>
                     setColumnVisibility(prev => ({...prev, sapCode: !!value}))
@@ -429,6 +447,7 @@ export default function TreadExtrusionPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  {columnVisibility.tbmNo && <TableHead>TBM No</TableHead>}
                   {columnVisibility.sapCode && <TableHead>SAP Code</TableHead>}
                   <TableHead>SKU</TableHead>
                   {columnVisibility.quantity && (
@@ -461,8 +480,11 @@ export default function TreadExtrusionPage() {
               </TableHeader>
               <TableBody>
                 {combinedData.length > 0 ? (
-                  combinedData.map(item => (
-                    <TableRow key={item.sapCode}>
+                  combinedData.map((item, index) => (
+                    <TableRow key={`${item.sapCode}-${index}`}>
+                      {columnVisibility.tbmNo && (
+                        <TableCell>{item.machineName}</TableCell>
+                      )}
                       {columnVisibility.sapCode && (
                         <TableCell>{item.sapCode}</TableCell>
                       )}
@@ -539,3 +561,5 @@ export default function TreadExtrusionPage() {
     </div>
   );
 }
+
+    
