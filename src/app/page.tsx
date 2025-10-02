@@ -457,7 +457,7 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
-      
+
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>New Production Entry</CardTitle>
@@ -552,7 +552,7 @@ export default function DashboardPage() {
 
        <Card>
         <CardHeader>
-          <CardTitle>Saved Entries for {selectedRound}</CardTitle>
+          <CardTitle>Saved Entries for {selectedShift?.name}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg max-h-[25vh] overflow-auto">
@@ -561,28 +561,30 @@ export default function DashboardPage() {
                 <TableRow>
                   <TableHead>Operator</TableHead>
                   <TableHead>SKU</TableHead>
+                  <TableHead>Time</TableHead>
                   <TableHead className="text-right">Quantity</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isFetchingLog ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="h-24 text-center">
+                      <TableCell colSpan={4} className="h-24 text-center">
                         <Loader />
                       </TableCell>
                     </TableRow>
-                  ) : savedEntriesForRound.length > 0 ? (
-                  savedEntriesForRound.map((entry, index) => (
+                  ) : savedEntriesForShift.length > 0 ? (
+                  savedEntriesForShift.map((entry, index) => (
                     <TableRow key={index}>
                       <TableCell>{entry.operatorName}</TableCell>
                       <TableCell>{entry.sku}</TableCell>
+                      <TableCell>{entry.time}</TableCell>
                       <TableCell className="text-right">{entry.quantity}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                      No production saved for this hour.
+                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                      No production saved for this shift.
                     </TableCell>
                   </TableRow>
                 )}
@@ -636,6 +638,8 @@ function ProductionDetailsTable({ data, onShare }: { data: SavedEntry[]; onShare
     </div>
   )
 }
+
+    
 
     
 
