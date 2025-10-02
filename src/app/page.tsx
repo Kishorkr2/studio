@@ -458,6 +458,59 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
       
+      <Card className="shadow-lg">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>New Production Entry</CardTitle>
+          <Button variant="outline" size="sm" onClick={handleAddEntryRow}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Entry
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {newEntries.length > 0 && newEntries.map((row) => (
+            <div key={row.id} className="grid grid-cols-1 md:grid-cols-[1fr,1fr,1fr,0.5fr,auto] gap-2 items-center p-2 border rounded-md">
+               <Select value={row.machineId} onValueChange={(value) => handleNewEntryChange(row.id, 'machineId', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="TBM No" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allMachines.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={row.operatorId} onValueChange={(value) => handleNewEntryChange(row.id, 'operatorId', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Operator Name" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableOperators.map(op => <SelectItem key={op.cardNo} value={op.cardNo}>{op.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={row.sku} onValueChange={(value) => handleNewEntryChange(row.id, 'sku', value)} disabled={!row.machineId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="SKU" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSkus(row.machineId).map(s => <SelectItem key={s.sku} value={s.sku}>{s.sku}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input type="number" placeholder="Quantity" value={row.quantity} onChange={e => handleNewEntryChange(row.id, 'quantity', e.target.value === '' ? '' : Number(e.target.value))} />
+                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoveEntryRow(row.id)}>
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            </div>
+          ))}
+          {newEntries.length > 0 && (
+             <Button onClick={handleSaveAllEntries} className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold shadow-md hover:shadow-lg transition-shadow">
+                <Save className="mr-2 h-4 w-4" />
+                SAVE ALL ENTRIES
+            </Button>
+          )}
+           {newEntries.length === 0 && (
+            <p className="text-center text-muted-foreground py-4">Click "Add Entry" to start adding production data.</p>
+           )}
+        </CardContent>
+      </Card>
+      
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Dialog>
           <DialogTrigger asChild>
@@ -539,58 +592,6 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
       
-      <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>New Production Entry</CardTitle>
-          <Button variant="outline" size="sm" onClick={handleAddEntryRow}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Entry
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {newEntries.length > 0 && newEntries.map((row) => (
-            <div key={row.id} className="grid grid-cols-1 md:grid-cols-[1fr,1fr,1fr,0.5fr,auto] gap-2 items-center p-2 border rounded-md">
-               <Select value={row.machineId} onValueChange={(value) => handleNewEntryChange(row.id, 'machineId', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="TBM No" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allMachines.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Select value={row.operatorId} onValueChange={(value) => handleNewEntryChange(row.id, 'operatorId', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Operator Name" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableOperators.map(op => <SelectItem key={op.cardNo} value={op.cardNo}>{op.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Select value={row.sku} onValueChange={(value) => handleNewEntryChange(row.id, 'sku', value)} disabled={!row.machineId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="SKU" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableSkus(row.machineId).map(s => <SelectItem key={s.sku} value={s.sku}>{s.sku}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Input type="number" placeholder="Quantity" value={row.quantity} onChange={e => handleNewEntryChange(row.id, 'quantity', e.target.value === '' ? '' : Number(e.target.value))} />
-                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoveEntryRow(row.id)}>
-                    <Trash2 className="h-4 w-4" />
-                </Button>
-            </div>
-          ))}
-          {newEntries.length > 0 && (
-             <Button onClick={handleSaveAllEntries} className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold shadow-md hover:shadow-lg transition-shadow">
-                <Save className="mr-2 h-4 w-4" />
-                SAVE ALL ENTRIES
-            </Button>
-          )}
-           {newEntries.length === 0 && (
-            <p className="text-center text-muted-foreground py-4">Click "Add Entry" to start adding production data.</p>
-           )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -635,5 +636,7 @@ function ProductionDetailsTable({ data, onShare }: { data: SavedEntry[]; onShare
     </div>
   )
 }
+
+    
 
     
