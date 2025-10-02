@@ -458,9 +458,90 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
       
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Card className="shadow-lg cursor-pointer hover:shadow-xl transition-shadow bg-primary/10">
+              <CardHeader>
+                <CardTitle className="text-sm text-primary">Hourly Production</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-primary">{hourlyTotal}</p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Hourly Production Details ({selectedRound})</DialogTitle>
+            </DialogHeader>
+            <ProductionDetailsTable data={savedEntriesForRound} onShare={() => handleShare(savedEntriesForRound, `Hourly Production Details (${selectedRound})`)} />
+          </DialogContent>
+        </Dialog>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Card className="shadow-lg cursor-pointer hover:shadow-xl transition-shadow bg-accent/20">
+              <CardHeader>
+                <CardTitle className="text-sm text-accent-foreground">Shift Total</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-accent-foreground">{shiftTotal}</p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Shift Production Details</DialogTitle>
+            </DialogHeader>
+            <ProductionDetailsTable data={savedEntriesForShift} onShare={() => handleShare(savedEntriesForShift, 'Shift Production Details')} />
+          </DialogContent>
+        </Dialog>
+      </div>
+
+       <Card>
+        <CardHeader>
+          <CardTitle>Saved Entries for {selectedRound}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="border rounded-lg max-h-[25vh] overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Operator</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead className="text-right">Quantity</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isFetchingLog ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="h-24 text-center">
+                        <Loader />
+                      </TableCell>
+                    </TableRow>
+                  ) : savedEntriesForRound.length > 0 ? (
+                  savedEntriesForRound.map((entry, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{entry.operatorName}</TableCell>
+                      <TableCell>{entry.sku}</TableCell>
+                      <TableCell className="text-right">{entry.quantity}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                      No production saved for this hour.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+      
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Production Entries</CardTitle>
+          <CardTitle>New Production Entry</CardTitle>
           <Button variant="outline" size="sm" onClick={handleAddEntryRow}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Entry
@@ -510,46 +591,6 @@ export default function DashboardPage() {
            )}
         </CardContent>
       </Card>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Dialog>
-          <DialogTrigger asChild>
-            <Card className="shadow-lg cursor-pointer hover:shadow-xl transition-shadow bg-primary/10">
-              <CardHeader>
-                <CardTitle className="text-sm text-primary">Hourly Production</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-primary">{hourlyTotal}</p>
-              </CardContent>
-            </Card>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Hourly Production Details ({selectedRound})</DialogTitle>
-            </DialogHeader>
-            <ProductionDetailsTable data={savedEntriesForRound} onShare={() => handleShare(savedEntriesForRound, `Hourly Production Details (${selectedRound})`)} />
-          </DialogContent>
-        </Dialog>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Card className="shadow-lg cursor-pointer hover:shadow-xl transition-shadow bg-accent/20">
-              <CardHeader>
-                <CardTitle className="text-sm text-accent-foreground">Shift Total</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-accent-foreground">{shiftTotal}</p>
-              </CardContent>
-            </Card>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Shift Production Details</DialogTitle>
-            </DialogHeader>
-            <ProductionDetailsTable data={savedEntriesForShift} onShare={() => handleShare(savedEntriesForShift, 'Shift Production Details')} />
-          </DialogContent>
-        </Dialog>
-      </div>
-
     </div>
   );
 }
@@ -594,3 +635,5 @@ function ProductionDetailsTable({ data, onShare }: { data: SavedEntry[]; onShare
     </div>
   )
 }
+
+    
