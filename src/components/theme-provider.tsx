@@ -1,8 +1,10 @@
+
 'use client';
 
 import * as React from 'react';
+import { THEMES } from './theme-preset-selector';
 
-type Theme = 'dark' | 'light' | 'system';
+type Theme = 'dark' | 'light' | 'system' | typeof THEMES[number]['id'];
 
 type ThemeProviderProps = {
   children: React.ReactNode;
@@ -32,31 +34,34 @@ export function ThemeProvider({
   attribute = 'class',
   enableSystem = true,
 }: ThemeProviderProps) {
-  // Initialize with the default theme to ensure server and client match on first render.
-  const [theme, setTheme] = React.useState<Theme>(defaultTheme);
-
-  React.useEffect(() => {
-    // On the client, after mounting, read the stored theme from localStorage
-    // and update the state. This triggers a re-render with the user's saved theme.
-    const storedTheme = (localStorage.getItem(storageKey) as Theme) || defaultTheme;
-    setTheme(storedTheme);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const [theme, setTheme] = React.useState<Theme>(() => {
+    if (typeof window === 'undefined') {
+      return defaultTheme;
+    }
+    return (localStorage.getItem(storageKey) as Theme) || defaultTheme;
+  });
 
   React.useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
 
-    let systemTheme: Theme = 'light';
-    if (enableSystem) {
-      systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+    // Remove all theme classes first
+    root.classList.remove('light', 'dark', ...THEMES.map(t => t.id));
+
+    let effectiveTheme = theme;
+    if (theme === 'system') {
+      effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
         ? 'dark'
         : 'light';
     }
 
-    const effectiveTheme = theme === 'system' ? systemTheme : theme;
+    // Check if the theme is a preset or a mode
+    const isPreset = THEMES.some(t => t.id === effectiveTheme);
 
-    root.classList.add(effectiveTheme);
+    if (isPreset) {
+      root.classList.add(effectiveTheme as string);
+    } else {
+      root.classList.add(effectiveTheme);
+    }
   }, [theme, enableSystem]);
 
   const value = {

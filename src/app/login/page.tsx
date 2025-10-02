@@ -1,3 +1,4 @@
+
 'use client';
 
 import {useState} from 'react';
@@ -68,7 +69,7 @@ export default function LoginPage() {
             <div className="flex justify-center items-center gap-2 mb-4">
               <RalsonTyreIcon className="w-24 h-auto" />
             </div>
-            <CardTitle>TyreTrack Pro Login</CardTitle>
+            <CardTitle>RTPMS Login</CardTitle>
             <CardDescription>Enter your credentials to continue</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

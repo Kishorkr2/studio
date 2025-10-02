@@ -10,6 +10,7 @@ import {
   PlusCircle,
   Save,
   Trash2,
+  Share2,
 } from "lucide-react";
 
 import * as actions from "./actions";
@@ -37,6 +38,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type {
@@ -46,11 +54,11 @@ import type {
   ProductionLog,
   ProductionPlanItem,
   ShiftInfo,
+  SavedEntry,
 } from "@/lib/types";
 import { Loader } from "@/components/ui/loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === "undefined") return defaultValue;
@@ -108,14 +116,6 @@ interface NewEntryRow {
   quantity: number | "";
 }
 
-interface SavedEntry {
-  machineName: string;
-  operatorName: string;
-  sku: string;
-  quantity: number;
-  time: string;
-}
-
 export default function DashboardPage() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -132,8 +132,7 @@ export default function DashboardPage() {
 
   const [newEntries, setNewEntries] = useState<NewEntryRow[]>([]);
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
-  const [savedEntries, setSavedEntries] = useState<SavedEntry[]>([]);
-
+  
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
 
   const generateRoundTimes = useCallback((shift: ShiftInfo): string[] => {
@@ -158,28 +157,6 @@ export default function DashboardPage() {
       return `${String(displayHour).padStart(2, "0")}:00 ${ampm}`;
     });
   }, []);
-
-  const loadSavedEntriesForRound = useCallback((round: string, log: ProductionLog, operators: Operator[], machines: Machine[]) => {
-      const logForRound = log[round]?.entries || [];
-      const flattenedEntries: SavedEntry[] = [];
-
-      logForRound.forEach(machineEntry => {
-        machineEntry.skus.forEach(sku => {
-          if (sku.quantity > 0) {
-            flattenedEntries.push({
-              machineName: machines.find(m => m.id === machineEntry.machineId)?.name || machineEntry.machineId,
-              operatorName: operators.find(op => op.cardNo === machineEntry.operatorId)?.name || 'N/A',
-              sku: sku.sku,
-              quantity: sku.quantity,
-              time: round,
-            });
-          }
-        });
-      });
-      setSavedEntries(flattenedEntries);
-    },
-    []
-  );
 
   const fetchAndSetLog = useCallback(async (date: Date, shift: ShiftInfo) => {
     setIsFetchingLog(true);
@@ -222,8 +199,7 @@ export default function DashboardPage() {
         const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || "";
         setSelectedRound(currentRound);
 
-        const log = await fetchAndSetLog(selectedDate, currentShift);
-        loadSavedEntriesForRound(currentRound, log, operatorsData, availableMachines);
+        await fetchAndSetLog(selectedDate, currentShift);
       }
     } catch (error) {
       console.error("Failed to load initial data:", error);
@@ -231,7 +207,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast, generateRoundTimes, fetchAndSetLog, loadSavedEntriesForRound, selectedDate]);
+  }, [toast, generateRoundTimes, fetchAndSetLog, selectedDate]);
 
   useEffect(() => {
     loadInitialData();
@@ -241,6 +217,33 @@ export default function DashboardPage() {
   useEffect(() => {
     setAvailableOperators(allOperators.filter((op) => !op.isAbsent));
   }, [allOperators]);
+  
+  const savedEntriesForShift = useMemo((): SavedEntry[] => {
+    if (!productionLog) return [];
+    
+    const allEntries: SavedEntry[] = [];
+    Object.keys(productionLog).forEach(round => {
+        const roundEntries = productionLog[round]?.entries || [];
+        roundEntries.forEach(machineEntry => {
+            machineEntry.skus.forEach(sku => {
+                if (sku.quantity > 0) {
+                    allEntries.push({
+                        machineName: allMachines.find(m => m.id === machineEntry.machineId)?.name || machineEntry.machineId,
+                        operatorName: allOperators.find(op => op.cardNo === machineEntry.operatorId)?.name || 'N/A',
+                        sku: sku.sku,
+                        quantity: sku.quantity,
+                        time: round,
+                    });
+                }
+            });
+        });
+    });
+    return allEntries;
+  }, [productionLog, allOperators, allMachines]);
+
+  const savedEntriesForRound = useMemo((): SavedEntry[] => {
+     return savedEntriesForShift.filter(entry => entry.time === selectedRound);
+  }, [savedEntriesForShift, selectedRound]);
 
   const handleSelectedRoundChange = useCallback(async (round: string) => {
     if (round === selectedRound) return;
@@ -250,10 +253,9 @@ export default function DashboardPage() {
     setNewEntries([]);
     
     if (selectedShift) {
-      const log = await fetchAndSetLog(selectedDate, selectedShift);
-      loadSavedEntriesForRound(round, log, allOperators, allMachines);
+      await fetchAndSetLog(selectedDate, selectedShift);
     }
-  }, [selectedRound, selectedShift, selectedDate, fetchAndSetLog, loadSavedEntriesForRound, allOperators, allMachines]);
+  }, [selectedRound, selectedShift, selectedDate, fetchAndSetLog]);
 
   const handleDateChange = useCallback(async (date: Date | undefined) => {
     if (!date || !selectedShift) return;
@@ -264,10 +266,9 @@ export default function DashboardPage() {
     if (newDateStr !== currentDateStr) {
       setSelectedDate(date);
       setNewEntries([]);
-      const log = await fetchAndSetLog(date, selectedShift);
-      loadSavedEntriesForRound(selectedRound, log, allOperators, allMachines);
+      await fetchAndSetLog(date, selectedShift);
     }
-  }, [selectedDate, selectedShift, fetchAndSetLog, loadSavedEntriesForRound, selectedRound, allOperators, allMachines]);
+  }, [selectedDate, selectedShift, fetchAndSetLog]);
 
   const handleShiftChange = useCallback(async (name: string) => {
     const newShift = allShifts.find((s) => s.name === name);
@@ -281,9 +282,8 @@ export default function DashboardPage() {
     const currentRound = newRoundTimes[0] || '';
     setSelectedRound(currentRound);
 
-    const log = await fetchAndSetLog(selectedDate, newShift);
-    loadSavedEntriesForRound(currentRound, log, allOperators, allMachines);
-  }, [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadSavedEntriesForRound, allOperators, allMachines]);
+    await fetchAndSetLog(selectedDate, newShift);
+  }, [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate]);
 
   const handleAddEntryRow = () => {
     setNewEntries(prev => [...prev, { id: Date.now(), machineId: '', operatorId: '', sku: '', quantity: '' }]);
@@ -344,8 +344,7 @@ export default function DashboardPage() {
     
     try {
       await actions.saveProductionRound(selectedDate, selectedShift, selectedRound, entriesToSave);
-      const log = await fetchAndSetLog(selectedDate, selectedShift);
-      loadSavedEntriesForRound(selectedRound, log, allOperators, allMachines);
+      await fetchAndSetLog(selectedDate, selectedShift);
       setNewEntries([]);
       
       toast({
@@ -356,12 +355,16 @@ export default function DashboardPage() {
       console.error('Save error:', error);
       toast({ variant: "destructive", title: "❌ Save Failed", description: "Please try again." });
     }
-  }, [selectedDate, selectedShift, selectedRound, newEntries, toast, user, allMachines, allProductionPlan, fetchAndSetLog, loadSavedEntriesForRound, allOperators]);
+  }, [selectedDate, selectedShift, selectedRound, newEntries, toast, user, allMachines, allProductionPlan, fetchAndSetLog]);
 
 
-  const totalSavedQty = useMemo(() => {
-    return savedEntries.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
-  }, [savedEntries]);
+  const hourlyTotal = useMemo(() => {
+    return savedEntriesForRound.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
+  }, [savedEntriesForRound]);
+
+  const shiftTotal = useMemo(() => {
+    return savedEntriesForShift.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
+  }, [savedEntriesForShift]);
   
   if (loading) {
     return (
@@ -376,6 +379,25 @@ export default function DashboardPage() {
     return allProductionPlan.find(p => p.machineId === machineId)?.skus || [];
   };
 
+  const handleShare = (data: SavedEntry[], title: string) => {
+    let message = `*${title} - ${selectedShift?.name}*\n`;
+    message += `*Date: ${format(selectedDate, 'dd-MM-yyyy')}*\n\n`;
+
+    data.forEach(entry => {
+      message += `Operator: ${entry.operatorName}\n`;
+      message += `SKU: ${entry.sku}\n`;
+      message += `Quantity: ${entry.quantity}\n`;
+      message += `Time: ${entry.time}\n`;
+      message += `-------------------\n`;
+    });
+    
+    const total = data.reduce((sum, item) => sum + item.quantity, 0);
+    message += `*Total Production: ${total}*`;
+
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   return (
     <div className="space-y-6 p-4 md:p-8">
       <div className="flex items-center justify-center gap-2">
@@ -383,7 +405,7 @@ export default function DashboardPage() {
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-center">GT Production Entry</h1>
       </div>
       
-      <Card className="shadow-md">
+      <Card className="shadow-lg overflow-hidden">
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label htmlFor="date-picker">Date</Label>
@@ -436,7 +458,7 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
       
-      <Card className="shadow-md">
+      <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Production Entries</CardTitle>
           <Button variant="outline" size="sm" onClick={handleAddEntryRow}>
@@ -478,7 +500,7 @@ export default function DashboardPage() {
             </div>
           ))}
           {newEntries.length > 0 && (
-             <Button onClick={handleSaveAllEntries} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
+             <Button onClick={handleSaveAllEntries} className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold shadow-md hover:shadow-lg transition-shadow">
                 <Save className="mr-2 h-4 w-4" />
                 SAVE ALL ENTRIES
             </Button>
@@ -488,51 +510,87 @@ export default function DashboardPage() {
            )}
         </CardContent>
       </Card>
-      
-      <Card className="shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between">
-           <CardTitle>Saved Entries ({savedEntries.length} records)</CardTitle>
-           <Badge variant="secondary" className="text-base">Total Qty: {totalSavedQty}</Badge>
-        </CardHeader>
-        <CardContent>
-            <div className="border rounded-lg max-h-[40vh] overflow-auto">
-                 <Table>
-                  <TableHeader className="sticky top-0 bg-muted/50">
-                    <TableRow>
-                      <TableHead>TBM No</TableHead>
-                      <TableHead>Operator Name</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Time</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {isFetchingLog ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
-                          <Loader />
-                        </TableCell>
-                      </TableRow>
-                    ) : savedEntries.length > 0 ? savedEntries.map((entry, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{entry.machineName}</TableCell>
-                        <TableCell>{entry.operatorName}</TableCell>
-                        <TableCell>{entry.sku}</TableCell>
-                        <TableCell>{entry.quantity}</TableCell>
-                        <TableCell>{entry.time}</TableCell>
-                      </TableRow>
-                    )) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                          No entries found for selected date, shift, and hour.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-            </div>
-        </CardContent>
-      </Card>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Card className="shadow-lg cursor-pointer hover:shadow-xl transition-shadow bg-primary/10">
+              <CardHeader>
+                <CardTitle className="text-sm text-primary">Hourly Production</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-primary">{hourlyTotal}</p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Hourly Production Details ({selectedRound})</DialogTitle>
+            </DialogHeader>
+            <ProductionDetailsTable data={savedEntriesForRound} onShare={() => handleShare(savedEntriesForRound, `Hourly Production Details (${selectedRound})`)} />
+          </DialogContent>
+        </Dialog>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Card className="shadow-lg cursor-pointer hover:shadow-xl transition-shadow bg-accent/20">
+              <CardHeader>
+                <CardTitle className="text-sm text-accent-foreground">Shift Total</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-accent-foreground">{shiftTotal}</p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Shift Production Details</DialogTitle>
+            </DialogHeader>
+            <ProductionDetailsTable data={savedEntriesForShift} onShare={() => handleShare(savedEntriesForShift, 'Shift Production Details')} />
+          </DialogContent>
+        </Dialog>
+      </div>
+
     </div>
   );
+}
+
+function ProductionDetailsTable({ data, onShare }: { data: SavedEntry[]; onShare: () => void; }) {
+  if (!data || data.length === 0) {
+    return <p className="text-muted-foreground text-center p-4">No production data for this period.</p>;
+  }
+  
+  const total = data.reduce((sum, item) => sum + item.quantity, 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="border rounded-lg max-h-[50vh] overflow-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Operator</TableHead>
+              <TableHead>SKU</TableHead>
+              <TableHead>Time</TableHead>
+              <TableHead className="text-right">Quantity</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.map((entry, index) => (
+              <TableRow key={index}>
+                <TableCell>{entry.operatorName}</TableCell>
+                <TableCell>{entry.sku}</TableCell>
+                <TableCell>{entry.time}</TableCell>
+                <TableCell className="text-right">{entry.quantity}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="flex justify-between items-center font-bold text-lg">
+        <span>Total: {total}</span>
+        <Button onClick={onShare} size="sm">
+          <Share2 className="mr-2 h-4 w-4" /> Share to WhatsApp
+        </Button>
+      </div>
+    </div>
+  )
 }

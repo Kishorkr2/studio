@@ -1,4 +1,5 @@
 
+
 export interface User {
   id: number;
   name: string;
@@ -125,4 +126,12 @@ export interface ReportDataRow {
   trolleyNo?: string;
   userId?: number;
   userName?: string;
+}
+
+export interface SavedEntry {
+  machineName: string;
+  operatorName: string;
+  sku: string;
+  quantity: number;
+  time: string;
 }

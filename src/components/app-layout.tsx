@@ -4,7 +4,6 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {usePathname, useRouter} from 'next/navigation';
-import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
 import {Button} from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -31,6 +30,7 @@ import {
 import {useOnlineStatus} from '@/hooks/use-online-status';
 import {useAuth} from './auth-provider';
 import { RalsonTyreIcon } from './icons/ralson-tyre-icon';
+import { ThemePresetSelector } from './theme-preset-selector';
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -87,15 +87,16 @@ export function AppLayout({children}: {children: React.ReactNode}) {
 
   return (
     <div className="flex flex-col h-screen">
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background px-4">
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur-sm px-4">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
             <RalsonTyreIcon className="w-20 h-auto" />
-            <span className="text-xl font-semibold hidden sm:inline-block">TyreTrack Pro</span>
+            <span className="text-xl font-semibold hidden sm:inline-block">RTPMS</span>
           </Link>
         </div>
         <div className="flex items-center gap-4">
           <OnlineStatusIndicator />
+          <ThemePresetSelector />
           <ThemeToggle />
           <UserMenu pageActions={pageActions} />
         </div>

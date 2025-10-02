@@ -1,3 +1,4 @@
+
 'use client';
 
 import {useState} from 'react';
@@ -91,7 +92,7 @@ export default function SignUpPage() {
                <div className="flex justify-center items-center gap-2 mb-4">
                 <RalsonTyreIcon className="w-24 h-auto" />
               </div>
-              <CardTitle>Create a TyreTrack Pro Account</CardTitle>
+              <CardTitle>Create a RTPMS Account</CardTitle>
               <CardDescription>
                 Enter your details to register.
               </CardDescription>

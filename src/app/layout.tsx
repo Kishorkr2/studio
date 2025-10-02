@@ -14,15 +14,15 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'TyreTrack Pro',
-  description: 'Manage tyre production with precision and efficiency.',
+  title: 'RTPMS - Real Time Prod Management System',
+  description: 'Manage production with precision and efficiency.',
   manifest: '/manifest.json',
   themeColor: '#000000',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'TyreTrack Pro',
+    title: 'RTPMS',
   },
 };
 

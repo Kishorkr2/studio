@@ -1,4 +1,5 @@
-# TyreTrack Pro
+
+# RTPMS (Real Time Prod Management System)
 
 This is a Next.js application designed to manage and track tyre manufacturing processes, built in Firebase Studio.
 
@@ -60,7 +61,7 @@ This project has two parts that need to run at the same time: the main web appli
 
 ### 4. Access the Application
 
-Once both servers are running without errors in their respective terminals, you can open your web browser and go to the following address to use TyreTrack Pro:
+Once both servers are running without errors in their respective terminals, you can open your web browser and go to the following address to use RTPMS:
 
 [http://localhost:9002](http://localhost:9002)
 
