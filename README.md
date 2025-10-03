@@ -65,4 +65,40 @@ Once both servers are running without errors in their respective terminals, you 
 
 [http://localhost:9002](http://localhost:9002)
 
-That's it! Your local development environment is all set up. You can now start using and modifying the application.
+## Deploying to Firebase App Hosting
+
+To make your application live on the web, follow these steps to deploy it.
+
+### 1. Install Firebase CLI
+
+If you haven't already, install the Firebase Command Line Interface (CLI) globally on your machine.
+
+```bash
+npm install -g firebase-tools
+```
+
+### 2. Login to Firebase
+
+Log in to your Google account through the Firebase CLI.
+
+```bash
+firebase login
+```
+
+### 3. Set Your Project
+
+Tell Firebase which project you want to deploy to. Replace `<YOUR_PROJECT_ID>` with your actual Firebase project ID.
+
+```bash
+firebase use <YOUR_PROJECT_ID>
+```
+
+### 4. Deploy the Application
+
+Run the deploy command. This will build your Next.js application and deploy it to Firebase App Hosting.
+
+```bash
+firebase apphosting:backends:deploy
+```
+
+After the command finishes, the CLI will output the URL of your live application. That's it! Your RTPMS application is now live.
