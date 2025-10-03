@@ -237,7 +237,7 @@ export default function DashboardPage() {
             });
         });
     });
-    return allEntries;
+    return allEntries.sort((a, b) => a.time.localeCompare(b.time) || a.operatorName.localeCompare(b.operatorName));
   }, [productionLog, allOperators, allMachines]);
 
   const savedEntriesForRound = useMemo((): SavedEntry[] => {
