@@ -109,7 +109,7 @@ export default function TreadExtrusionPage() {
 
       const tyreProd: Record<string, number> = {};
       (historyLogs as any[])
-        .filter(log => log.machineName && log.machineName.startsWith('CP'))
+        .filter(log => log.machineName && (log.machineName.startsWith('CP') || log.machineName.startsWith('TBM'))) // Include both TBM and Curing
         .forEach(entry => {
           if (entry.sapCode && entry.quantity > 0) {
             tyreProd[entry.sapCode] =
@@ -225,7 +225,6 @@ export default function TreadExtrusionPage() {
       (acc, item) => acc + (item.quantity || 0),
       0
     );
-    // Use a Set to avoid double-counting production for a SAP code that might appear multiple times
     const uniqueSapCodes = [...new Set(allSkusFromPlan.map(s => s.sapCode))];
     const totalProduction = uniqueSapCodes.reduce(
       (acc, sapCode) => acc + (totalProductionBySapCode[sapCode] || 0),

@@ -79,7 +79,7 @@ export async function getProductionLogs(): Promise<ReportDataRow[]> {
   const [operators, machines, logs] = await Promise.all([
     db.all('SELECT cardNo, name FROM operators'),
     db.all('SELECT id, name FROM machines'),
-    db.all('SELECT * FROM productionLogEntries')
+    db.all('SELECT * FROM productionLogEntries'),
   ]);
 
   const operatorMap = new Map(operators.map(op => [op.cardNo, op.name]));
@@ -90,7 +90,7 @@ export async function getProductionLogs(): Promise<ReportDataRow[]> {
     shift: log.shiftName,
     round: log.round,
     operatorId: log.operatorId,
-    operatorName: operatorMap.get(log.operatorId || '') || 'N/A',
+    operatorName: log.operatorId ? operatorMap.get(log.operatorId) || 'N/A' : 'N/A',
     machineId: log.machineId,
     machineName: machineMap.get(log.machineId) || 'N/A',
     sku: log.sku,
