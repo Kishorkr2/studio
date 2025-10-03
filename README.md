@@ -1,4 +1,3 @@
-
 # RTPMS (Real Time Prod Management System)
 
 This is a Next.js application designed to manage and track tyre manufacturing processes, built in Firebase Studio.

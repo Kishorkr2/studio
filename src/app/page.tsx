@@ -456,7 +456,7 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
-      
+
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>New Production Entry</CardTitle>
