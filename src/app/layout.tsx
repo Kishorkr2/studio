@@ -1,5 +1,5 @@
 
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import {Inter} from 'next/font/google';
 import {AppLayout, type AppLayoutProps} from '@/components/app-layout';
@@ -17,13 +17,19 @@ export const metadata: Metadata = {
   title: 'RTPMS - Real Time Prod Management System',
   description: 'Manage production with precision and efficiency.',
   manifest: '/manifest.json',
-  themeColor: '#000000',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'RTPMS',
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#000000',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
