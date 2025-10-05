@@ -15,7 +15,7 @@ import {
   UserCheck,
   Users,
   ChevronDown,
-  FilePdf,
+  FileText,
 } from 'lucide-react';
 import { addDays, format, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -215,95 +215,97 @@ export default function ReportsPage() {
 
   const handleExport = () => {
     if (filteredReportData.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'No Data to Export',
-        description: 'Please apply filters to generate a report first.',
-      });
-      return;
+        toast({
+            variant: 'destructive',
+            title: 'No Data to Export',
+            description: 'Please apply filters to generate a report first.',
+        });
+        return;
     }
-  
-    // 1. Prepare detailed production data
-    const productionExportData = filteredReportData.map((row) => ({
-      Date: format(parseISO(row.date), 'yyyy-MM-dd'),
-      Shift: row.shift,
-      'SAP Code': row.sapCode,
-      SKU: row.sku,
-      Quantity: row.quantity,
-      Remark: row.remark || '-',
-    }));
-  
-    // 2. Prepare operator-wise summary data
-    const operatorSummary = productionByOperator.map(item => ({
-      'Operator Name': item.name,
-      'Total Quantity': item.quantity,
-    }));
-  
-    // 3. Create worksheets for both data sets
-    const productionWorksheet = XLSX.utils.json_to_sheet(productionExportData);
-    const operatorWorksheet = XLSX.utils.json_to_sheet(operatorSummary);
-  
-    // 4. Style the worksheets
-    const borderStyle = { style: 'thin', color: { auto: 1 } };
-    const boldStyle = { font: { bold: true } };
-    
-    const applyStyling = (worksheet: XLSX.WorkSheet) => {
-      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
-      for (let R = range.s.r; R <= range.e.r; ++R) {
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-          const cell_address = { c: C, r: R };
-          const cell_ref = XLSX.utils.encode_cell(cell_address);
-          if (!worksheet[cell_ref]) continue;
-  
-          // Add borders to all cells
-          worksheet[cell_ref].s = {
-            ...(worksheet[cell_ref].s || {}),
-            border: {
-              top: borderStyle,
-              bottom: borderStyle,
-              left: borderStyle,
-              right: borderStyle,
-            },
-          };
-  
-          // Bold the header row
-          if (R === 0) {
-            worksheet[cell_ref].s.font = { ...boldStyle.font, ...worksheet[cell_ref].s.font };
-          }
-        }
-      }
-    };
-    
-    applyStyling(productionWorksheet);
-    applyStyling(operatorWorksheet);
-  
-    // Set column widths
-    productionWorksheet['!cols'] = [
-      { wch: 12 }, // Date
-      { wch: 15 }, // Shift
-      { wch: 15 }, // SAP Code
-      { wch: 20 }, // SKU
-      { wch: 10 }, // Quantity
-      { wch: 30 }, // Remark
-    ];
-    operatorWorksheet['!cols'] = [
-      { wch: 25 }, // Operator Name
-      { wch: 15 }, // Total Quantity
-    ];
-  
-    // 5. Create workbook and append sheets
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, productionWorksheet, 'Production Report');
-    XLSX.utils.book_append_sheet(workbook, operatorWorksheet, 'Operator Summary');
-  
-    // 6. Write and download the file
-    XLSX.writeFile(workbook, 'TyreTrack_Report.xlsx');
-  
-    toast({
-      title: 'Report Exported',
-      description: 'Your report has been downloaded successfully.',
+
+    const from = fromDate ? format(fromDate, 'dd-MM-yyyy') : 'N/A';
+    const to = toDate ? format(toDate, 'dd-MM-yyyy') : 'N/A';
+
+    const finalData = [];
+
+    // Title
+    finalData.push(["Ralson Tyres (P) Ltd."]);
+    finalData.push([`Production Report from ${from} to ${to}`]);
+    finalData.push([]); // Spacer
+
+    // Operator Summary
+    if (productionByOperator.length > 0) {
+        finalData.push(["Operator Wise Summary"]);
+        const operatorHeaders = ["Operator Name", "Total Quantity"];
+        finalData.push(operatorHeaders);
+        productionByOperator.forEach(op => {
+            finalData.push([op.name, op.quantity]);
+        });
+        finalData.push([]); // Spacer
+    }
+
+    // TBM Summary
+    if (productionByTbm.length > 0) {
+        finalData.push(["TBM Wise Summary"]);
+        const tbmHeaders = ["TBM", "Total Quantity"];
+        finalData.push(tbmHeaders);
+        productionByTbm.forEach(tbm => {
+            finalData.push([tbm.name, tbm.quantity]);
+        });
+        finalData.push([]); // Spacer
+    }
+
+    // SKU Summary
+    if (productionBySku.length > 0) {
+        finalData.push(["SKU Wise Summary"]);
+        const skuHeaders = ["SKU", "Total Quantity"];
+        finalData.push(skuHeaders);
+        productionBySku.forEach(sku => {
+            finalData.push([sku.name, sku.quantity]);
+        });
+        finalData.push([]); // Spacer
+    }
+
+    // Detailed Log Header
+    finalData.push(["Detailed Production Log"]);
+    const detailedHeaders = ["Date", "Shift", "Operator", "TBM", "SKU", "SAP Code", "Qty"];
+    finalData.push(detailedHeaders);
+
+    // Detailed Log Data
+    filteredReportData.forEach(row => {
+        finalData.push([
+            format(parseISO(row.date), 'dd-MM-yy'),
+            row.shift,
+            row.operatorName,
+            row.machineName,
+            row.sku,
+            row.sapCode,
+            row.quantity,
+        ]);
     });
-  };
+
+    const worksheet = XLSX.utils.aoa_to_sheet(finalData);
+
+    // Set column widths
+    worksheet['!cols'] = [
+        { wch: 25 }, // Header / Operator Name / TBM / SKU / Date
+        { wch: 15 }, // Quantity / Shift
+        { wch: 25 }, // Operator
+        { wch: 15 }, // TBM
+        { wch: 20 }, // SKU
+        { wch: 15 }, // SAP Code
+        { wch: 10 }, // Qty
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Production_Report');
+    XLSX.writeFile(workbook, 'RTPMS_Report.xlsx');
+
+    toast({
+        title: 'Report Exported',
+        description: 'Your report has been downloaded successfully.',
+    });
+};
 
   const handleGeneratePdf = () => {
     if (filteredReportData.length === 0) {
@@ -451,7 +453,7 @@ export default function ReportsPage() {
           </TabsList>
           <div className='flex items-center gap-2'>
             <Button onClick={handleGeneratePdf}>
-              <FilePdf className="mr-2 h-4 w-4" />
+              <FileText className="mr-2 h-4 w-4" />
               Generate PDF
             </Button>
             <Button onClick={handleExport}>
@@ -946,3 +948,7 @@ function SummaryTable({ title, data, col1Header, col2Header }: { title: string; 
     </Card>
   )
 }
+
+    
+
+    

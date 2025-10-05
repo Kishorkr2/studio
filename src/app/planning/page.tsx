@@ -8,7 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Spline, Circle, ToyBrick, Layers, Factory, Scale, ClipboardList, Download, FilePdf, Calendar as CalendarIcon } from 'lucide-react';
+import { Spline, Circle, ToyBrick, Layers, Factory, Scale, ClipboardList, Download, FileText, Calendar as CalendarIcon } from 'lucide-react';
 import type {
   ProductionPlanItem,
   TreadStock,
@@ -230,7 +230,7 @@ function GTPlanning() {
                 </div>
             </div>
             <div className="flex gap-2">
-                <Button onClick={handleExportPdf} variant="outline"><FilePdf className="mr-2 h-4 w-4" /> Export PDF</Button>
+                <Button onClick={handleExportPdf} variant="outline"><FileText className="mr-2 h-4 w-4" /> Export PDF</Button>
                 <Button onClick={handleExportExcel}><Download className="mr-2 h-4 w-4" /> Export Excel</Button>
             </div>
         </div>
@@ -601,5 +601,7 @@ export default function PlanningPage() {
     </div>
   );
 }
+
+    
 
     
