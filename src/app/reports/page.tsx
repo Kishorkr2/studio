@@ -15,9 +15,12 @@ import {
   UserCheck,
   Users,
   ChevronDown,
+  FilePdf,
 } from 'lucide-react';
 import { addDays, format, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -98,6 +101,12 @@ const chartConfig = {
     color: 'hsl(var(--primary))',
   },
 } satisfies ChartConfig;
+
+// Extend jsPDF with autoTable
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: any) => jsPDF;
+}
+
 
 export default function ReportsPage() {
   const { toast } = useToast();
@@ -295,6 +304,86 @@ export default function ReportsPage() {
       description: 'Your report has been downloaded successfully.',
     });
   };
+
+  const handleGeneratePdf = () => {
+    if (filteredReportData.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'No Data for PDF',
+        description: 'Please apply filters to generate a report first.',
+      });
+      return;
+    }
+  
+    const doc = new jsPDF() as jsPDFWithAutoTable;
+  
+    const from = fromDate ? format(fromDate, 'dd-MM-yyyy') : 'N/A';
+    const to = toDate ? format(toDate, 'dd-MM-yyyy') : 'N/A';
+  
+    // Title
+    doc.setFontSize(20);
+    doc.text('Daily Production Report', 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Date Range: ${from} to ${to}`, 14, 30);
+    
+    let startY = 40;
+
+    // Operator Summary
+    if (productionByOperator.length > 0) {
+      doc.setFontSize(14);
+      doc.text('Production by Operator', 14, startY);
+      doc.autoTable({
+        startY: startY + 5,
+        head: [['Operator Name', 'Total Quantity']],
+        body: productionByOperator.map(op => [op.name, op.quantity.toLocaleString()]),
+        theme: 'striped',
+        headStyles: { fillColor: [41, 128, 185] },
+      });
+      startY = doc.autoTable.previous.finalY + 15;
+    }
+    
+    // TBM Summary
+    if (productionByTbm.length > 0) {
+      doc.setFontSize(14);
+      doc.text('Production by TBM', 14, startY);
+      doc.autoTable({
+        startY: startY + 5,
+        head: [['TBM', 'Total Quantity']],
+        body: productionByTbm.map(tbm => [tbm.name, tbm.quantity.toLocaleString()]),
+        theme: 'striped',
+        headStyles: { fillColor: [41, 128, 185] },
+      });
+      startY = doc.autoTable.previous.finalY + 15;
+    }
+
+    // Detailed Log
+    doc.setFontSize(14);
+    doc.text('Detailed Production Log', 14, startY);
+    const detailedBody = filteredReportData.map(row => [
+      format(parseISO(row.date), 'dd-MM-yy'),
+      row.shift,
+      row.operatorName,
+      row.machineName,
+      row.sku,
+      row.sapCode,
+      row.quantity,
+    ]);
+    doc.autoTable({
+      startY: startY + 5,
+      head: [['Date', 'Shift', 'Operator', 'TBM', 'SKU', 'SAP Code', 'Qty']],
+      body: detailedBody,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+  
+    doc.save(`RTPMS_Report_${from}_to_${to}.pdf`);
+  
+    toast({
+      title: 'PDF Generated',
+      description: 'Your PDF report has been downloaded successfully.',
+    });
+  };
   
   const summaryStats = React.useMemo(() => {
     const totalProduction = filteredReportData.reduce(
@@ -360,10 +449,16 @@ export default function ReportsPage() {
             <TabsTrigger value="oee">OEE Analysis</TabsTrigger>
             <TabsTrigger value="breakdown">Breakdown Log</TabsTrigger>
           </TabsList>
-          <Button onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export to Excel
-          </Button>
+          <div className='flex items-center gap-2'>
+            <Button onClick={handleGeneratePdf}>
+              <FilePdf className="mr-2 h-4 w-4" />
+              Generate PDF
+            </Button>
+            <Button onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" />
+              Export to Excel
+            </Button>
+          </div>
         </div>
 
         <TabsContent value="production" className="space-y-6">
