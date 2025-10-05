@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -60,7 +61,7 @@ export default function PlanningPage() {
     <div className="space-y-6 p-4 md:p-8">
       <div className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight">
-          Production Slicer &amp; Planning
+          Production Planning
         </h1>
         <p className="text-muted-foreground">
           A centralized hub for all production planning activities.
