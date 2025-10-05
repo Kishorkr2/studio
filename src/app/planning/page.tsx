@@ -14,6 +14,7 @@ import type {
   TreadStock,
   Machine,
   SkuPlan,
+  ReportDataRow,
 } from '@/lib/types';
 import * as actions from '../actions';
 import { useToast } from '@/hooks/use-toast';
@@ -30,10 +31,158 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface EnrichedSkuPlan extends SkuPlan {
   machineId: string;
   machineName: string;
+}
+
+interface GTPlanningData extends EnrichedSkuPlan {
+  actualProduction: number;
+  balance: number;
+  todaysPlan: number;
+}
+
+function GTPlanning() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [gtPlanningData, setGtPlanningData] = useState<GTPlanningData[]>([]);
+  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>([]);
+  const [allMachines, setAllMachines] = useState<Machine[]>([]);
+  const [productionLogs, setProductionLogs] = useState<ReportDataRow[]>([]);
+  const [skuFilter, setSkuFilter] = useState('');
+  
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [plan, machines, logs] = await Promise.all([
+        actions.getProductionPlan(),
+        actions.getMachines('TBM'),
+        actions.getProductionLogs(),
+      ]);
+      setProductionPlan(plan);
+      setAllMachines(machines);
+      setProductionLogs(logs as ReportDataRow[]);
+    } catch (error) {
+      console.error('Failed to load GT planning data', error);
+      toast({ variant: 'destructive', title: 'Error loading data' });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+  
+  useEffect(() => {
+      const machineMap = new Map(allMachines.map(m => [m.id, m.name]));
+      
+      const productionBySapCode = productionLogs.reduce((acc, log) => {
+        if (log.sapCode) {
+          acc[log.sapCode] = (acc[log.sapCode] || 0) + log.quantity;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+
+      const planningData = productionPlan.flatMap(item => 
+        item.skus.map(skuPlan => {
+            const actualProduction = productionBySapCode[skuPlan.sapCode] || 0;
+            const marketRequirement = skuPlan.quantity || 0;
+            
+            return {
+              ...skuPlan,
+              machineId: item.machineId,
+              machineName: machineMap.get(item.machineId) || item.machineId,
+              actualProduction: actualProduction,
+              balance: marketRequirement - actualProduction,
+              todaysPlan: 0,
+            }
+        })
+      );
+      setGtPlanningData(planningData);
+
+  }, [productionPlan, allMachines, productionLogs]);
+  
+  const handleTodaysPlanChange = (sapCode: string, value: string) => {
+    const newPlan = parseInt(value, 10) || 0;
+    setGtPlanningData(currentData =>
+      currentData.map(item =>
+        item.sapCode === sapCode ? { ...item, todaysPlan: newPlan } : item
+      )
+    );
+  };
+  
+  const filteredData = useMemo(() => {
+    return gtPlanningData.filter(item => 
+      (item.sku?.toLowerCase() || '').includes(skuFilter.toLowerCase())
+    );
+  }, [gtPlanningData, skuFilter]);
+
+  if (loading) {
+    return <Skeleton className="h-64 w-full" />;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Green Tyre (GT) Daily Planning</CardTitle>
+        <CardDescription>
+          Plan daily GT production based on market requirements and actual output.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+         <div className="flex gap-4 mb-4">
+            <Input 
+                placeholder="Filter by SKU..." 
+                value={skuFilter} 
+                onChange={e => setSkuFilter(e.target.value)}
+                className="max-w-xs"
+            />
+        </div>
+        <div className="border rounded-lg max-h-[60vh] overflow-auto">
+          <Table>
+            <TableHeader className="sticky top-0 bg-background z-10">
+              <TableRow>
+                <TableHead>TBM No</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead className="text-right">Market Requirement</TableHead>
+                <TableHead className="text-right">Actual Production</TableHead>
+                <TableHead className="text-right">Balance</TableHead>
+                <TableHead className="text-right w-[150px]">Today's Plan</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredData.map(item => (
+                <TableRow key={`${item.machineId}-${item.sapCode}`}>
+                  <TableCell>{item.machineName}</TableCell>
+                  <TableCell className="font-medium">{item.sku}</TableCell>
+                  <TableCell className="text-right">{item.quantity.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">{item.actualProduction.toLocaleString()}</TableCell>
+                  <TableCell className={cn("text-right font-bold", item.balance < 0 ? "text-green-600" : "text-destructive")}>
+                    {item.balance.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      className="w-24 ml-auto text-right"
+                      value={item.todaysPlan || ''}
+                      onChange={(e) => handleTodaysPlanChange(item.sapCode, e.target.value)}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex justify-end mt-4">
+            <Button disabled>Save Today's Plan (WIP)</Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 function TreadPlanning() {
@@ -274,6 +423,13 @@ const planningSections = [
     content: <TreadPlanning />,
   },
   {
+    value: 'gt',
+    title: 'GT (Green Tyre) Planning',
+    description: 'Coordinate Green Tyre building schedules.',
+    icon: ToyBrick,
+     content: <GTPlanning />,
+  },
+  {
     value: 'bead',
     title: 'Bead Planning',
     description: 'Schedule and track bead manufacturing.',
@@ -281,17 +437,6 @@ const planningSections = [
     content: (
       <div className="text-center text-muted-foreground p-8">
         <p>Bead planning features will be implemented here.</p>
-      </div>
-    ),
-  },
-  {
-    value: 'gt',
-    title: 'GT (Green Tyre) Planning',
-    description: 'Coordinate Green Tyre building schedules.',
-    icon: ToyBrick,
-     content: (
-      <div className="text-center text-muted-foreground p-8">
-        <p>GT planning features will be implemented here.</p>
       </div>
     ),
   },
@@ -323,7 +468,7 @@ export default function PlanningPage() {
       <Accordion
         type="multiple"
         className="w-full space-y-4"
-        defaultValue={['tread']}
+        defaultValue={['tread', 'gt']}
       >
         {planningSections.map(section => {
           const Icon = section.icon;
@@ -358,5 +503,3 @@ export default function PlanningPage() {
     </div>
   );
 }
-
-    
