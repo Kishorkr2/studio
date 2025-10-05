@@ -40,29 +40,34 @@ export function ThemeProvider({
     }
     return (localStorage.getItem(storageKey) as Theme) || defaultTheme;
   });
-
+  
   React.useEffect(() => {
     const root = window.document.documentElement;
     
-    // Clear all theme-related classes
+    // Clear all theme-related classes first
     root.classList.remove('light', 'dark', ...THEMES.map(t => t.id));
 
     let effectiveTheme = theme;
-    let mode = theme;
     const isPreset = THEMES.some(t => t.id === theme);
     
+    // Determine the color mode (light/dark)
+    let colorMode: 'light' | 'dark' = 'light';
     if (theme === 'system') {
-        mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        root.classList.add(mode);
+        colorMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     } else if (isPreset) {
-        // If it's a preset, we might still need to apply dark/light mode class based on system
-        const systemMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        root.classList.add(systemMode); // Apply light/dark
-        root.classList.add(theme); // Apply theme preset
+        // For presets, rely on the system preference for the light/dark mode unless specified
+        colorMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     } else {
-        root.classList.add(theme); // This handles 'light' or 'dark' directly
+        colorMode = theme as 'light' | 'dark';
     }
-
+    
+    root.classList.add(colorMode);
+    
+    // Add preset class if one is selected
+    if (isPreset) {
+      root.classList.add(theme);
+    }
+    
   }, [theme, enableSystem]);
 
   const value = {
