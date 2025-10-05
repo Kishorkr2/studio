@@ -10,8 +10,6 @@ type ThemeProviderProps = {
   children: React.ReactNode;
   defaultTheme?: Theme;
   storageKey?: string;
-  attribute?: string;
-  enableSystem?: boolean;
 };
 
 type ThemeProviderState = {
@@ -31,8 +29,6 @@ export function ThemeProvider({
   children,
   defaultTheme = 'system',
   storageKey = 'ui-theme',
-  attribute = 'class',
-  enableSystem = true,
 }: ThemeProviderProps) {
   const [theme, setTheme] = React.useState<Theme>(() => {
     if (typeof window === 'undefined') {
@@ -47,7 +43,6 @@ export function ThemeProvider({
     // Clear all theme-related classes first
     root.classList.remove('light', 'dark', ...THEMES.map(t => t.id));
 
-    let effectiveTheme = theme;
     const isPreset = THEMES.some(t => t.id === theme);
     
     // Determine the color mode (light/dark)
@@ -55,7 +50,6 @@ export function ThemeProvider({
     if (theme === 'system') {
         colorMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     } else if (isPreset) {
-        // For presets, rely on the system preference for the light/dark mode unless specified
         colorMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     } else {
         colorMode = theme as 'light' | 'dark';
@@ -66,9 +60,12 @@ export function ThemeProvider({
     // Add preset class if one is selected
     if (isPreset) {
       root.classList.add(theme);
+    } else if (theme !== 'light' && theme !== 'dark' && theme !== 'system') {
+      // Fallback to blue if a preset is stored but not in the list
+      root.classList.add('theme-blue');
     }
     
-  }, [theme, enableSystem]);
+  }, [theme]);
 
   const value = {
     theme,
