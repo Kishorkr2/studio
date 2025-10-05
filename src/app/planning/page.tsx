@@ -514,18 +514,18 @@ function TreadPlanning() {
 
 const planningSections = [
   {
+    value: 'gt',
+    title: 'Green Tyre Planning',
+    description: 'Coordinate Green Tyre building schedules.',
+    icon: ToyBrick,
+    content: <GTPlanning />,
+  },
+  {
     value: 'tread',
-    title: 'Tread Planning',
+    title: 'Tread Production Plan',
     description: 'Plan and manage tread production requirements.',
     icon: Spline,
     content: <TreadPlanning />,
-  },
-  {
-    value: 'gt',
-    title: 'GT (Green Tyre) Planning',
-    description: 'Coordinate Green Tyre building schedules.',
-    icon: ToyBrick,
-     content: <GTPlanning />,
   },
   {
     value: 'bead',
@@ -566,7 +566,7 @@ export default function PlanningPage() {
       <Accordion
         type="multiple"
         className="w-full space-y-4"
-        defaultValue={['tread', 'gt']}
+        defaultValue={['gt', 'tread']}
       >
         {planningSections.map(section => {
           const Icon = section.icon;
@@ -601,7 +601,3 @@ export default function PlanningPage() {
     </div>
   );
 }
-
-    
-
-    
