@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -26,6 +25,7 @@ import {
   LogOut,
   Flame,
   Menu,
+  Spline,
 } from 'lucide-react';
 import {useOnlineStatus} from '@/hooks/use-online-status';
 import {useAuth} from './auth-provider';
@@ -42,6 +42,7 @@ const navItems = [
   {href: '/curing', label: 'Curing', icon: Flame},
   {href: '/tread-extrusion', label: 'Tread Extrusion', icon: ClipboardList},
   {href: '/daily-tread-production', label: 'Daily Production', icon: ListPlus},
+  {href: '/planning', label: 'Planning', icon: Spline},
   {href: '/optimize', label: 'AI Optimizer', icon: BotMessageSquare},
   {href: '/reports', label: 'Reports', icon: LineChart},
   {href: '/admin', label: 'Admin', icon: Cog},
