@@ -1,45 +1,21 @@
+"use client";
 
-'use client';
-
-import * as React from 'react';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
+import { useState, useMemo } from "react";
 import {
-  Calendar as CalendarIcon,
-  Download,
-  Filter,
-  Percent,
-  Wrench,
-  Check,
-  Package,
-  Factory,
-  UserCheck,
-  Users,
-  ChevronDown,
-  FileText,
-} from 'lucide-react';
-import { addDays, format, parseISO } from 'date-fns';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -47,908 +23,317 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
-import { Label } from '@/components/ui/label';
-import type {
-  Machine,
-  Operator,
-  ShiftInfo,
-  User,
-  ReportDataRow,
-} from '@/lib/types';
-import * as actions from '../actions';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+  Trash2,
+  Factory,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  PlusCircle,
+  Database,
+  CalendarDays,
+  Layers,
+} from "lucide-react";
 
-const mockOeeData = {
-  overall: 75.8,
-  availability: 92.5,
-  performance: 85.3,
-  quality: 96.1,
-};
+// Mock dropdown data
+const tbmNumbers = ["TBM-01", "TBM-02", "TBM-03"];
+const operators = ["Operator A", "Operator B", "Operator C"];
+const skus = ["SKU-123", "SKU-456", "SKU-789"];
 
-const oeeChartData = [
-  {
-    name: 'Availability',
-    value: mockOeeData.availability,
-    fill: 'var(--color-availability)',
-  },
-  {
-    name: 'Performance',
-    value: mockOeeData.performance,
-    fill: 'var(--color-performance)',
-  },
-  { name: 'Quality', value: mockOeeData.quality, fill: 'var(--color-quality)' },
+// Mock saved data
+const savedEntriesData = [
+  { id: 1, tbmNo: "TBM-01", operator: "Operator A", sku: "SKU-123", quantity: 100 },
+  { id: 2, tbmNo: "TBM-02", operator: "Operator B", sku: "SKU-456", quantity: 150 },
 ];
 
-const oeeChartConfig = {
-  value: { label: 'Value' },
-  availability: { label: 'Availability', color: 'hsl(var(--primary))' },
-  performance: { label: 'Performance', color: 'hsl(var(--accent))' },
-  quality: { label: 'Quality', color: 'hsl(var(--secondary-foreground))' },
-} satisfies ChartConfig;
-
-const chartConfig = {
-  quantity: {
-    label: 'Quantity',
-    color: 'hsl(var(--primary))',
-  },
-} satisfies ChartConfig;
-
-// Extend jsPDF with autoTable
-interface jsPDFWithAutoTable extends jsPDF {
-  autoTable: (options: any) => jsPDF;
-}
-
-
-export default function ReportsPage() {
-  const { toast } = useToast();
-  const [fromDate, setFromDate] = React.useState<Date | undefined>(
-    addDays(new Date(), -7)
-  );
-  const [toDate, setToDate] = React.useState<Date | undefined>(new Date());
-
-  const [selectedShift, setSelectedShift] = React.useState<string>('all');
-  const [selectedOperator, setSelectedOperator] =
-    React.useState<string>('all');
-  const [selectedMachine, setSelectedMachine] = React.useState<string>('all');
-  const [selectedUser, setSelectedUser] = React.useState<string>('all');
-
-  const [allOperators, setAllOperators] = React.useState<Operator[]>([]);
-  const [allMachines, setAllMachines] = React.useState<Machine[]>([]);
-  const [allShifts, setAllShifts] = React.useState<ShiftInfo[]>([]);
-  const [allUsers, setAllUsers] = React.useState<User[]>([]);
-
-  const [allReportData, setAllReportData] = React.useState<ReportDataRow[]>([]);
-  const [filteredReportData, setFilteredReportData] = React.useState<
-    ReportDataRow[]
-  >([]);
-  const [breakdownData, setBreakdownData] = React.useState<ReportDataRow[]>([]);
-
-  React.useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [ops, machs, shifts, logs, users] = await Promise.all([
-          actions.getOperators(),
-          actions.getMachines(),
-          actions.getShifts(),
-          actions.getProductionLogs(),
-          actions.getUsers(),
-        ]);
-        setAllOperators(ops);
-        setAllMachines(machs);
-        setAllShifts(shifts);
-        setAllUsers(users);
-        setAllReportData(logs as ReportDataRow[]);
-        setBreakdownData(
-          (logs as ReportDataRow[]).filter(
-            (item) => item.remark && item.remark.trim() !== ''
-          )
-        );
-      } catch (error) {
-        console.error('Failed to load report data', error);
-        toast({ variant: 'destructive', title: 'Error loading data' });
-      }
-    };
-    loadData();
-  }, [toast]);
-
-  const handleApplyFilters = React.useCallback(() => {
-    let data = [...allReportData];
-
-    if (fromDate && toDate) {
-      const from = new Date(fromDate);
-      from.setHours(0, 0, 0, 0);
-      const to = new Date(toDate);
-      to.setHours(23, 59, 59, 999);
-      data = data.filter((item) => {
-        try {
-          const itemDate = parseISO(item.date);
-          return itemDate >= from && itemDate <= to;
-        } catch (e) {
-          return false;
-        }
-      });
-    }
-
-    if (selectedShift !== 'all') {
-      data = data.filter((item) => item.shift === selectedShift);
-    }
-    if (selectedOperator !== 'all') {
-      data = data.filter((item) => item.operatorId === selectedOperator);
-    }
-    if (selectedMachine !== 'all') {
-      data = data.filter((item) => item.machineId === selectedMachine);
-    }
-    if (selectedUser !== 'all') {
-      data = data.filter((item) => String(item.userId) === selectedUser);
-    }
-
-    data = data.filter((item) => item.quantity > 0);
-
-    setFilteredReportData(data);
-    toast({
-      title: 'Filters Applied',
-      description: `Displaying ${data.length} records.`,
-    });
-  }, [
-    allReportData,
-    fromDate,
-    toDate,
-    selectedShift,
-    selectedOperator,
-    selectedMachine,
-    selectedUser,
-    toast,
-  ]);
-
-  React.useEffect(() => {
-    handleApplyFilters();
-  }, [allReportData, handleApplyFilters]);
-
-  const handleExport = () => {
-    if (filteredReportData.length === 0) {
-        toast({
-            variant: 'destructive',
-            title: 'No Data to Export',
-            description: 'Please apply filters to generate a report first.',
-        });
-        return;
-    }
-
-    const from = fromDate ? format(fromDate, 'dd-MM-yyyy') : 'N/A';
-    const to = toDate ? format(toDate, 'dd-MM-yyyy') : 'N/A';
-
-    const finalData = [];
-
-    // Title
-    finalData.push(["Ralson Tyres (P) Ltd."]);
-    finalData.push([`Production Report from ${from} to ${to}`]);
-    finalData.push([]); // Spacer
-
-    // Operator Summary
-    if (productionByOperator.length > 0) {
-        finalData.push(["Operator Wise Summary"]);
-        const operatorHeaders = ["Operator Name", "Total Quantity"];
-        finalData.push(operatorHeaders);
-        productionByOperator.forEach(op => {
-            finalData.push([op.name, op.quantity]);
-        });
-        finalData.push([]); // Spacer
-    }
-
-    // TBM Summary
-    if (productionByTbm.length > 0) {
-        finalData.push(["TBM Wise Summary"]);
-        const tbmHeaders = ["TBM", "Total Quantity"];
-        finalData.push(tbmHeaders);
-        productionByTbm.forEach(tbm => {
-            finalData.push([tbm.name, tbm.quantity]);
-        });
-        finalData.push([]); // Spacer
-    }
-
-    // SKU Summary
-    if (productionBySku.length > 0) {
-        finalData.push(["SKU Wise Summary"]);
-        const skuHeaders = ["SKU", "Total Quantity"];
-        finalData.push(skuHeaders);
-        productionBySku.forEach(sku => {
-            finalData.push([sku.name, sku.quantity]);
-        });
-        finalData.push([]); // Spacer
-    }
-
-    // Detailed Log Header
-    finalData.push(["Detailed Production Log"]);
-    const detailedHeaders = ["Date", "Shift", "Operator", "TBM", "SKU", "SAP Code", "Qty"];
-    finalData.push(detailedHeaders);
-
-    // Detailed Log Data
-    filteredReportData.forEach(row => {
-        finalData.push([
-            format(parseISO(row.date), 'dd-MM-yy'),
-            row.shift,
-            row.operatorName,
-            row.machineName,
-            row.sku,
-            row.sapCode,
-            row.quantity,
-        ]);
-    });
-
-    const worksheet = XLSX.utils.aoa_to_sheet(finalData);
-
-    // Set column widths
-    worksheet['!cols'] = [
-        { wch: 25 }, // Header / Operator Name / TBM / SKU / Date
-        { wch: 15 }, // Quantity / Shift
-        { wch: 25 }, // Operator
-        { wch: 15 }, // TBM
-        { wch: 20 }, // SKU
-        { wch: 15 }, // SAP Code
-        { wch: 10 }, // Qty
-    ];
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Production_Report');
-    XLSX.writeFile(workbook, 'RTPMS_Report.xlsx');
-
-    toast({
-        title: 'Report Exported',
-        description: 'Your report has been downloaded successfully.',
-    });
+type NewEntry = {
+  id: number;
+  tbmNo: string;
+  operator: string;
+  sku: string;
+  quantity: string;
 };
 
-  const handleGeneratePdf = () => {
-    if (filteredReportData.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'No Data for PDF',
-        description: 'Please apply filters to generate a report first.',
-      });
-      return;
-    }
-  
-    const doc = new jsPDF() as jsPDFWithAutoTable;
-  
-    const from = fromDate ? format(fromDate, 'dd-MM-yyyy') : 'N/A';
-    const to = toDate ? format(toDate, 'dd-MM-yyyy') : 'N/A';
-  
-    // Title
-    doc.setFontSize(20);
-    doc.text('Daily Production Report', 14, 22);
-    doc.setFontSize(11);
-    doc.setTextColor(100);
-    doc.text(`Date Range: ${from} to ${to}`, 14, 30);
-    
-    let startY = 40;
+export default function GTProductionEntryPage() {
+  const [newEntries, setNewEntries] = useState<NewEntry[]>([
+    { id: 1, tbmNo: "", operator: "", sku: "", quantity: "" },
+  ]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showFilters, setShowFilters] = useState(true);
+  const [showEntries, setShowEntries] = useState(true);
+  const [showSaved, setShowSaved] = useState(true);
 
-    // Operator Summary
-    if (productionByOperator.length > 0) {
-      doc.setFontSize(14);
-      doc.text('Production by Operator', 14, startY);
-      doc.autoTable({
-        startY: startY + 5,
-        head: [['Operator Name', 'Total Quantity']],
-        body: productionByOperator.map(op => [op.name, op.quantity.toLocaleString()]),
-        theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185] },
-      });
-      startY = doc.autoTable.previous.finalY + 15;
-    }
-    
-    // TBM Summary
-    if (productionByTbm.length > 0) {
-      doc.setFontSize(14);
-      doc.text('Production by TBM', 14, startY);
-      doc.autoTable({
-        startY: startY + 5,
-        head: [['TBM', 'Total Quantity']],
-        body: productionByTbm.map(tbm => [tbm.name, tbm.quantity.toLocaleString()]),
-        theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185] },
-      });
-      startY = doc.autoTable.previous.finalY + 15;
-    }
-
-    // Detailed Log
-    doc.setFontSize(14);
-    doc.text('Detailed Production Log', 14, startY);
-    const detailedBody = filteredReportData.map(row => [
-      format(parseISO(row.date), 'dd-MM-yy'),
-      row.shift,
-      row.operatorName,
-      row.machineName,
-      row.sku,
-      row.sapCode,
-      row.quantity,
-    ]);
-    doc.autoTable({
-      startY: startY + 5,
-      head: [['Date', 'Shift', 'Operator', 'TBM', 'SKU', 'SAP Code', 'Qty']],
-      body: detailedBody,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185] },
-    });
-  
-    doc.save(`RTPMS_Report_${from}_to_${to}.pdf`);
-  
-    toast({
-      title: 'PDF Generated',
-      description: 'Your PDF report has been downloaded successfully.',
-    });
-  };
-  
-  const summaryStats = React.useMemo(() => {
-    const totalProduction = filteredReportData.reduce(
-      (acc, item) => acc + (item.quantity || 0),
-      0
+  const handleEntryChange = (
+    id: number,
+    field: keyof Omit<NewEntry, "id">,
+    value: string
+  ) => {
+    setNewEntries((prev) =>
+      prev.map((entry) =>
+        entry.id === id ? { ...entry, [field]: value } : entry
+      )
     );
-    const uniqueSkus = new Set(filteredReportData.map(item => item.sku)).size;
-    const activeTbms = new Set(filteredReportData.map(item => item.machineId)).size;
-    return { totalProduction, uniqueSkus, activeTbms };
-  }, [filteredReportData]);
+  };
 
+  const handleAddEntry = () => {
+    setNewEntries([
+      ...newEntries,
+      { id: Date.now(), tbmNo: "", operator: "", sku: "", quantity: "" },
+    ]);
+  };
 
-  const productionByTbm = React.useMemo(() => {
-    const tbmData = filteredReportData.reduce((acc, item) => {
-      acc[item.machineName] = (acc[item.machineName] || 0) + item.quantity;
-      return acc;
-    }, {} as Record<string, number>);
+  const handleDeleteEntry = (id: number) => {
+    setNewEntries((prev) => prev.filter((entry) => entry.id !== id));
+  };
 
-    return Object.entries(tbmData)
-      .map(([name, quantity]) => ({ name, quantity }))
-      .sort((a, b) => b.quantity - a.quantity);
-  }, [filteredReportData]);
+  const handleSaveAllEntries = () => {
+    console.log("Saving new entries:", newEntries);
+    alert("✅ Entries saved successfully!");
+    setNewEntries([{ id: 1, tbmNo: "", operator: "", sku: "", quantity: "" }]);
+  };
 
-  const productionByOperator = React.useMemo(() => {
-    const operatorData = filteredReportData.reduce((acc, item) => {
-      const name = item.operatorName || 'Unknown';
-      acc[name] = (acc[name] || 0) + item.quantity;
-      return acc;
-    }, {} as Record<string, number>);
+  const totalSavedQuantity = savedEntriesData.reduce(
+    (sum, entry) => sum + entry.quantity,
+    0
+  );
 
-    return Object.entries(operatorData)
-      .map(([name, quantity]) => ({ name, quantity }))
-      .sort((a, b) => b.quantity - a.quantity);
-  }, [filteredReportData]);
-
-  const productionBySku = React.useMemo(() => {
-    const skuData = filteredReportData.reduce((acc, item) => {
-      acc[item.sku] = (acc[item.sku] || 0) + item.quantity;
-      return acc;
-    }, {} as Record<string, number>);
-
-    return Object.entries(skuData)
-      .map(([name, quantity]) => ({ name, quantity }))
-      .sort((a, b) => b.quantity - a.quantity);
-  }, [filteredReportData]);
-
+  const filteredSavedEntries = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return savedEntriesData.filter(
+      (e) =>
+        e.tbmNo.toLowerCase().includes(term) ||
+        e.operator.toLowerCase().includes(term) ||
+        e.sku.toLowerCase().includes(term) ||
+        e.quantity.toString().includes(term)
+    );
+  }, [searchTerm]);
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">
-          Advanced Reporting & Analytics
-        </h1>
-        <p className="text-muted-foreground">
-          Analyze production data, OEE, and machine breakdowns.
-        </p>
-      </div>
-
-      <Tabs defaultValue="production">
-        <div className="flex flex-col sm:flex-row justify-between items-center flex-wrap gap-4">
-          <TabsList>
-            <TabsTrigger value="production">Production Report</TabsTrigger>
-            <TabsTrigger value="oee">OEE Analysis</TabsTrigger>
-            <TabsTrigger value="breakdown">Breakdown Log</TabsTrigger>
-          </TabsList>
-          <div className='flex items-center gap-2'>
-            <Button onClick={handleGeneratePdf}>
-              <FileText className="mr-2 h-4 w-4" />
-              Generate PDF
-            </Button>
-            <Button onClick={handleExport}>
-              <Download className="mr-2 h-4 w-4" />
-              Export to Excel
-            </Button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 p-6 space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 text-white rounded-2xl p-6 shadow-lg flex justify-between items-center backdrop-blur-sm">
+        <div className="flex items-center space-x-4">
+          <Factory className="w-10 h-10 text-yellow-300 drop-shadow-lg" />
+          <h1 className="text-3xl font-extrabold tracking-wide drop-shadow">
+            GT Production Entry
+          </h1>
+        </div>
+        <div className="flex space-x-3">
+          <div className="bg-white/20 px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2">
+            <Database className="w-4 h-4" /> <span>Total Tyres: {totalSavedQuantity}</span>
+          </div>
+          <div className="bg-white/20 px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2">
+            <Layers className="w-4 h-4" /> <span>Active TBM: {tbmNumbers.length}</span>
           </div>
         </div>
+      </div>
 
-        <TabsContent value="production" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">
-                Production Report Filters
-              </CardTitle>
-              <CardDescription>
-                Filter the production data to generate your detailed report.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                <div className="grid gap-2">
-                  <Label>From Date</Label>
-                  <DatePicker date={fromDate} setDate={setFromDate} />
-                </div>
-                 <div className="grid gap-2">
-                  <Label>To Date</Label>
-                  <DatePicker date={toDate} setDate={setToDate} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Shift</Label>
-                  <Select
-                    value={selectedShift}
-                    onValueChange={setSelectedShift}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Shifts" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Shifts</SelectItem>
-                      {allShifts.map((s) => (
-                        <SelectItem key={s.name} value={s.name}>
-                          {s.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Operator</Label>
-                  <Select
-                    value={selectedOperator}
-                    onValueChange={setSelectedOperator}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Operators" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Operators</SelectItem>
-                      {allOperators.map((op) => (
-                        <SelectItem key={op.cardNo} value={op.cardNo}>
-                          {op.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label>TBM No</Label>
-                  <Select
-                    value={selectedMachine}
-                    onValueChange={setSelectedMachine}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All TBMs" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All TBMs</SelectItem>
-                      {allMachines.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Entered By</Label>
-                  <Select value={selectedUser} onValueChange={setSelectedUser}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Users" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Users</SelectItem>
-                      {allUsers
-                        .filter((u) => u.isApproved)
-                        .map((user) => (
-                          <SelectItem key={user.id} value={String(user.id)}>
-                            {user.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="flex justify-end mt-4">
-                <Button onClick={handleApplyFilters}>
-                  <Filter className="mr-2 h-4 w-4" />
-                  Apply Filters
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Filters Section */}
+      <Card className="shadow-md border-l-4 border-blue-400 bg-white/90 backdrop-blur-md">
+        <CardHeader
+          className="flex justify-between items-center cursor-pointer"
+          onClick={() => setShowFilters(!showFilters)}
+        >
+          <CardTitle className="text-blue-700 font-bold flex items-center space-x-2">
+            <CalendarDays className="w-5 h-5 text-blue-500" />
+            <span>Filters</span>
+            {showFilters ? <ChevronUp /> : <ChevronDown />}
+          </CardTitle>
+        </CardHeader>
+        {showFilters && (
+          <CardContent className="grid md:grid-cols-3 gap-4">
+            <div>
+              <label className="font-semibold text-sm text-gray-600">Date</label>
+              <DatePicker />
+            </div>
+            <div>
+              <label className="font-semibold text-sm text-gray-600">Shift</label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Shift" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="A">A</SelectItem>
+                  <SelectItem value="B">B</SelectItem>
+                  <SelectItem value="C">C</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="font-semibold text-sm text-gray-600">Hour</label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Hour" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <SelectItem key={i} value={`${i + 1}`}>
+                      {`${i + 1}:00`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
-           <div className="grid gap-6 md:grid-cols-3">
-             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Production</CardTitle>
-                <Package className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{summaryStats.totalProduction.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">Total units produced in the selected period.</p>
-              </CardContent>
-            </Card>
-             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active TBMs</CardTitle>
-                <Factory className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{summaryStats.activeTbms}</div>
-                <p className="text-xs text-muted-foreground">TBMs with production in this period.</p>
-              </CardContent>
-            </Card>
-             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Unique SKUs</CardTitle>
-                <UserCheck className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{summaryStats.uniqueSkus}</div>
-                <p className="text-xs text-muted-foreground">Distinct SKUs produced in this period.</p>
-              </CardContent>
-            </Card>
-           </div>
-          
-           <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-             <Card>
-                <CardHeader>
-                    <CardTitle>Production by TBM</CardTitle>
-                    <CardDescription>Total units produced by each TBM.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
-                        <BarChart accessibilityLayer data={productionByTbm} layout="vertical" margin={{ left: 10, right: 10 }}>
-                            <CartesianGrid horizontal={false} />
-                            <YAxis dataKey="name" type="category" tickLine={false} tickMargin={10} axisLine={false} className="text-muted-foreground text-xs" />
-                            <XAxis dataKey="quantity" type="number" hide />
-                            <Tooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent />} />
-                            <Bar dataKey="quantity" fill="hsl(var(--primary))" radius={4} />
-                        </BarChart>
-                    </ChartContainer>
-                </CardContent>
-             </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle>Production by Operator</CardTitle>
-                    <CardDescription>Total units produced by each operator.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
-                        <BarChart accessibilityLayer data={productionByOperator} layout="vertical" margin={{ left: 10, right: 10 }}>
-                            <CartesianGrid horizontal={false} />
-                            <YAxis dataKey="name" type="category" tickLine={false} tickMargin={10} axisLine={false} className="text-muted-foreground text-xs" />
-                            <XAxis dataKey="quantity" type="number" hide />
-                            <Tooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent />} />
-                            <Bar dataKey="quantity" fill="hsl(var(--primary))" radius={4} />
-                        </BarChart>
-                    </ChartContainer>
-                </CardContent>
-             </Card>
-           </div>
-           
-          <Accordion type="multiple" className="w-full space-y-4">
-            <Card>
-              <AccordionItem value="summary-tables" className="border-b-0">
-                  <AccordionTrigger className="p-6">
-                    <div className="flex flex-col items-start">
-                     <h3 className="text-lg font-semibold">Summary Tables</h3>
-                     <p className="text-sm text-muted-foreground">Click to view detailed production summaries.</p>
-                    </div>
-                  </AccordionTrigger>
-                <AccordionContent>
-                  <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3 p-6 pt-0">
-                    <SummaryTable title="Production by SKU" data={productionBySku} col1Header="SKU" col2Header="Total Quantity" />
-                    <SummaryTable title="Production by Operator" data={productionByOperator} col1Header="Operator" col2Header="Total Quantity" />
-                    <SummaryTable title="Production by TBM" data={productionByTbm} col1Header="TBM" col2Header="Total Quantity" />
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Card>
-
-            <Card>
-               <AccordionItem value="detailed-log" className="border-b-0">
-                <AccordionTrigger className="p-6">
-                    <div className="flex flex-col items-start">
-                      <h3 className="text-lg font-semibold">Detailed Production Log</h3>
-                      <p className="text-sm text-muted-foreground">Click to view the line-item production log based on filters.</p>
-                    </div>
-                  </AccordionTrigger>
-                <AccordionContent>
-                  <div className="p-6 pt-0">
-                    <div className="border rounded-lg max-h-[60vh] overflow-x-auto">
-                      <Table>
-                        <TableHeader className="sticky top-0 bg-background z-10">
-                          <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Shift</TableHead>
-                            <TableHead>Operator</TableHead>
-                            <TableHead>TBM No</TableHead>
-                            <TableHead>SKU</TableHead>
-                            <TableHead>SAP Code</TableHead>
-                            <TableHead>Entered By</TableHead>
-                            <TableHead className="text-right">Quantity</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredReportData.length > 0 ? (
-                            filteredReportData.map((row, index) => (
-                              <TableRow
-                                key={`${row.date}-${row.shift}-${row.machineId}-${row.round}-${row.sapCode}-${index}`}
-                              >
-                                <TableCell>
-                                  {format(parseISO(row.date), 'yyyy-MM-dd')}
-                                </TableCell>
-                                <TableCell>{row.shift}</TableCell>
-                                <TableCell className="font-medium">
-                                  {row.operatorName}
-                                </TableCell>
-                                <TableCell>{row.machineName}</TableCell>
-                                <TableCell>{row.sku}</TableCell>
-                                <TableCell>{row.sapCode}</TableCell>
-                                <TableCell>{row.userName || 'N/A'}</TableCell>
-                                <TableCell className="text-right">
-                                  {row.quantity}
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell
-                                colSpan={8}
-                                className="text-center h-24 text-muted-foreground"
-                              >
-                                No data available for the selected filters.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Card>
-          </Accordion>
-        </TabsContent>
-
-        <TabsContent value="oee">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Overall OEE
-                </CardTitle>
-                <Percent className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{mockOeeData.overall}%</div>
-                <p className="text-xs text-muted-foreground">
-                  World-class OEE is 85% or higher
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Availability
-                </CardTitle>
-                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {mockOeeData.availability}%
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Measures downtime losses
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Performance
-                </CardTitle>
-                <Wrench className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {mockOeeData.performance}%
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Measures speed losses
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Quality</CardTitle>
-                <Check className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {mockOeeData.quality}%
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Measures quality losses
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="text-lg">OEE Component Breakdown</CardTitle>
-              <CardDescription>
-                This is a visual demonstration. Accurate OEE calculation
-                requires additional data points.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer
-                config={oeeChartConfig}
-                className="min-h-[200px] w-full"
-              >
-                <BarChart
-                  accessibilityLayer
-                  data={oeeChartData}
-                  layout="vertical"
-                  margin={{ left: 10 }}
+      {/* New Entries Section */}
+      <Card className="shadow-md border-l-4 border-green-400 bg-gradient-to-r from-green-50 via-white to-green-100">
+        <CardHeader
+          className="flex justify-between items-center cursor-pointer"
+          onClick={() => setShowEntries(!showEntries)}
+        >
+          <CardTitle className="text-green-700 font-bold flex items-center space-x-2">
+            <PlusCircle className="w-5 h-5 text-green-600" />
+            <span>Production Entries</span>
+            {showEntries ? <ChevronUp /> : <ChevronDown />}
+          </CardTitle>
+        </CardHeader>
+        {showEntries && (
+          <CardContent>
+            <div className="space-y-3">
+              {newEntries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex flex-wrap items-center gap-3 bg-white rounded-xl p-4 shadow-sm hover:shadow-md border transition"
                 >
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    tickLine={false}
-                    tickMargin={10}
-                    axisLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                    className="text-muted-foreground"
-                  />
-                  <XAxis dataKey="value" type="number" hide />
-                  <CartesianGrid horizontal={false} />
-                  <ChartTooltip
-                    cursor={false}
-                    content={<ChartTooltipContent indicator="line" />}
-                  />
-                  <Bar dataKey="value" radius={5}></Bar>
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  <Select
+                    value={entry.tbmNo}
+                    onValueChange={(value) => handleEntryChange(entry.id, "tbmNo", value)}
+                  >
+                    <SelectTrigger className="w-[120px] bg-blue-50">
+                      <SelectValue placeholder="TBM No" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tbmNumbers.map((tbm) => (
+                        <SelectItem key={tbm} value={tbm}>
+                          {tbm}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-        <TabsContent value="breakdown">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Machine Breakdown Log</CardTitle>
-              <CardDescription>
-                A log of all machine downtime events based on entered remarks.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-lg max-h-[60vh] overflow-x-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-background z-10">
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>TBM No</TableHead>
-                      <TableHead>Shift</TableHead>
-                      <TableHead>Round</TableHead>
-                      <TableHead>Remark</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {breakdownData.length > 0 ? (
-                      breakdownData.map((row, index) => (
-                        <TableRow
-                          key={`${row.date}-${row.machineName}-${row.round}-${index}`}
-                        >
-                          <TableCell>
-                            {format(parseISO(row.date), 'yyyy-MM-dd')}
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {row.machineName}
-                          </TableCell>
-                          <TableCell>{row.shift}</TableCell>
-                          <TableCell>{row.round}</TableCell>
-                          <TableCell>{row.remark}</TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell
-                          colSpan={5}
-                          className="text-center h-24 text-muted-foreground"
-                        >
-                          No breakdowns with remarks logged in the selected
-                          period.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                  <Select
+                    value={entry.operator}
+                    onValueChange={(value) => handleEntryChange(entry.id, "operator", value)}
+                  >
+                    <SelectTrigger className="w-[150px] bg-green-50">
+                      <SelectValue placeholder="Operator" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {operators.map((op) => (
+                        <SelectItem key={op} value={op}>
+                          {op}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={entry.sku}
+                    onValueChange={(value) => handleEntryChange(entry.id, "sku", value)}
+                  >
+                    <SelectTrigger className="w-[140px] bg-purple-50">
+                      <SelectValue placeholder="SKU" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {skus.map((sku) => (
+                        <SelectItem key={sku} value={sku}>
+                          {sku}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Input
+                    type="number"
+                    placeholder="Qty"
+                    className="w-[90px] text-center"
+                    value={entry.quantity}
+                    onChange={(e) =>
+                      handleEntryChange(entry.id, "quantity", e.target.value)
+                    }
+                  />
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="hover:scale-105 transition"
+                    onClick={() => handleDeleteEntry(entry.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button
+              onClick={handleSaveAllEntries}
+              className="mt-6 bg-green-600 hover:bg-green-700 text-white shadow-md"
+            >
+              SAVE ALL ENTRIES
+            </Button>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Saved Entries Section */}
+      <Card className="shadow-md border-l-4 border-purple-400 bg-gradient-to-r from-purple-50 via-white to-purple-100">
+        <CardHeader
+          className="flex justify-between items-center cursor-pointer"
+          onClick={() => setShowSaved(!showSaved)}
+        >
+          <CardTitle className="text-purple-700 font-bold flex items-center space-x-2">
+            <Database className="w-5 h-5 text-purple-600" />
+            <span>Saved Entries ({filteredSavedEntries.length})</span>
+            {showSaved ? <ChevronUp /> : <ChevronDown />}
+          </CardTitle>
+        </CardHeader>
+        {showSaved && (
+          <CardContent>
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-3 text-gray-400" />
+              <Input
+                placeholder="Search TBM / Operator / SKU / Qty..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-white rounded-xl shadow-sm focus:ring-2 focus:ring-purple-300 transition"
+              />
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>TBM No</TableHead>
+                  <TableHead>Operator</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead className="text-right">Quantity</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSavedEntries.map((entry) => (
+                  <TableRow key={entry.id} className="hover:bg-purple-100 transition">
+                    <TableCell>{entry.tbmNo}</TableCell>
+                    <TableCell>{entry.operator}</TableCell>
+                    <TableCell>{entry.sku}</TableCell>
+                    <TableCell className="text-right font-semibold text-purple-700">
+                      {entry.quantity}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Floating Add Button */}
+      <Button
+        className="fixed bottom-6 right-6 rounded-full p-5 shadow-2xl bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:scale-110 transition-transform"
+        onClick={handleAddEntry}
+      >
+        <PlusCircle className="mr-2" /> Add Entry
+      </Button>
     </div>
   );
 }
-
-function DatePicker({
-  date,
-  setDate,
-}: {
-  date: Date | undefined;
-  setDate: (date: Date | undefined) => void;
-}) {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant={'outline'}
-          className={cn(
-            'w-full justify-start text-left font-normal',
-            !date && 'text-muted-foreground'
-          )}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, 'PPP') : <span>Pick a date</span>}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          initialFocus
-          mode="single"
-          selected={date}
-          onSelect={setDate}
-        />
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function SummaryTable({ title, data, col1Header, col2Header }: { title: string; data: { name: string, quantity: number }[], col1Header: string, col2Header: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-md">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="border rounded-lg max-h-60 overflow-y-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{col1Header}</TableHead>
-                <TableHead className="text-right">{col2Header}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((item, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium">{item.name}</TableCell>
-                  <TableCell className="text-right">{item.quantity.toLocaleString()}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-    
-
-    

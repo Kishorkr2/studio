@@ -54,12 +54,13 @@ export function ThemeProvider({
     
     // Determine the base theme (light/dark)
     const baseTheme = isPreset 
-      ? (theme === 'theme-white' ? 'light' : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
+      ? 'light'
       : effectiveTheme;
 
-    // Add the base theme class
-    root.classList.add(baseTheme as string);
-
+    if (baseTheme) {
+      root.classList.add(baseTheme);
+    }
+    
     // If it's a preset, add the preset class as well
     if(isPreset){
       root.classList.add(theme as string);
