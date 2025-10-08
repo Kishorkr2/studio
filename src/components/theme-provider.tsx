@@ -44,16 +44,17 @@ export function ThemeProvider({
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark', ...THEMES.map(t => t.id));
 
-    let effectiveTheme: Theme = theme;
+    let effectiveTheme = theme;
     if (theme === 'system' && enableSystem) {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      effectiveTheme = systemTheme;
+      effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     
     const isPreset = THEMES.some(p => p.id === effectiveTheme);
-    const baseTheme = isPreset ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : effectiveTheme;
+    const baseTheme = isPreset 
+      ? (effectiveTheme === 'theme-white' ? 'light' : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
+      : effectiveTheme;
 
-    root.classList.add(baseTheme);
+    root.classList.add(baseTheme as string);
     if(isPreset){
       root.classList.add(effectiveTheme as string);
     }
