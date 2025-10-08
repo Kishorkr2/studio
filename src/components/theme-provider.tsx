@@ -46,17 +46,23 @@ export function ThemeProvider({
 
     let effectiveTheme = theme;
     if (theme === 'system' && enableSystem) {
-      effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      effectiveTheme = systemTheme;
     }
     
-    const isPreset = THEMES.some(p => p.id === effectiveTheme);
+    const isPreset = THEMES.some(p => p.id === theme);
+    
+    // Determine the base theme (light/dark)
     const baseTheme = isPreset 
-      ? (effectiveTheme === 'theme-white' ? 'light' : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
+      ? (theme === 'theme-white' ? 'light' : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
       : effectiveTheme;
 
+    // Add the base theme class
     root.classList.add(baseTheme as string);
+
+    // If it's a preset, add the preset class as well
     if(isPreset){
-      root.classList.add(effectiveTheme as string);
+      root.classList.add(theme as string);
     }
 
   }, [theme, enableSystem]);
