@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, FileDown, Calendar as CalendarIcon } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList } from "recharts";
 import * as XLSX from "xlsx";
 import * as actions from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
@@ -251,7 +251,9 @@ export default function GTReportDashboard() {
                       <XAxis dataKey="sku" stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#555" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
                       <Tooltip cursor={{fill: 'rgba(139, 92, 246, 0.1)'}}/>
-                      <Bar dataKey="quantity" fill="rgba(139, 92, 246, 0.8)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="quantity" fill="rgba(139, 92, 246, 0.8)" radius={[4, 4, 0, 0]}>
+                        <LabelList dataKey="quantity" position="top" className="fill-foreground text-xs" />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -266,7 +268,9 @@ export default function GTReportDashboard() {
                       <XAxis dataKey="operatorName" stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#555" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
                       <Tooltip cursor={{fill: 'rgba(16, 185, 129, 0.1)'}}/>
-                      <Bar dataKey="quantity" fill="rgba(16, 185, 129, 0.8)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="quantity" fill="rgba(16, 185, 129, 0.8)" radius={[4, 4, 0, 0]}>
+                        <LabelList dataKey="quantity" position="top" className="fill-foreground text-xs" />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
