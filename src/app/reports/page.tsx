@@ -18,25 +18,37 @@ import {
   TableHead,
   TableRow,
 } from "@/components/ui/table";
-import { Search, FileDown } from "lucide-react";
+import { Search, FileDown, Calendar as CalendarIcon } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import * as XLSX from "xlsx";
 import * as actions from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import type { ReportDataRow } from "@/lib/types";
+import type { ReportDataRow, ShiftInfo } from "@/lib/types";
 import { Loader } from "@/components/ui/loader";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 export default function GTReportDashboard() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<ReportDataRow[]>([]);
+  const [shifts, setShifts] = useState<ShiftInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [selectedShift, setSelectedShift] = useState<string>("All");
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const fetchedLogs = await actions.getProductionLogs();
+      const [fetchedLogs, fetchedShifts] = await Promise.all([
+        actions.getProductionLogs(),
+        actions.getShifts()
+      ]);
       setLogs(fetchedLogs);
+      setShifts(fetchedShifts);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -53,7 +65,18 @@ export default function GTReportDashboard() {
   }, [loadData]);
   
   const filteredSavedEntries = useMemo(() => {
-    return logs.filter((e) => {
+    let dateFilteredLogs = logs;
+
+    if (selectedDate) {
+      const dateString = format(selectedDate, "yyyy-MM-dd");
+      dateFilteredLogs = dateFilteredLogs.filter(e => e.date === dateString);
+    }
+
+    if (selectedShift && selectedShift !== "All") {
+      dateFilteredLogs = dateFilteredLogs.filter(e => e.shift === selectedShift);
+    }
+
+    return dateFilteredLogs.filter((e) => {
       const term = searchTerm.toLowerCase();
       return (
         e.machineName?.toLowerCase().includes(term) ||
@@ -62,15 +85,15 @@ export default function GTReportDashboard() {
         e.quantity.toString().includes(term)
       );
     });
-  }, [logs, searchTerm]);
+  }, [logs, searchTerm, selectedDate, selectedShift]);
 
   const totalSavedQuantity = useMemo(() => {
     return filteredSavedEntries.reduce((sum, entry) => sum + entry.quantity, 0);
   }, [filteredSavedEntries]);
 
   const tbmNumbers = useMemo(() => {
-    return [...new Set(logs.map(l => l.machineName).filter(Boolean))];
-  }, [logs]);
+    return [...new Set(filteredSavedEntries.map(l => l.machineName).filter(Boolean))];
+  }, [filteredSavedEntries]);
 
   const operatorProduction = useMemo(() => {
     if (!filteredSavedEntries) return [];
@@ -86,7 +109,6 @@ export default function GTReportDashboard() {
     return Object.values(operatorData).sort((a, b) => b.quantity - a.quantity);
   }, [filteredSavedEntries]);
 
-  // Export to Excel
   const handleExportExcel = () => {
     if (filteredSavedEntries.length === 0) {
       toast({
@@ -107,6 +129,12 @@ export default function GTReportDashboard() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "RTPMS Report");
     XLSX.writeFile(wb, "RTPMS_Report.xlsx");
+  };
+
+  const clearFilters = () => {
+    setSelectedDate(undefined);
+    setSelectedShift("All");
+    setSearchTerm("");
   };
 
   if (loading) {
@@ -130,14 +158,56 @@ export default function GTReportDashboard() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-             <Button
-                onClick={handleExportExcel}
-                className="bg-purple-600 text-white hover:bg-purple-700"
-              >
-                <FileDown className="mr-2 h-4 w-4" /> Export Excel
-              </Button>
-            <div className="relative w-64">
+          <div className="flex flex-wrap items-center gap-3">
+             <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-[240px] justify-start text-left font-normal",
+                    !selectedDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            <Select value={selectedShift} onValueChange={setSelectedShift}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select Shift" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Shifts</SelectItem>
+                {shifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              className="border-purple-400 text-purple-700 hover:bg-purple-100"
+              onClick={clearFilters}
+            >
+              Clear Filters
+            </Button>
+            <Button
+              onClick={handleExportExcel}
+              className="bg-purple-600 text-white hover:bg-purple-700"
+            >
+              <FileDown className="mr-2 h-4 w-4" /> Export
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+           <div className="relative w-full md:w-1/3">
               <Search className="absolute left-2 top-2.5 text-gray-400 h-5 w-5" />
               <Input
                 placeholder="Search..."
@@ -146,28 +216,15 @@ export default function GTReportDashboard() {
                 className="pl-8 bg-white border-purple-300 focus:ring-2 focus:ring-purple-400"
               />
             </div>
-            <Button
-              variant="outline"
-              className="border-purple-400 text-purple-700 hover:bg-purple-100"
-              onClick={() => setSearchTerm("")}
-            >
-              Clear
-            </Button>
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
           <div className="grid md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl p-4 shadow-lg">
               <h3 className="text-sm font-semibold opacity-90">Total Entries</h3>
               <p className="text-2xl font-bold mt-1">{filteredSavedEntries.length}</p>
             </div>
-
             <div className="bg-gradient-to-r from-green-400 to-teal-500 text-white rounded-xl p-4 shadow-lg">
               <h3 className="text-sm font-semibold opacity-90">Total Quantity</h3>
               <p className="text-2xl font-bold mt-1">{totalSavedQuantity.toLocaleString()}</p>
             </div>
-
             <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl p-4 shadow-lg">
               <h3 className="text-sm font-semibold opacity-90">Active Machines</h3>
               <p className="text-2xl font-bold mt-1">{tbmNumbers.length}</p>
@@ -189,11 +246,11 @@ export default function GTReportDashboard() {
                             acc[curr.sku].quantity += curr.quantity;
                             return acc;
                           }, {} as Record<string, { sku: string; quantity: number }>)
-                        ).sort((a,b) => b.quantity - a.quantity)
+                        ).sort((a,b) => b.quantity - a.quantity).slice(0, 10)
                     }>
                       <XAxis dataKey="sku" stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#555" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
-                      <Tooltip />
+                      <Tooltip cursor={{fill: 'rgba(139, 92, 246, 0.1)'}}/>
                       <Bar dataKey="quantity" fill="rgba(139, 92, 246, 0.8)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -205,10 +262,10 @@ export default function GTReportDashboard() {
                 </CardHeader>
                 <CardContent className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={operatorProduction}>
+                    <BarChart data={operatorProduction.slice(0, 10)}>
                       <XAxis dataKey="operatorName" stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#555" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
-                      <Tooltip />
+                      <Tooltip cursor={{fill: 'rgba(16, 185, 129, 0.1)'}}/>
                       <Bar dataKey="quantity" fill="rgba(16, 185, 129, 0.8)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -216,28 +273,31 @@ export default function GTReportDashboard() {
               </Card>
            </div>
 
-          <div className="overflow-hidden rounded-xl border border-purple-200 shadow-md">
+          <div className="overflow-hidden rounded-xl border border-purple-200 shadow-md max-h-[50vh] overflow-y-auto">
             <Table>
-              <TableHeader className="bg-purple-100">
+              <TableHeader className="bg-purple-100 sticky top-0 z-10">
                 <TableRow>
+                  <TableHead className="font-semibold text-purple-700">Date</TableHead>
+                  <TableHead className="font-semibold text-purple-700">Shift</TableHead>
                   <TableHead className="font-semibold text-purple-700">TBM No</TableHead>
                   <TableHead className="font-semibold text-purple-700">Operator</TableHead>
                   <TableHead className="font-semibold text-purple-700">SKU</TableHead>
                   <TableHead className="text-right font-semibold text-purple-700">Quantity</TableHead>
                 </TableRow>
               </TableHeader>
-
               <TableBody>
                 {filteredSavedEntries.length > 0 ? (
                   filteredSavedEntries.map((entry, index) => (
                     <TableRow
                       key={`${entry.date}-${entry.round}-${entry.machineId}-${entry.sapCode}-${index}`}
-                      className={`transition hover:scale-[1.01] hover:bg-gradient-to-r ${
+                      className={`transition hover:bg-gradient-to-r ${
                         index % 2 === 0
                           ? "from-purple-50 to-pink-50"
                           : "from-white to-purple-50"
                       }`}
                     >
+                      <TableCell>{format(new Date(entry.date), "dd-MM-yyyy")}</TableCell>
+                      <TableCell>{entry.shift}</TableCell>
                       <TableCell className="font-medium">{entry.machineName}</TableCell>
                       <TableCell>{entry.operatorName}</TableCell>
                       <TableCell>{entry.sku}</TableCell>
@@ -248,7 +308,7 @@ export default function GTReportDashboard() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-4 text-gray-500 italic">
+                    <TableCell colSpan={6} className="text-center py-4 text-gray-500 italic">
                       No matching records found.
                     </TableCell>
                   </TableRow>
