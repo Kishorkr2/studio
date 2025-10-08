@@ -4,13 +4,12 @@
 import * as React from 'react';
 import { THEMES } from './theme-preset-selector';
 
-type Theme = 'dark' | 'light' | 'system' | typeof THEMES[number]['id'];
+type Theme = 'dark' | 'light' | 'system' | (typeof THEMES)[number]['id'];
 
 type ThemeProviderProps = {
   children: React.ReactNode;
   defaultTheme?: Theme;
   storageKey?: string;
-  enableSystem?: boolean;
 };
 
 type ThemeProviderState = {
@@ -23,50 +22,41 @@ const initialState: ThemeProviderState = {
   setTheme: () => null,
 };
 
-const ThemeProviderContext =
-  React.createContext<ThemeProviderState>(initialState);
+const ThemeProviderContext = React.createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({
   children,
   defaultTheme = 'system',
   storageKey = 'ui-theme',
-  enableSystem = true,
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = React.useState<Theme>(() => {
     if (typeof window === 'undefined') {
       return defaultTheme;
     }
-    return (localStorage.getItem(storageKey) as Theme) || defaultTheme
+    return (localStorage.getItem(storageKey) as Theme) || defaultTheme;
   });
 
   React.useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark', ...THEMES.map(t => t.id));
+    root.classList.remove('light', 'dark', ...THEMES.map((t) => t.id));
 
     let effectiveTheme = theme;
-    if (theme === 'system' && enableSystem) {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      effectiveTheme = systemTheme;
+    if (theme === 'system') {
+      effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light';
     }
     
     const isPreset = THEMES.some(p => p.id === theme);
     
-    // Determine the base theme (light/dark)
-    const baseTheme = isPreset 
-      ? 'light'
-      : effectiveTheme;
+    const baseTheme = isPreset ? 'light' : effectiveTheme;
+    root.classList.add(baseTheme);
 
-    if (baseTheme) {
-      root.classList.add(baseTheme);
-    }
-    
-    // If it's a preset, add the preset class as well
-    if(isPreset){
+    if (isPreset) {
       root.classList.add(theme as string);
     }
-
-  }, [theme, enableSystem]);
+  }, [theme]);
 
   const value = {
     theme,
