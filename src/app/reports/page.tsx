@@ -18,7 +18,7 @@ import {
   TableHead,
   TableRow,
 } from "@/components/ui/table";
-import { Search, FileDown, BarChart2 } from "lucide-react";
+import { Search, FileDown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import * as XLSX from "xlsx";
 import * as actions from "@/app/actions";
@@ -71,6 +71,20 @@ export default function GTReportDashboard() {
   const tbmNumbers = useMemo(() => {
     return [...new Set(logs.map(l => l.machineName).filter(Boolean))];
   }, [logs]);
+
+  const operatorProduction = useMemo(() => {
+    if (!filteredSavedEntries) return [];
+    const operatorData = filteredSavedEntries.reduce((acc, curr) => {
+        if (!curr.operatorName || curr.operatorName === 'N/A') return acc;
+        if (!acc[curr.operatorName]) {
+            acc[curr.operatorName] = { operatorName: curr.operatorName, quantity: 0 };
+        }
+        acc[curr.operatorName].quantity += curr.quantity;
+        return acc;
+    }, {} as Record<string, { operatorName: string; quantity: number }>);
+
+    return Object.values(operatorData).sort((a, b) => b.quantity - a.quantity);
+  }, [filteredSavedEntries]);
 
   // Export to Excel
   const handleExportExcel = () => {
@@ -160,30 +174,47 @@ export default function GTReportDashboard() {
             </div>
           </div>
           
-           <Card>
-              <CardHeader>
-                <CardTitle className="text-lg text-purple-700">SKU Wise Production</CardTitle>
-              </CardHeader>
-              <CardContent className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={
-                      Object.values(
-                        filteredSavedEntries.reduce((acc, curr) => {
-                          if (!curr.sku) return acc;
-                          if (!acc[curr.sku]) acc[curr.sku] = { sku: curr.sku, quantity: 0 };
-                          acc[curr.sku].quantity += curr.quantity;
-                          return acc;
-                        }, {} as Record<string, { sku: string; quantity: number }>)
-                      )
-                  }>
-                    <XAxis dataKey="sku" stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#555" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
-                    <Tooltip />
-                    <Bar dataKey="quantity" fill="rgba(139, 92, 246, 0.8)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+           <div className="grid md:grid-cols-2 gap-4">
+            <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg text-purple-700">SKU Wise Production</CardTitle>
+                </CardHeader>
+                <CardContent className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={
+                        Object.values(
+                          filteredSavedEntries.reduce((acc, curr) => {
+                            if (!curr.sku) return acc;
+                            if (!acc[curr.sku]) acc[curr.sku] = { sku: curr.sku, quantity: 0 };
+                            acc[curr.sku].quantity += curr.quantity;
+                            return acc;
+                          }, {} as Record<string, { sku: string; quantity: number }>)
+                        ).sort((a,b) => b.quantity - a.quantity)
+                    }>
+                      <XAxis dataKey="sku" stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#555" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
+                      <Tooltip />
+                      <Bar dataKey="quantity" fill="rgba(139, 92, 246, 0.8)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg text-green-700">Operator Wise Production</CardTitle>
+                </CardHeader>
+                <CardContent className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={operatorProduction}>
+                      <XAxis dataKey="operatorName" stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#555" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
+                      <Tooltip />
+                      <Bar dataKey="quantity" fill="rgba(16, 185, 129, 0.8)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+           </div>
 
           <div className="overflow-hidden rounded-xl border border-purple-200 shadow-md">
             <Table>
