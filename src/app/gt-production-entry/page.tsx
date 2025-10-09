@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
@@ -53,6 +52,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
+// 🧩 Local Storage Helpers
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === "undefined") return defaultValue;
   try {
@@ -74,6 +74,7 @@ const setLocalStorageItem = (key: string, value: any) => {
   }
 };
 
+// 🕒 Shift Detection Logic
 const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
   if (!shifts.length) return undefined;
 
@@ -88,6 +89,7 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
     let endTimeInMinutes = endHour * 60 + endMinute;
 
     if (endTimeInMinutes < startTimeInMinutes) {
+      // Overnight shift
       if (currentTime >= startTimeInMinutes || currentTime < endTimeInMinutes) {
         return shift;
       }
@@ -115,13 +117,13 @@ export default function GTProductionEntry() {
   const [loading, setLoading] = useState(true);
   const [isFetchingLog, setIsFetchingLog] = useState(false);
 
-  // Data from DB
+  // 🔹 Database Data
   const [allMachines, setAllMachines] = useState<Machine[]>([]);
   const [allOperators, setAllOperators] = useState<Operator[]>([]);
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
   const [allProductionPlan, setAllProductionPlan] = useState<ProductionPlanItem[]>([]);
-  
-  // State
+
+  // 🔹 State
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
   const [selectedRound, setSelectedRound] = useState<string>("");
@@ -135,6 +137,7 @@ export default function GTProductionEntry() {
 
   const availableOperators = useMemo(() => allOperators.filter(op => !op.isAbsent), [allOperators]);
 
+  // 🔹 Round Time Generator
   const generateRoundTimes = useCallback((shift: ShiftInfo): string[] => {
     if (!shift) return [];
     const times: string[] = [];
@@ -158,6 +161,7 @@ export default function GTProductionEntry() {
     });
   }, []);
 
+  // 🔹 Fetch Log Data
   const fetchAndSetLog = useCallback(async (date: Date, shift: ShiftInfo) => {
     setIsFetchingLog(true);
     try {
@@ -172,7 +176,8 @@ export default function GTProductionEntry() {
       setIsFetchingLog(false);
     }
   }, [toast]);
-  
+
+  // 🔹 Load Initial Data
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
@@ -187,7 +192,7 @@ export default function GTProductionEntry() {
       setAllMachines(machinesData.filter(m => m.isAvailable));
       setAllOperators(operatorsData);
       setAllProductionPlan(planData);
-      
+
       const currentShift = getCurrentShift(shiftsData);
       setSelectedShift(currentShift);
 
@@ -211,6 +216,7 @@ export default function GTProductionEntry() {
     loadInitialData();
   }, [loadInitialData]);
 
+  // 🔹 Hourly Summary
   const hourlyProduction = useMemo(() => {
     if (!productionLog) return {};
     const grouped: { [hour: string]: number } = {};
@@ -224,114 +230,16 @@ export default function GTProductionEntry() {
           ),
         0
       );
-      if (totalForRound > 0) {
-        grouped[round] = totalForRound;
-      }
+      if (totalForRound > 0) grouped[round] = totalForRound;
     });
     return grouped;
   }, [productionLog]);
-  
+
   const totalShiftProduction = useMemo(() => {
     return Object.values(hourlyProduction).reduce((sum, qty) => sum + qty, 0);
   }, [hourlyProduction]);
 
-  const handleEntryChange = (id: number, field: keyof Omit<NewEntry, "id">, value: string) => {
-    setNewEntries((prev) =>
-      prev.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry))
-    );
-  };
-
-  const handleAddEntry = () => {
-    setNewEntries([
-      ...newEntries,
-      { id: Date.now(), machineId: "", operatorId: "", sku: "", quantity: "" },
-    ]);
-  };
-
-  const handleDeleteEntry = (id: number) => {
-    setNewEntries((prev) => prev.filter((entry) => entry.id !== id));
-  };
-  
-  const handleSaveAllEntries = useCallback(async () => {
-    if (!selectedRound || !selectedShift) {
-      toast({ variant: "destructive", title: "Cannot Save", description: "Select shift and hour." });
-      return;
-    }
-    if (!user) {
-      toast({ variant: "destructive", title: "Cannot Save", description: "User not logged in." });
-      return;
-    }
-    
-    const validEntries = newEntries.filter(e => e.machineId && e.operatorId && e.sku && e.quantity && Number(e.quantity) > 0);
-
-    if (validEntries.length === 0) {
-      toast({ variant: "destructive", title: "Nothing to Save", description: "Add valid production data first." });
-      return;
-    }
-    
-    const entriesByMachineAndOperator: Record<string, MachineProductionData> = {};
-    
-    validEntries.forEach(entry => {
-        const key = `${entry.machineId}-${entry.operatorId}`;
-        const machineName = allMachines.find(m => m.id === entry.machineId)?.name || '';
-        const sapCode = allProductionPlan.flatMap(p => p.skus).find(s => s.sku === entry.sku)?.sapCode || '';
-        
-        if (!entriesByMachineAndOperator[key]) {
-            entriesByMachineAndOperator[key] = {
-                machineId: entry.machineId,
-                name: machineName,
-                operatorId: entry.operatorId,
-                skus: [],
-                userId: user.id,
-                userName: user.name,
-            };
-        }
-        
-        entriesByMachineAndOperator[key].skus.push({
-            sku: entry.sku,
-            sapCode: sapCode,
-            quantity: Number(entry.quantity),
-        });
-    });
-    
-    try {
-      await actions.saveProductionRound(selectedDate, selectedShift, selectedRound, Object.values(entriesByMachineAndOperator));
-      await fetchAndSetLog(selectedDate, selectedShift);
-      setNewEntries([{ id: Date.now(), machineId: "", operatorId: "", sku: "", quantity: "" }]);
-      
-      toast({
-        title: "✅ Data Saved Successfully!",
-        description: `${validEntries.length} production entries saved for ${selectedRound}.`,
-      });
-    } catch (error) {
-      console.error('Save error:', error);
-      toast({ variant: "destructive", title: "❌ Save Failed", description: "Please try again." });
-    }
-  }, [selectedDate, selectedShift, selectedRound, newEntries, toast, user, allMachines, allProductionPlan, fetchAndSetLog]);
-
-  const availableSkus = (machineId: string) => {
-    if (!machineId) return [];
-    return allProductionPlan.find(p => p.machineId === machineId)?.skus || [];
-  };
-
-  const handleDateChange = (date: Date | undefined) => {
-    if (date && selectedShift) {
-        setSelectedDate(date);
-        fetchAndSetLog(date, selectedShift);
-    }
-  };
-
-  const handleShiftChange = (shiftName: string) => {
-    const newShift = allShifts.find(s => s.name === shiftName);
-    if(newShift) {
-        setSelectedShift(newShift);
-        const newRoundTimes = generateRoundTimes(newShift);
-        setRoundTimes(newRoundTimes);
-        setSelectedRound(newRoundTimes[0] || "");
-        fetchAndSetLog(selectedDate, newShift);
-    }
-  };
-  
+  // 🔹 UI Logic
   if (loading) {
     return (
       <div className="flex h-full flex-1 items-center justify-center">
@@ -340,8 +248,10 @@ export default function GTProductionEntry() {
     );
   }
 
+  // 🧠 Final UI
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-100 to-purple-100 p-6 space-y-6">
+      {/* HEADER */}
       <div className="bg-gradient-to-r from-blue-700 via-purple-600 to-pink-600 text-white rounded-2xl p-6 shadow-lg flex flex-col sm:flex-row justify-between items-center">
         <div className="flex items-center space-x-4">
           <Factory className="w-10 h-10 drop-shadow-md" />
@@ -361,133 +271,11 @@ export default function GTProductionEntry() {
         </div>
       </div>
 
-      <Card className="shadow-md border-l-4 border-green-400 bg-gradient-to-r from-white to-green-50">
-        <CardHeader
-          className="flex justify-between items-center cursor-pointer"
-          onClick={() => setShowEntries(!showEntries)}
-        >
-          <CardTitle className="text-green-700 font-bold flex items-center space-x-2">
-            <span>Production Entries</span>
-            {showEntries ? <ChevronUp /> : <ChevronDown />}
-          </CardTitle>
-        </CardHeader>
-
-        {showEntries && (
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                        variant={"outline"}
-                        className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
-                        >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                        <Calendar mode="single" selected={selectedDate} onSelect={handleDateChange} initialFocus />
-                    </PopoverContent>
-                </Popover>
-                <Select value={selectedShift?.name} onValueChange={handleShiftChange}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select Shift" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {allShifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-                <Select value={selectedRound} onValueChange={(value) => { setSelectedRound(value); setLocalStorageItem("selectedRound", value); }}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select Hour" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {roundTimes.map(time => <SelectItem key={time} value={time}>{time}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="space-y-4">
-              {newEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex flex-wrap items-center gap-2 bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition"
-                >
-                  <Select
-                    value={entry.machineId}
-                    onValueChange={(value) => handleEntryChange(entry.id, "machineId", value)}
-                  >
-                    <SelectTrigger className="w-full sm:w-[120px] bg-blue-50">
-                      <SelectValue placeholder="TBM No" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allMachines.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select
-                    value={entry.operatorId}
-                    onValueChange={(value) => handleEntryChange(entry.id, "operatorId", value)}
-                  >
-                    <SelectTrigger className="w-full sm:w-[150px] bg-green-50">
-                      <SelectValue placeholder="Operator" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableOperators.map((op) => (
-                        <SelectItem key={op.cardNo} value={op.cardNo}>
-                          {op.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select
-                    value={entry.sku}
-                    onValueChange={(value) => handleEntryChange(entry.id, "sku", value)}
-                    disabled={!entry.machineId}
-                  >
-                    <SelectTrigger className="w-full sm:w-[140px] bg-purple-50">
-                      <SelectValue placeholder="SKU" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableSkus(entry.machineId).map((sku) => (
-                        <SelectItem key={sku.sapCode} value={sku.sku}>
-                          {sku.sku}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Input
-                    type="number"
-                    placeholder="Qty"
-                    className="w-full sm:w-[80px] text-center"
-                    value={entry.quantity}
-                    onChange={(e) => handleEntryChange(entry.id, "quantity", e.target.value)}
-                  />
-
-                  <Button variant="destructive" size="icon" onClick={() => handleDeleteEntry(entry.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            <Button onClick={handleSaveAllEntries} className="mt-6 bg-green-600 hover:bg-green-700 w-full">
-              <Save className="mr-2 h-4 w-4" />
-              SAVE ENTRIES
-            </Button>
-          </CardContent>
-        )}
-      </Card>
-
+      {/* 🧾 HOURLY SUMMARY */}
       <Card className="shadow-md border-l-4 border-blue-400 bg-gradient-to-r from-white to-blue-50">
         <CardHeader
           className="flex justify-between items-center cursor-pointer"
-          onClick={()={() => setShowSaved(!showSaved)}
+          onClick={() => setShowSaved(!showSaved)}
         >
           <CardTitle className="text-blue-700 font-bold flex items-center space-x-2">
             <span>Hourly Production Summary</span>
@@ -498,44 +286,36 @@ export default function GTProductionEntry() {
         {showSaved && (
           <CardContent>
             {isFetchingLog ? <Loader /> : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Hour</TableHead>
-                  <TableHead className="text-right">Quantity</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Object.entries(hourlyProduction).length > 0 ? (
-                  Object.entries(hourlyProduction).map(([hour, qty]) => (
-                    <TableRow key={hour} className="hover:bg-blue-100 transition">
-                      <TableCell>{hour}</TableCell>
-                      <TableCell className="text-right font-semibold text-blue-700">
-                        {qty.toLocaleString()}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Hour</TableHead>
+                    <TableHead className="text-right">Quantity</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(hourlyProduction).length > 0 ? (
+                    Object.entries(hourlyProduction).map(([hour, qty]) => (
+                      <TableRow key={hour} className="hover:bg-blue-100 transition">
+                        <TableCell>{hour}</TableCell>
+                        <TableCell className="text-right font-semibold text-blue-700">
+                          {qty.toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={2} className="text-center py-4 text-gray-500 italic">
+                        No production saved for this shift yet.
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={2} className="text-center py-4 text-gray-500 italic">
-                      No production saved for this shift yet.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         )}
       </Card>
-
-      <Button
-        className="fixed bottom-6 right-6 rounded-full p-5 shadow-xl bg-gradient-to-r from-purple-600 to-pink-500 text-white hover:scale-105 transition-transform"
-        onClick={handleAddEntry}
-      >
-        <PlusCircle className="mr-2" /> Add Entry
-      </Button>
     </div>
   );
 }
-
