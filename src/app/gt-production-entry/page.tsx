@@ -70,7 +70,7 @@ export default function GTProductionEntry() {
       grouped[e.hour] = (grouped[e.hour] || 0) + e.quantity;
     });
     return grouped;
-  }, []); // Removed savedEntriesData from dependency array to use mock data
+  }, [savedEntriesData]);
 
   const handleEntryChange = (id: number, field: keyof Omit<NewEntry, "id">, value: string) => {
     setNewEntries((prev) =>
