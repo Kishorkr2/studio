@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Inter } from 'next/font/google';
-import { AppLayout } from '@/components/app-layout';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/components/auth-provider';
 import { PWAInstall } from '@/components/pwa-install';
 import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar';
+import { AppLayout } from '@/components/app-layout';
 
 // ✅ Font setup
 const inter = Inter({
@@ -55,10 +55,10 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
             <AppLayout>{children}</AppLayout>
+            <Toaster />
+            <PWAInstall />
+            <ServiceWorkerRegistrar />
           </AuthProvider>
-          <Toaster />
-          <PWAInstall />
-          <ServiceWorkerRegistrar />
         </ThemeProvider>
       </body>
     </html>

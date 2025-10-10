@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -82,7 +81,7 @@ export function AppLayout({children}: {children: React.ReactNode}) {
 
   const childrenWithProps = React.Children.map(children, child => {
     if (React.isValidElement(child)) {
-      if (pathname === '/gt-production-entry' || pathname === '/curing') {
+      if (pathname === '/gt-production-entry' || pathname === '/curing' || pathname === '/Dashboard') {
         return React.cloneElement(child as React.ReactElement<any>, { setPageActions });
       }
     }
@@ -153,7 +152,7 @@ function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
             </Link>
           </DropdownMenuItem>
         ))}
-        {(pathname === '/gt-production-entry' || pathname === '/curing') && pageActions}
+        {(pathname === '/gt-production-entry' || pathname === '/curing' || pathname === '/Dashboard') && pageActions}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
