@@ -29,11 +29,13 @@ import {
   Spline,
   Circle,
   Home,
+  ArrowLeft,
 } from 'lucide-react';
 import {useOnlineStatus} from '@/hooks/use-online-status';
 import {useAuth} from './auth-provider';
 import { RalsonTyreIcon } from './icons/ralson-tyre-icon';
 import { ThemePresetSelector } from './theme-preset-selector';
+import { useNavigation } from '@/hooks/use-navigation';
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -76,6 +78,7 @@ export function AppLayout({children}: {children: React.ReactNode}) {
   const {isAuthenticated} = useAuth();
   const pathname = usePathname();
   const [pageActions, setPageActions] = React.useState<React.ReactNode | null>(null);
+  const { goBack } = useNavigation();
 
   const childrenWithProps = React.Children.map(children, child => {
     if (React.isValidElement(child)) {
@@ -94,6 +97,9 @@ export function AppLayout({children}: {children: React.ReactNode}) {
     <div className="flex flex-col h-screen">
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur-sm px-4">
         <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" aria-label="Back" onClick={goBack}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <Link href="/" passHref>
             <Button variant="ghost" size="icon" aria-label="Home">
               <Home className="h-5 w-5" />
