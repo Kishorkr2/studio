@@ -176,16 +176,14 @@ export default function GTProductionEntryPage() {
     }
   }, [toast]);
   
-  const loadInitialData = useCallback(async () => {
-    if (!loading) return; // Prevent re-fetching if already loaded
-    try {
-      const [shiftsData, machinesData, operatorsData, planData] = await Promise.all([
-        actions.getShifts(),
-        actions.getMachines("TBM"),
-        actions.getOperators(),
-        actions.getProductionPlan(),
-      ]);
-
+  const loadInitialData = useCallback(() => {
+    setLoading(true);
+    Promise.all([
+      actions.getShifts(),
+      actions.getMachines("TBM"),
+      actions.getOperators(),
+      actions.getProductionPlan(),
+    ]).then(([shiftsData, machinesData, operatorsData, planData]) => {
       setAllShifts(shiftsData);
       setAllMachines(machinesData.filter(m => m.isAvailable));
       setAllOperators(operatorsData);
@@ -193,21 +191,22 @@ export default function GTProductionEntryPage() {
       
       const currentShift = getCurrentShift(shiftsData);
       if (currentShift) {
-          setSelectedShift(currentShift);
-          const newRoundTimes = generateRoundTimes(currentShift);
-          setRoundTimes(newRoundTimes);
-          const savedRound = getLocalStorageItem("selectedRound", "");
-          const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || "";
-          setSelectedRound(currentRound);
-          await fetchAndSetLog(new Date(), currentShift);
+        setSelectedShift(currentShift);
+        const newRoundTimes = generateRoundTimes(currentShift);
+        setRoundTimes(newRoundTimes);
+        const savedRound = getLocalStorageItem("selectedRound", "");
+        const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || "";
+        setSelectedRound(currentRound);
+        fetchAndSetLog(new Date(), currentShift);
       }
-    } catch (error) {
+    }).catch(error => {
       console.error("Failed to load initial data", error);
       toast({ variant: "destructive", title: "Error loading initial data." });
-    } finally {
+    }).finally(() => {
       setLoading(false);
-    }
-  }, [toast, generateRoundTimes, fetchAndSetLog, loading]);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     loadInitialData();
@@ -237,6 +236,30 @@ export default function GTProductionEntryPage() {
   const totalShiftProduction = useMemo(() => {
     return Object.values(hourlyProduction).reduce((sum, qty) => sum + qty, 0);
   }, [hourlyProduction]);
+
+  const activeTbmCount = useMemo(() => {
+    const machineIds = new Set<string>();
+    Object.values(productionLog).forEach(logEntry => {
+        logEntry.entries.forEach(machineEntry => {
+            if (machineEntry.skus.some(sku => sku.quantity > 0)) {
+                machineIds.add(machineEntry.machineId);
+            }
+        });
+    });
+    return machineIds.size;
+  }, [productionLog]);
+
+  const activeOperatorsCount = useMemo(() => {
+    const operatorIds = new Set<string>();
+    Object.values(productionLog).forEach(logEntry => {
+        logEntry.entries.forEach(machineEntry => {
+            if (machineEntry.operatorId) {
+                operatorIds.add(machineEntry.operatorId);
+            }
+        });
+    });
+    return operatorIds.size;
+  }, [productionLog]);
 
   const handleEntryChange = (id: number, field: keyof Omit<NewEntry, "id">, value: string) => {
     setNewEntries((prev) =>
@@ -335,10 +358,6 @@ export default function GTProductionEntryPage() {
     }
   };
 
-  const activeOperatorsCount = useMemo(() => {
-    return availableOperators.length;
-  }, [availableOperators]);
-
   if (loading) {
     return (
       <div className="flex h-full flex-1 items-center justify-center">
@@ -375,7 +394,7 @@ export default function GTProductionEntryPage() {
               <Clock className="w-5 h-5" />
               <div>
                 <p className="text-sm font-medium text-white/80">Active TBM</p>
-                <p className="text-lg font-bold">{allMachines.length}</p>
+                <p className="text-lg font-bold">{activeTbmCount}</p>
               </div>
             </div>
             <div className="bg-white/20 px-4 py-3 rounded-xl backdrop-blur-sm flex items-center space-x-3">
@@ -642,3 +661,5 @@ export default function GTProductionEntryPage() {
     </div>
   );
 }
+
+    
