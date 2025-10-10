@@ -176,14 +176,16 @@ export default function GTProductionEntryPage() {
     }
   }, [toast]);
   
-  const loadInitialData = useCallback(() => {
-    setLoading(true);
-    Promise.all([
-      actions.getShifts(),
-      actions.getMachines("TBM"),
-      actions.getOperators(),
-      actions.getProductionPlan(),
-    ]).then(([shiftsData, machinesData, operatorsData, planData]) => {
+  const loadInitialData = useCallback(async () => {
+    if (!loading) return; // Prevent re-fetching if already loaded
+    try {
+      const [shiftsData, machinesData, operatorsData, planData] = await Promise.all([
+        actions.getShifts(),
+        actions.getMachines("TBM"),
+        actions.getOperators(),
+        actions.getProductionPlan(),
+      ]);
+  
       setAllShifts(shiftsData);
       setAllMachines(machinesData.filter(m => m.isAvailable));
       setAllOperators(operatorsData);
@@ -197,21 +199,19 @@ export default function GTProductionEntryPage() {
         const savedRound = getLocalStorageItem("selectedRound", "");
         const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || "";
         setSelectedRound(currentRound);
-        fetchAndSetLog(new Date(), currentShift);
+        await fetchAndSetLog(new Date(), currentShift);
       }
-    }).catch(error => {
+    } catch (error) {
       console.error("Failed to load initial data", error);
       toast({ variant: "destructive", title: "Error loading initial data." });
-    }).finally(() => {
+    } finally {
       setLoading(false);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    }
+  }, [loading, generateRoundTimes, fetchAndSetLog, toast]);
 
   useEffect(() => {
     loadInitialData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadInitialData]);
 
   const hourlyProduction = useMemo(() => {
     if (!productionLog) return {};

@@ -933,3 +933,5 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
+
+    
