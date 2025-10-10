@@ -107,6 +107,12 @@ async function setup() {
       openingStock INTEGER,
       production INTEGER
     );
+    CREATE TABLE IF NOT EXISTS skuStandards (
+      sapCode TEXT PRIMARY KEY,
+      sku TEXT NOT NULL,
+      stdWeight REAL,
+      stdHourlyProduction INTEGER
+    );
   `);
   
   // Seed Admin user

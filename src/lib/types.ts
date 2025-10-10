@@ -1,5 +1,4 @@
 
-
 export interface User {
   id: number;
   name: string;
@@ -134,4 +133,11 @@ export interface SavedEntry {
   sku: string;
   quantity: number;
   time: string;
+}
+
+export interface SkuStandard {
+    sapCode: string;
+    sku: string;
+    stdWeight: number | null;
+    stdHourlyProduction: number | null;
 }

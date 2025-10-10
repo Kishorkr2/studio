@@ -37,7 +37,8 @@ import type {
   ShiftInfo,
   SkuPlan,
   User,
-  ReportDataRow
+  ReportDataRow,
+  SkuStandard
 } from '@/lib/types';
 import {
   PlusCircle,
@@ -58,6 +59,7 @@ import {
   Package,
   Factory,
   Percent,
+  Ruler,
 } from 'lucide-react';
 import {useToast} from '@/hooks/use-toast';
 import {Badge} from '@/components/ui/badge';
@@ -473,6 +475,90 @@ function MachineManagement({
 }
 
 
+function SkuStandardsManagement({
+    productionPlan,
+    skuStandards,
+    onStandardChange,
+    onSaveStandards
+}: {
+    productionPlan: ProductionPlanItem[];
+    skuStandards: SkuStandard[];
+    onStandardChange: (sapCode: string, field: 'stdWeight' | 'stdHourlyProduction', value: number | null) => void;
+    onSaveStandards: () => void;
+}) {
+    const allPlanSkus = useMemo(() => {
+        const skus = new Map<string, SkuPlan>();
+        productionPlan.forEach(item => {
+            item.skus.forEach(sku => {
+                if (!skus.has(sku.sapCode)) {
+                    skus.set(sku.sapCode, sku);
+                }
+            });
+        });
+        return Array.from(skus.values());
+    }, [productionPlan]);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>SKU Standards</CardTitle>
+                <CardDescription>
+                    Define standard weight and hourly production for each SKU.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="border rounded-lg overflow-x-auto max-h-[500px]">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>SKU</TableHead>
+                                <TableHead>SAP Code</TableHead>
+                                <TableHead className="text-right">Std Weight (kg)</TableHead>
+                                <TableHead className="text-right">Std Hourly Prod.</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {allPlanSkus.map(sku => {
+                                const standard = skuStandards.find(s => s.sapCode === sku.sapCode);
+                                return (
+                                    <TableRow key={sku.sapCode}>
+                                        <TableCell className="font-medium">{sku.sku}</TableCell>
+                                        <TableCell>{sku.sapCode}</TableCell>
+                                        <TableCell>
+                                            <Input
+                                                type="number"
+                                                className="w-24 ml-auto text-right"
+                                                placeholder="0.0"
+                                                value={standard?.stdWeight ?? ''}
+                                                onChange={e => onStandardChange(sku.sapCode, 'stdWeight', e.target.value ? parseFloat(e.target.value) : null)}
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input
+                                                type="number"
+                                                className="w-24 ml-auto text-right"
+                                                placeholder="0"
+                                                value={standard?.stdHourlyProduction ?? ''}
+                                                onChange={e => onStandardChange(sku.sapCode, 'stdHourlyProduction', e.target.value ? parseInt(e.target.value) : null)}
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+            <CardFooter>
+                 <Button onClick={onSaveStandards}>
+                    <Save className="mr-2 h-4 w-4" /> Save Standards
+                </Button>
+            </CardFooter>
+        </Card>
+    )
+}
+
+
 export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [operators, setOperators] = useState<Operator[]>([]);
@@ -481,6 +567,7 @@ export default function AdminPage() {
     []
   );
   const [editablePlan, setEditablePlan] = useState<EditableSkuPlan[]>([]);
+  const [skuStandards, setSkuStandards] = useState<SkuStandard[]>([]);
 
   const [machines, setMachines] = useState<Machine[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -534,13 +621,14 @@ export default function AdminPage() {
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [ops, shifts, machs, plan, usersData, logs] = await Promise.all([
+      const [ops, shifts, machs, plan, usersData, logs, standards] = await Promise.all([
         actions.getOperators(),
         actions.getShifts(),
         actions.getMachines(),
         actions.getProductionPlan(),
         actions.getUsers(),
         actions.getProductionLogs(),
+        actions.getSkuStandards(),
       ]);
       setOperators(ops);
       setManagedShifts(shifts);
@@ -549,6 +637,7 @@ export default function AdminPage() {
       setEditablePlan(flattenProductionPlan(plan));
       setUsers(usersData);
       setProductionLogs(logs as ReportDataRow[]);
+      setSkuStandards(standards);
     } catch (error) {
       console.error('Failed to load initial data', error);
       toast({
@@ -970,6 +1059,35 @@ export default function AdminPage() {
     }
   };
   
+  const handleStandardChange = (sapCode: string, field: 'stdWeight' | 'stdHourlyProduction', value: number | null) => {
+    setSkuStandards(currentStandards => {
+        const existing = currentStandards.find(s => s.sapCode === sapCode);
+        if (existing) {
+            return currentStandards.map(s => s.sapCode === sapCode ? { ...s, [field]: value } : s);
+        }
+        // If it doesn't exist, we should find the sku from the plan to add it
+        const planSku = productionPlan.flatMap(p => p.skus).find(s => s.sapCode === sapCode);
+        return [
+            ...currentStandards,
+            {
+                sapCode,
+                sku: planSku?.sku || '',
+                stdWeight: field === 'stdWeight' ? value : null,
+                stdHourlyProduction: field === 'stdHourlyProduction' ? value : null,
+            }
+        ];
+    });
+  };
+
+  const handleSaveStandards = async () => {
+      try {
+          await actions.updateSkuStandards(skuStandards);
+          toast({title: "SKU Standards Saved"});
+      } catch (error) {
+          toast({variant: 'destructive', title: 'Failed to save standards'});
+      }
+  };
+
   const managementSections = [
      {
       value: 'dashboard',
@@ -1474,6 +1592,13 @@ export default function AdminPage() {
           </Card>
         </div>
       )
+    },
+     {
+      value: 'sku-standards',
+      title: 'SKU Standards',
+      description: 'Manage SKU standard weight and production',
+      icon: Ruler,
+      content: <SkuStandardsManagement productionPlan={productionPlan} skuStandards={skuStandards} onStandardChange={handleStandardChange} onSaveStandards={handleSaveStandards} />
     },
     {
       value: 'tbm',

@@ -15,6 +15,7 @@ import type {
   User,
   FlatProductionLogEntry,
   ReportDataRow,
+  SkuStandard,
 } from '../types';
 import {format} from 'date-fns';
 import bcrypt from 'bcryptjs';
@@ -497,4 +498,29 @@ export async function approveUser(userId: number) {
 
 export async function deleteUser(userId: number) {
   await db.run('DELETE FROM users WHERE id = ?', userId);
+}
+
+// Sku Standards
+export async function getSkuStandards(): Promise<SkuStandard[]> {
+  return db.all('SELECT * FROM skuStandards');
+}
+
+export async function updateSkuStandards(standards: SkuStandard[]) {
+  await db.exec('BEGIN TRANSACTION');
+  try {
+    for (const standard of standards) {
+      await db.run(
+        'INSERT OR REPLACE INTO skuStandards (sapCode, sku, stdWeight, stdHourlyProduction) VALUES (?, ?, ?, ?)',
+        standard.sapCode,
+        standard.sku,
+        standard.stdWeight,
+        standard.stdHourlyProduction
+      );
+    }
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    console.error('Failed to update SKU standards:', error);
+    throw error;
+  }
 }

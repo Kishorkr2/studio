@@ -13,6 +13,7 @@ import type {
   MachineProductionData,
   DailyProductionEntry,
   User,
+  SkuStandard,
 } from '@/lib/types';
 import {SignUpInput} from './signup/page';
 
@@ -84,3 +85,7 @@ export const getUsers = async () => dbActions.getUsers();
 export const approveUser = async (userId: number) =>
   dbActions.approveUser(userId);
 export const deleteUser = async (userId: number) => dbActions.deleteUser(userId);
+
+// SKU Standards
+export const getSkuStandards = async () => dbActions.getSkuStandards();
+export const updateSkuStandards = async (standards: SkuStandard[]) => dbActions.updateSkuStandards(standards);
