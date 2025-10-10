@@ -617,6 +617,18 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
            <h1 className="text-lg font-bold tracking-tight">Curing Prod Entry</h1>
           <div className="flex items-center gap-2">
+             <Card>
+              <CardContent className="p-2">
+                <p className="text-xs font-medium text-muted-foreground">Shift Total</p>
+                <p className="text-lg font-bold text-accent-foreground">{cumulativeTotal.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+             <Card>
+              <CardContent className="p-2">
+                <p className="text-xs font-medium text-muted-foreground">Round Total</p>
+                <p className="text-lg font-bold text-primary">{roundTotal.toLocaleString()}</p>
+              </CardContent>
+            </Card>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -892,32 +904,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
           );
         })}
       </main>
-      <footer className="sticky bottom-0 z-10 flex h-20 items-center justify-between gap-4 border-t bg-background px-4">
-        <div className="hidden lg:block">
-          <Card>
-             <CardContent className="p-0">
-                <div className="flex items-center gap-6 p-2">
-                   <div>
-                     <p className="text-xs font-medium text-muted-foreground">
-                       Round Total
-                     </p>
-                     <p className="text-lg font-bold text-primary">
-                       {roundTotal.toLocaleString()}
-                     </p>
-                   </div>
-                    <div className="border-l h-10"></div>
-                   <div>
-                     <p className="text-xs font-medium text-muted-foreground">
-                       Shift Total (Saved)
-                     </p>
-                     <p className="text-lg font-bold text-accent">
-                       {cumulativeTotal.toLocaleString()}
-                     </p>
-                   </div>
-                </div>
-             </CardContent>
-          </Card>
-        </div>
+      <footer className="sticky bottom-0 z-10 flex h-20 items-center justify-end gap-4 border-t bg-background px-4">
         <div className="flex items-center gap-2">
            <Sheet>
             <SheetTrigger asChild>
