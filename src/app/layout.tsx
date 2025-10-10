@@ -1,21 +1,23 @@
-
-import type {Metadata, Viewport} from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import {Inter} from 'next/font/google';
-import {AppLayout, type AppLayoutProps} from '@/components/app-layout';
-import {ThemeProvider} from '@/components/theme-provider';
-import {Toaster} from '@/components/ui/toaster';
-import {AuthProvider} from '@/components/auth-provider';
-import {PWAInstall} from '@/components/pwa-install';
+import { Inter } from 'next/font/google';
+import { AppLayout, type AppLayoutProps } from '@/components/app-layout';
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from '@/components/ui/toaster';
+import { AuthProvider } from '@/components/auth-provider';
+import { PWAInstall } from '@/components/pwa-install';
 import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar';
 
+// ✅ Font setup
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
+  display: 'swap',
 });
 
+// ✅ App metadata
 export const metadata: Metadata = {
-  title: 'RTPMS - Real Time Prod Management System',
+  title: 'RTPMS - Real Time Production Management System',
   description: 'Manage production with precision and efficiency.',
   manifest: '/manifest.json',
   appleWebApp: {
@@ -23,8 +25,13 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'RTPMS',
   },
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/icons/icon-192x192.png',
+  },
 };
 
+// ✅ Viewport setup
 export const viewport: Viewport = {
   themeColor: '#000000',
   width: 'device-width',
@@ -33,6 +40,7 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+// ✅ Main Layout Component
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -40,9 +48,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${inter.variable} font-body antialiased`}
-      >
+      <body className={`${inter.variable} font-body antialiased min-h-screen`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
             <AppLayout>{children}</AppLayout>

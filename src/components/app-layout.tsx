@@ -28,6 +28,7 @@ import {
   Menu,
   Spline,
   Circle,
+  Home,
 } from 'lucide-react';
 import {useOnlineStatus} from '@/hooks/use-online-status';
 import {useAuth} from './auth-provider';
@@ -92,7 +93,12 @@ export function AppLayout({children}: {children: React.ReactNode}) {
   return (
     <div className="flex flex-col h-screen">
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur-sm px-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <Link href="/" passHref>
+            <Button variant="ghost" size="icon" aria-label="Home">
+              <Home className="h-5 w-5" />
+            </Button>
+          </Link>
           <Link href="/" className="flex items-center gap-2">
             <RalsonTyreIcon className="w-20 h-auto" />
             <span className="text-xl font-semibold hidden sm:inline-block">RTPMS</span>
