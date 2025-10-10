@@ -8,9 +8,9 @@ import {
   useEffect,
   type ReactNode,
 } from 'react';
-import {usePathname, useRouter} from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import * as dbActions from '@/lib/server/db-actions';
-import type {User} from '@/lib/types';
+import type { User } from '@/lib/types';
 import { Loader } from './ui/loader';
 
 interface AuthContextType {
@@ -19,13 +19,13 @@ interface AuthContextType {
   login: (
     email: string,
     pass: string
-  ) => Promise<{success: boolean; message?: string}>;
+  ) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({children}: {children: ReactNode}) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,9 +72,9 @@ export function AuthProvider({children}: {children: ReactNode}) {
   const login = async (
     email: string,
     pass: string
-  ): Promise<{success: boolean; message?: string}> => {
+  ): Promise<{ success: boolean; message?: string }> => {
     try {
-      const {success, message, user} = await dbActions.verifyUserLogin(
+      const { success, message, user } = await dbActions.verifyUserLogin(
         email,
         pass
       );
@@ -93,11 +93,11 @@ export function AuthProvider({children}: {children: ReactNode}) {
         localStorage.setItem('authData', JSON.stringify(authData));
         setIsAuthenticated(true);
         setUser(authData.user as User);
-        return {success: true};
+        return { success: true };
       }
-      return {success: false, message};
+      return { success: false, message };
     } catch (error) {
-      return {success: false, message: 'An unexpected error occurred.'};
+      return { success: false, message: 'An unexpected error occurred.' };
     }
   };
 
@@ -117,7 +117,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
   }
 
   return (
-    <AuthContext.Provider value={{isAuthenticated, user, login, logout}}>
+    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

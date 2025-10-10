@@ -3,8 +3,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import {usePathname, useRouter} from 'next/navigation';
-import {Button} from '@/components/ui/button';
+import { usePathname, useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {ThemeToggle} from '@/components/theme-toggle';
+import { ThemeToggle } from '@/components/theme-toggle';
 import {
   BotMessageSquare,
   Cog,
@@ -31,11 +31,15 @@ import {
   Home,
   ArrowLeft,
 } from 'lucide-react';
-import {useOnlineStatus} from '@/hooks/use-online-status';
-import {useAuth} from './auth-provider';
+import { useOnlineStatus } from '@/hooks/use-online-status';
+import { useAuth, AuthProvider } from './auth-provider';
 import { RalsonTyreIcon } from './icons/ralson-tyre-icon';
 import { ThemePresetSelector } from './theme-preset-selector';
 import { useNavigation } from '@/hooks/use-navigation';
+import { ThemeProvider } from './theme-provider';
+import { Toaster } from './ui/toaster';
+import { PWAInstall } from './pwa-install';
+import { ServiceWorkerRegistrar } from './service-worker-registrar';
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -43,15 +47,15 @@ export interface AppLayoutProps {
 }
 
 const navItems = [
-  {href: '/gt-production-entry', label: 'GT Prod Entry', icon: LayoutDashboard},
-  {href: '/curing', label: 'Curing', icon: Flame},
-  {href: '/tread-extrusion', label: 'Tread Extrusion', icon: ClipboardList},
-  {href: '/daily-tread-production', label: 'Daily Production', icon: ListPlus},
-  {href: '/auto-tube', label: 'Auto Tube', icon: Circle},
-  {href: '/planning/gt', label: 'Planning', icon: Spline},
-  {href: '/optimize', label: 'AI Optimizer', icon: BotMessageSquare},
-  {href: '/reports', label: 'Reports', icon: LineChart},
-  {href: '/admin', label: 'Admin', icon: Cog},
+  { href: '/gt-production-entry', label: 'GT Prod Entry', icon: LayoutDashboard },
+  { href: '/curing', label: 'Curing', icon: Flame },
+  { href: '/tread-extrusion', label: 'Tread Extrusion', icon: ClipboardList },
+  { href: '/daily-tread-production', label: 'Daily Production', icon: ListPlus },
+  { href: '/auto-tube', label: 'Auto Tube', icon: Circle },
+  { href: '/planning/gt', label: 'Planning', icon: Spline },
+  { href: '/optimize', label: 'AI Optimizer', icon: BotMessageSquare },
+  { href: '/reports', label: 'Reports', icon: LineChart },
+  { href: '/admin', label: 'Admin', icon: Cog },
 ];
 
 function OnlineStatusIndicator() {
@@ -74,8 +78,8 @@ function OnlineStatusIndicator() {
   );
 }
 
-export function AppLayout({children}: {children: React.ReactNode}) {
-  const {isAuthenticated} = useAuth();
+function AppLayoutContent({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const pathname = usePathname();
   const [pageActions, setPageActions] = React.useState<React.ReactNode | null>(null);
   const { goBack } = useNavigation();
@@ -122,8 +126,23 @@ export function AppLayout({children}: {children: React.ReactNode}) {
   );
 }
 
+
+export function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <AuthProvider>
+        <AppLayoutContent>{children}</AppLayoutContent>
+        <Toaster />
+        <PWAInstall />
+        <ServiceWorkerRegistrar />
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
+
+
 function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
-  const {logout, user} = useAuth();
+  const { logout, user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -163,5 +182,3 @@ function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
     </DropdownMenu>
   );
 }
-
-    
