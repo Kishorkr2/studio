@@ -7,6 +7,7 @@ import {ThemeProvider} from '@/components/theme-provider';
 import {Toaster} from '@/components/ui/toaster';
 import {AuthProvider} from '@/components/auth-provider';
 import {PWAInstall} from '@/components/pwa-install';
+import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -48,18 +49,8 @@ export default function RootLayout({
           </AuthProvider>
           <Toaster />
           <PWAInstall />
+          <ServiceWorkerRegistrar />
         </ThemeProvider>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                  navigator.serviceWorker.register('/sw.js');
-                });
-              }
-            `,
-          }}
-        />
       </body>
     </html>
   );
