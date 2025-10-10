@@ -32,7 +32,7 @@ export const RalsonTyreIcon = ({ className, ...props }: React.SVGProps<SVGSVGEle
     <line x1="50" y1="28" x2="50" y2="40" stroke="gray" strokeWidth="1" />
     <text
       x="55"
-      y="38"
+      y="35"
       fontFamily="Arial, sans-serif"
       fontSize="8"
       fill="gray"

@@ -34,8 +34,8 @@ import {
   BarChart3,
   Save,
   CalendarIcon,
-  Package,
   Users,
+  Package,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as actions from "../actions";
@@ -110,7 +110,7 @@ type NewEntry = {
   quantity: string;
 };
 
-export default function GTProductionEntryPage() {
+export default function GTProductionEntry() {
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -175,45 +175,43 @@ export default function GTProductionEntryPage() {
     }
   }, [toast]);
   
-  useEffect(() => {
-    const loadInitialData = async () => {
-      if (allShifts.length > 0) return; // Prevent re-fetching
-      
-      setLoading(true);
-      try {
-        const [shiftsData, machinesData, operatorsData, planData] = await Promise.all([
-          actions.getShifts(),
-          actions.getMachines("TBM"),
-          actions.getOperators(),
-          actions.getProductionPlan(),
-        ]);
+  const loadInitialData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [shiftsData, machinesData, operatorsData, planData] = await Promise.all([
+        actions.getShifts(),
+        actions.getMachines("TBM"),
+        actions.getOperators(),
+        actions.getProductionPlan(),
+      ]);
 
-        setAllShifts(shiftsData);
-        setAllMachines(machinesData.filter(m => m.isAvailable));
-        setAllOperators(operatorsData);
-        setAllProductionPlan(planData);
-        
-        const currentShift = getCurrentShift(shiftsData);
-        if (currentShift) {
-            setSelectedShift(currentShift);
-            const newRoundTimes = generateRoundTimes(currentShift);
-            setRoundTimes(newRoundTimes);
-            const savedRound = getLocalStorageItem("selectedRound", "");
-            const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || "";
-            setSelectedRound(currentRound);
-            await fetchAndSetLog(new Date(), currentShift);
-        }
-      } catch (error) {
-        console.error("Failed to load initial data", error);
-        toast({ variant: "destructive", title: "Error loading initial data." });
-      } finally {
-        setLoading(false);
+      setAllShifts(shiftsData);
+      setAllMachines(machinesData.filter(m => m.isAvailable));
+      setAllOperators(operatorsData);
+      setAllProductionPlan(planData);
+      
+      const currentShift = getCurrentShift(shiftsData);
+      setSelectedShift(currentShift);
+
+      if (currentShift) {
+        const newRoundTimes = generateRoundTimes(currentShift);
+        setRoundTimes(newRoundTimes);
+        const savedRound = getLocalStorageItem("selectedRound", "");
+        const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || "";
+        setSelectedRound(currentRound);
+        await fetchAndSetLog(new Date(), currentShift);
       }
-    };
-    
+    } catch (error) {
+      console.error("Failed to load initial data", error);
+      toast({ variant: "destructive", title: "Error loading initial data." });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, generateRoundTimes, fetchAndSetLog]);
+
+  useEffect(() => {
     loadInitialData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadInitialData]);
 
   const hourlyProduction = useMemo(() => {
     if (!productionLog) return {};
