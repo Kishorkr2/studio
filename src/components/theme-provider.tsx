@@ -50,7 +50,7 @@ export function ThemeProvider({
     
     const isPreset = THEMES.some(p => p.id === theme);
     
-    const baseTheme = isPreset ? 'light' : effectiveTheme;
+    const baseTheme = effectiveTheme === 'dark' ? 'dark' : 'light';
     root.classList.add(baseTheme);
 
     if (isPreset) {
