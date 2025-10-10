@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
@@ -175,42 +176,40 @@ export default function GTProductionEntryPage() {
     }
   }, [toast]);
   
-  useEffect(() => {
-    const loadInitialData = async () => {
-      if (allShifts.length > 0) return; // Prevent re-fetching
-      
-      setLoading(true);
-      try {
-        const [shiftsData, machinesData, operatorsData, planData] = await Promise.all([
-          actions.getShifts(),
-          actions.getMachines("TBM"),
-          actions.getOperators(),
-          actions.getProductionPlan(),
-        ]);
+  const loadInitialData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [shiftsData, machinesData, operatorsData, planData] = await Promise.all([
+        actions.getShifts(),
+        actions.getMachines("TBM"),
+        actions.getOperators(),
+        actions.getProductionPlan(),
+      ]);
 
-        setAllShifts(shiftsData);
-        setAllMachines(machinesData.filter(m => m.isAvailable));
-        setAllOperators(operatorsData);
-        setAllProductionPlan(planData);
-        
-        const currentShift = getCurrentShift(shiftsData);
-        if (currentShift) {
-            setSelectedShift(currentShift);
-            const newRoundTimes = generateRoundTimes(currentShift);
-            setRoundTimes(newRoundTimes);
-            const savedRound = getLocalStorageItem("selectedRound", "");
-            const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || "";
-            setSelectedRound(currentRound);
-            await fetchAndSetLog(new Date(), currentShift);
-        }
-      } catch (error) {
-        console.error("Failed to load initial data", error);
-        toast({ variant: "destructive", title: "Error loading initial data." });
-      } finally {
-        setLoading(false);
+      setAllShifts(shiftsData);
+      setAllMachines(machinesData.filter(m => m.isAvailable));
+      setAllOperators(operatorsData);
+      setAllProductionPlan(planData);
+      
+      const currentShift = getCurrentShift(shiftsData);
+      if (currentShift) {
+          setSelectedShift(currentShift);
+          const newRoundTimes = generateRoundTimes(currentShift);
+          setRoundTimes(newRoundTimes);
+          const savedRound = getLocalStorageItem("selectedRound", "");
+          const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || "";
+          setSelectedRound(currentRound);
+          await fetchAndSetLog(new Date(), currentShift);
       }
-    };
-    
+    } catch (error) {
+      console.error("Failed to load initial data", error);
+      toast({ variant: "destructive", title: "Error loading initial data." });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, generateRoundTimes, fetchAndSetLog]);
+
+  useEffect(() => {
     loadInitialData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -336,16 +335,10 @@ export default function GTProductionEntryPage() {
     }
   };
 
-  // Calculate active operators count
   const activeOperatorsCount = useMemo(() => {
     return availableOperators.length;
   }, [availableOperators]);
 
-  // Calculate total SKUs available
-  const totalSkusCount = useMemo(() => {
-    return allProductionPlan.flatMap(p => p.skus).length;
-  }, [allProductionPlan]);
-  
   if (loading) {
     return (
       <div className="flex h-full flex-1 items-center justify-center">
@@ -465,7 +458,7 @@ export default function GTProductionEntryPage() {
 
             {/* Entry Forms */}
             <div className="space-y-4">
-              {newEntries.map((entry, index) => (
+              {newEntries.map((entry) => (
                 <div
                   key={entry.id}
                   className="flex flex-col md:flex-row items-start md:items-center gap-4 bg-white rounded-xl p-4 shadow-sm border border-slate-200 hover:border-slate-300 transition-all"

@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -26,6 +27,7 @@ import {
   Flame,
   Menu,
   Spline,
+  Circle,
 } from 'lucide-react';
 import {useOnlineStatus} from '@/hooks/use-online-status';
 import {useAuth} from './auth-provider';
@@ -38,10 +40,11 @@ export interface AppLayoutProps {
 }
 
 const navItems = [
-  {href: '/', label: 'GT Prod Entry', icon: LayoutDashboard},
+  {href: '/gt-production-entry', label: 'GT Prod Entry', icon: LayoutDashboard},
   {href: '/curing', label: 'Curing', icon: Flame},
   {href: '/tread-extrusion', label: 'Tread Extrusion', icon: ClipboardList},
   {href: '/daily-tread-production', label: 'Daily Production', icon: ListPlus},
+  {href: '/auto-tube', label: 'Auto Tube', icon: Circle},
   {href: '/planning/gt', label: 'Planning', icon: Spline},
   {href: '/optimize', label: 'AI Optimizer', icon: BotMessageSquare},
   {href: '/reports', label: 'Reports', icon: LineChart},
@@ -75,7 +78,7 @@ export function AppLayout({children}: {children: React.ReactNode}) {
 
   const childrenWithProps = React.Children.map(children, child => {
     if (React.isValidElement(child)) {
-      if (pathname === '/' || pathname === '/curing') {
+      if (pathname === '/gt-production-entry' || pathname === '/curing') {
         return React.cloneElement(child as React.ReactElement<any>, { setPageActions });
       }
     }
@@ -138,7 +141,7 @@ function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
             </Link>
           </DropdownMenuItem>
         ))}
-        {(pathname === '/' || pathname === '/curing') && pageActions}
+        {(pathname === '/gt-production-entry' || pathname === '/curing') && pageActions}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
