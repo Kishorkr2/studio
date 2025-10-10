@@ -32,14 +32,10 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useOnlineStatus } from '@/hooks/use-online-status';
-import { useAuth, AuthProvider } from './auth-provider';
+import { useAuth } from './auth-provider';
 import { RalsonTyreIcon } from './icons/ralson-tyre-icon';
 import { ThemePresetSelector } from './theme-preset-selector';
 import { useNavigation } from '@/hooks/use-navigation';
-import { ThemeProvider } from './theme-provider';
-import { Toaster } from './ui/toaster';
-import { PWAInstall } from './pwa-install';
-import { ServiceWorkerRegistrar } from './service-worker-registrar';
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -78,7 +74,7 @@ function OnlineStatusIndicator() {
   );
 }
 
-function AppLayoutContent({ children }: { children: React.ReactNode }) {
+export function AppLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
   const pathname = usePathname();
   const [pageActions, setPageActions] = React.useState<React.ReactNode | null>(null);
@@ -123,20 +119,6 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       </header>
       <main className="flex-1 overflow-y-auto">{childrenWithProps}</main>
     </div>
-  );
-}
-
-
-export function AppLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <AuthProvider>
-        <AppLayoutContent>{children}</AppLayoutContent>
-        <Toaster />
-        <PWAInstall />
-        <ServiceWorkerRegistrar />
-      </AuthProvider>
-    </ThemeProvider>
   );
 }
 
