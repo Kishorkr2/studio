@@ -48,7 +48,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-body antialiased min-h-screen`}>
+      <body
+        className={`${inter.variable} font-body antialiased min-h-screen`}
+        suppressHydrationWarning
+      >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
             <AppLayout>{children}</AppLayout>
