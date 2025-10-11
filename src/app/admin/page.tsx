@@ -125,9 +125,27 @@ function UserManagement({users, onApprove, onDelete}: {users: User[], onApprove:
                         Approve
                       </Button>
                     )}
-                     <Button variant="ghost" size="icon" onClick={() => onDelete(user.id)}>
-                        <Trash className="h-4 w-4" />
-                      </Button>
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <Trash className="h-4 w-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will permanently delete the user {user.name}.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onDelete(user.id)}>
+                                    Delete User
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                   </TableCell>
                 </TableRow>
               ))}
@@ -195,14 +213,31 @@ function MachineManagement({
                     />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDeleteMachine(machine.id)}
-                      disabled={productionPlan.some(p => p.machineId === machine.id)}
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                disabled={productionPlan.some(p => p.machineId === machine.id)}
+                            >
+                                <Trash className="h-4 w-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                This will permanently delete {machine.name}.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onDeleteMachine(machine.id)}>
+                                    Delete Machine
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                   </TableCell>
                 </TableRow>
               ))}
@@ -216,7 +251,7 @@ function MachineManagement({
           Add {machineType === 'TBM' ? 'TBM' : 'Curing Press'}
         </Button>
         <Button onClick={onSaveChanges}>
-          Save All Changes
+          <Save className="mr-2 h-4 w-4" /> Save All Changes
         </Button>
       </CardFooter>
     </Card>
@@ -549,9 +584,13 @@ export default function AdminPage() {
 
 
   const handleDeleteOperator = async (cardNo: string) => {
-    await actions.deleteOperator(cardNo);
-    setOperators(prev => prev.filter(op => op.cardNo !== cardNo));
-    toast({title: 'Operator Removed'});
+    try {
+        await actions.deleteOperator(cardNo);
+        setOperators(prev => prev.filter(op => op.cardNo !== cardNo));
+        toast({title: 'Operator Removed'});
+    } catch (e) {
+        toast({variant: 'destructive', title: 'Failed to remove operator'});
+    }
   };
 
   const handleShiftChange = (
@@ -992,14 +1031,31 @@ export default function AdminPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteOperator(op.cardNo)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                              <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                  This will permanently delete the operator {op.name}.
+                                  </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteOperator(op.cardNo)}>
+                                      Delete Operator
+                                  </AlertDialogAction>
+                              </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1055,7 +1111,9 @@ export default function AdminPage() {
             ))}
           </CardContent>
           <CardFooter>
-            <Button onClick={handleSaveShifts}>Save All Shifts</Button>
+            <Button onClick={handleSaveShifts}>
+              <Save className="mr-2 h-4 w-4" /> Save All Shifts
+            </Button>
           </CardFooter>
         </Card>
       )
@@ -1478,28 +1536,31 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Admin Panel</h1>
+    <div className="space-y-6 p-4 md:p-8">
+      <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
+      <p className="text-muted-foreground">Manage users, operators, machines, production plans, and system settings.</p>
       
       <Accordion type="multiple" className="w-full space-y-4" defaultValue={['users']}>
         {managementSections.map(section => {
             const Icon = section.icon;
             return (
-              <AccordionItem key={section.value} value={section.value} className="border rounded-lg bg-card">
-                <AccordionTrigger className="hover:no-underline p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-                      <Icon className="h-6 w-6 text-muted-foreground" />
+              <AccordionItem key={section.value} value={section.value} className="border-none">
+                <Card>
+                  <AccordionTrigger className="hover:no-underline p-6 text-left">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                        <Icon className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">{section.title}</h3>
+                        <p className="text-sm text-muted-foreground">{section.description}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-lg text-left">{section.title}</h3>
-                      <p className="text-sm text-muted-foreground text-left">{section.description}</p>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="p-6 pt-0">
-                  {section.content}
-                </AccordionContent>
+                  </AccordionTrigger>
+                  <AccordionContent className="p-6 pt-0">
+                    {section.content}
+                  </AccordionContent>
+                </Card>
               </AccordionItem>
             )
         })}
@@ -1507,3 +1568,4 @@ export default function AdminPage() {
     </div>
   );
 }
+
