@@ -10,7 +10,7 @@ const featureCards = [
     {
         title: "Dashboard",
         description: "View real-time overview of production and manpower.",
-        href: "/admin",
+        href: "/dashboard",
         icon: <AreaChart className="w-8 h-8 text-purple-500" />
     },
     {

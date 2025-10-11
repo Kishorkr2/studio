@@ -21,10 +21,7 @@ import {
   LineChart,
   Wifi,
   WifiOff,
-  ClipboardList,
-  ListPlus,
   LogOut,
-  Flame,
   Menu,
   Spline,
   Home,
@@ -35,7 +32,6 @@ import { useAuth } from './auth-provider';
 import { RalsonTyreIcon } from './icons/ralson-tyre-icon';
 import { ThemePresetSelector } from './theme-preset-selector';
 import { useNavigation } from '@/hooks/use-navigation';
-import { Providers } from './providers';
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -43,6 +39,7 @@ export interface AppLayoutProps {
 }
 
 const navItems = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/planning/gt', label: 'Planning', icon: Spline },
   { href: '/optimize', label: 'AI Optimizer', icon: BotMessageSquare },
   { href: '/reports', label: 'Reports', icon: LineChart },
