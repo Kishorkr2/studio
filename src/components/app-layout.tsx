@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -32,11 +31,10 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useOnlineStatus } from '@/hooks/use-online-status';
-import { useAuth, AuthProvider } from './auth-provider';
+import { useAuth } from './auth-provider';
 import { RalsonTyreIcon } from './icons/ralson-tyre-icon';
 import { ThemePresetSelector } from './theme-preset-selector';
 import { useNavigation } from '@/hooks/use-navigation';
-import { ThemeProvider } from './theme-provider';
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -75,7 +73,7 @@ function OnlineStatusIndicator() {
   );
 }
 
-function MainApp({ children }: { children: React.ReactNode }) {
+export function AppLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
   const pathname = usePathname();
   const [pageActions, setPageActions] = React.useState<React.ReactNode | null>(null);
@@ -83,7 +81,7 @@ function MainApp({ children }: { children: React.ReactNode }) {
 
   const childrenWithProps = React.Children.map(children, child => {
     if (React.isValidElement(child)) {
-      if (pathname === '/gt-production-entry' || pathname === '/curing' || pathname === '/Dashboard') {
+      if (pathname === '/gt-production-entry' || pathname === '/curing') {
         return React.cloneElement(child as React.ReactElement<any>, { setPageActions });
       }
     }
@@ -123,16 +121,6 @@ function MainApp({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <AuthProvider>
-        <MainApp>{children}</MainApp>
-      </AuthProvider>
-    </ThemeProvider>
-  );
-}
-
 function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
   const { logout, user } = useAuth();
   const router = useRouter();
@@ -164,7 +152,7 @@ function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
             </Link>
           </DropdownMenuItem>
         ))}
-        {(pathname === '/gt-production-entry' || pathname === '/curing' || pathname === '/Dashboard') && pageActions}
+        {(pathname === '/gt-production-entry' || pathname === '/curing') && pageActions}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />

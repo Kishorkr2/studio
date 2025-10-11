@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/app-layout';
 import { Toaster } from '@/components/ui/toaster';
 import { PWAInstall } from '@/components/pwa-install';
 import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar';
+import { Providers } from '@/components/providers';
 
 // ✅ Font setup
 const inter = Inter({
@@ -50,7 +51,9 @@ export default function RootLayout({
         className={`${inter.variable} font-body antialiased min-h-screen`}
         suppressHydrationWarning
       >
-        <AppLayout>{children}</AppLayout>
+        <Providers>
+          <AppLayout>{children}</AppLayout>
+        </Providers>
         <Toaster />
         <PWAInstall />
         <ServiceWorkerRegistrar />
