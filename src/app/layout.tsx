@@ -2,8 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Inter } from 'next/font/google';
 import { AppLayout } from '@/components/app-layout';
-import { AuthProvider } from '@/components/auth-provider';
-import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { PWAInstall } from '@/components/pwa-install';
 import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar';
@@ -52,14 +50,10 @@ export default function RootLayout({
         className={`${inter.variable} font-body antialiased min-h-screen`}
         suppressHydrationWarning
       >
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <AuthProvider>
-            <AppLayout>{children}</AppLayout>
-            <Toaster />
-            <PWAInstall />
-            <ServiceWorkerRegistrar />
-          </AuthProvider>
-        </ThemeProvider>
+        <AppLayout>{children}</AppLayout>
+        <Toaster />
+        <PWAInstall />
+        <ServiceWorkerRegistrar />
       </body>
     </html>
   );

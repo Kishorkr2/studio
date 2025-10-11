@@ -32,10 +32,11 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useOnlineStatus } from '@/hooks/use-online-status';
-import { useAuth } from './auth-provider';
+import { useAuth, AuthProvider } from './auth-provider';
 import { RalsonTyreIcon } from './icons/ralson-tyre-icon';
 import { ThemePresetSelector } from './theme-preset-selector';
 import { useNavigation } from '@/hooks/use-navigation';
+import { ThemeProvider } from './theme-provider';
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -74,7 +75,7 @@ function OnlineStatusIndicator() {
   );
 }
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+function MainApp({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
   const pathname = usePathname();
   const [pageActions, setPageActions] = React.useState<React.ReactNode | null>(null);
@@ -122,6 +123,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+export function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <AuthProvider>
+        <MainApp>{children}</MainApp>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
 
 function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
   const { logout, user } = useAuth();
