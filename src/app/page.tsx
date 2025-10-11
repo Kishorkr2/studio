@@ -4,7 +4,7 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { ArrowRight, Flame, LayoutDashboard, Spline } from "lucide-react";
+import { ArrowRight, Flame, LayoutDashboard, Spline, Circle } from "lucide-react";
 
 const featureCards = [
     {
@@ -24,13 +24,19 @@ const featureCards = [
         description: "Oversee tread extrusion planning and stock levels.",
         href: "/tread-extrusion",
         icon: <Spline className="w-8 h-8 text-green-500" />
+    },
+    {
+        title: "Auto Tube",
+        description: "Manage and track auto tube production.",
+        href: "/auto-tube",
+        icon: <Circle className="w-8 h-8 text-purple-500" />
     }
 ];
 
 export default function MainPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-100 to-slate-200 p-4 md:p-8">
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-5xl mx-auto">
                 <div className="text-center py-12">
                     <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-gray-800">
                         Welcome to the Real-Time Production Management System
@@ -40,7 +46,7 @@ export default function MainPage() {
                     </p>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-6">
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {featureCards.map((feature) => (
                         <Card key={feature.href} className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                             <CardHeader className="flex flex-row items-start gap-4">
