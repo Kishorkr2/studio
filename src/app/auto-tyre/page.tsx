@@ -4,9 +4,15 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { ArrowRight, Flame, LayoutDashboard, Spline, ListPlus, ClipboardList } from "lucide-react";
+import { ArrowRight, Flame, LayoutDashboard, Spline, ListPlus, ClipboardList, AreaChart } from "lucide-react";
 
 const featureCards = [
+    {
+        title: "Dashboard",
+        description: "View real-time overview of production and manpower.",
+        href: "/admin",
+        icon: <AreaChart className="w-8 h-8 text-purple-500" />
+    },
     {
         title: "GT Production Entry",
         description: "Log and track Green Tyre production entries in real-time.",
