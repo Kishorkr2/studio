@@ -258,10 +258,14 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="pl-2">
                 <ResponsiveContainer width="100%" height={350}>
-                  <RechartsBarChart data={skuProduction.slice(0,10)} layout="vertical" margin={{ top: 20, right: 30, left: 40, bottom: 5 }}>
+                  <RechartsBarChart 
+                    data={skuProduction.slice(0,10)} 
+                    layout="vertical" 
+                    margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                  >
                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" />
-                    <YAxis dataKey="name" type="category" width={80} tick={{fontSize: 12}}/>
+                    <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}}/>
                     <Tooltip cursor={{fill: 'hsl(var(--muted))'}} contentStyle={{backgroundColor: 'hsl(var(--background))'}}/>
                     <Legend />
                     <RechartsBar dataKey="production" name="Production" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
@@ -333,4 +337,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-
