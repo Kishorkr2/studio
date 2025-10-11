@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -34,6 +35,7 @@ import { useAuth } from './auth-provider';
 import { RalsonTyreIcon } from './icons/ralson-tyre-icon';
 import { ThemePresetSelector } from './theme-preset-selector';
 import { useNavigation } from '@/hooks/use-navigation';
+import { Providers } from './providers';
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -41,10 +43,6 @@ export interface AppLayoutProps {
 }
 
 const navItems = [
-  { href: '/gt-production-entry', label: 'GT Prod Entry', icon: LayoutDashboard },
-  { href: '/curing', label: 'Curing', icon: Flame },
-  { href: '/tread-extrusion', label: 'Tread Extrusion', icon: ClipboardList },
-  { href: '/daily-tread-production', label: 'Daily Production', icon: ListPlus },
   { href: '/planning/gt', label: 'Planning', icon: Spline },
   { href: '/optimize', label: 'AI Optimizer', icon: BotMessageSquare },
   { href: '/reports', label: 'Reports', icon: LineChart },
