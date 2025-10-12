@@ -4,7 +4,7 @@ import { Inter } from 'next/font/google';
 import { AppLayout } from '@/components/app-layout';
 import { Toaster } from '@/components/ui/toaster';
 import { PWAInstall } from '@/components/pwa-install';
-import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar';
+// import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar';
 import { Providers } from '@/components/providers';
 
 // ✅ Font setup
@@ -56,7 +56,7 @@ export default function RootLayout({
         </Providers>
         <Toaster />
         <PWAInstall />
-        <ServiceWorkerRegistrar />
+        {/* <ServiceWorkerRegistrar /> */}
       </body>
     </html>
   );
