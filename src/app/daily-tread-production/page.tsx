@@ -25,6 +25,7 @@ import type {
   ShiftInfo,
   SkuPlan,
   DailyProductionEntry,
+  Machine,
 } from '@/lib/types';
 import {CalendarIcon, Save} from 'lucide-react';
 import {cn} from '@/lib/utils';
@@ -58,6 +59,7 @@ export default function DailyTreadProductionPage() {
   >({});
 
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
+  const [allMachines, setAllMachines] = useState<Machine[]>([]);
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
 
   const [sapCodeFilter, setSapCodeFilter] = useState('');
@@ -66,12 +68,14 @@ export default function DailyTreadProductionPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [shifts, plan, log] = await Promise.all([
+      const [shifts, plan, log, machines] = await Promise.all([
         actions.getShifts(),
         actions.getProductionPlan(),
         actions.getDailyTreadProductionLog(),
+        actions.getMachines('TBM'),
       ]);
       setAllShifts(shifts);
+      setAllMachines(machines);
       if (shifts.length > 0 && !selectedShift) {
         setSelectedShift(shifts[0]);
       }
@@ -118,17 +122,16 @@ export default function DailyTreadProductionPage() {
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
     const entries = dailyProductionLog[dateKey]?.[shiftName] || {};
-    console.log('Loading entries for', dateKey, shiftName, ':', entries);
     setDailyProductionEntries(entries);
   }, [selectedDate, selectedShift, dailyProductionLog]);
 
   const handleDailyProductionChange = (
     sapCode: string,
-    field: 'quantity' | 'trolleyNo',
+    field: 'quantity' | 'trolleyNo' | 'tbmNo',
     value: string
   ) => {
     setDailyProductionEntries(currentEntries => {
-      const entry = currentEntries[sapCode] || {quantity: 0, trolleyNo: ''};
+      const entry = currentEntries[sapCode] || {quantity: 0, trolleyNo: '', tbmNo: ''};
       const newEntry = {
         ...entry,
         [field]: field === 'quantity' ? parseInt(value, 10) || 0 : value,
@@ -152,23 +155,15 @@ export default function DailyTreadProductionPage() {
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
 
-    console.log('Saving production data:', {
-      dateKey,
-      shiftName,
-      entries: dailyProductionEntries
-    });
-
     const updatedLogForDate = {
       ...(dailyProductionLog[dateKey] || {}),
       [shiftName]: dailyProductionEntries,
     };
 
     const newLog = {...dailyProductionLog, [dateKey]: updatedLogForDate};
-    console.log('New log to save:', newLog);
 
     try {
       const result = await actions.saveDailyProductionLog(newLog);
-      console.log('Save result:', result);
       setDailyProductionLog(newLog);
       
       if (result && result.success) {
@@ -207,13 +202,13 @@ export default function DailyTreadProductionPage() {
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
-      setIsDatePickerOpen(false);
     }
+    setIsDatePickerOpen(false);
   };
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-4 md:p-8">
         <h1 className="text-3xl font-bold tracking-tight">
           Daily Tread Production
         </h1>
@@ -231,7 +226,7 @@ export default function DailyTreadProductionPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-8">
       <h1 className="text-3xl font-bold tracking-tight">
         Daily Tread Production
       </h1>
@@ -317,6 +312,7 @@ export default function DailyTreadProductionPage() {
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
                   <TableHead>SKU</TableHead>
+                  <TableHead>TBM No</TableHead>
                   <TableHead>Trolley No</TableHead>
                   <TableHead className="text-right">
                     Production Quantity
@@ -328,6 +324,25 @@ export default function DailyTreadProductionPage() {
                   filteredSkus.map(req => (
                     <TableRow key={req.sapCode}>
                       <TableCell className="font-medium">{req.sku}</TableCell>
+                       <TableCell>
+                        <Select
+                          value={dailyProductionEntries[req.sapCode]?.tbmNo || ''}
+                          onValueChange={(value) =>
+                            handleDailyProductionChange(req.sapCode, 'tbmNo', value)
+                          }
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue placeholder="Select TBM" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allMachines.map((m) => (
+                                <SelectItem key={m.id} value={m.name}>
+                                    {m.name}
+                                </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                       <TableCell>
                         <Input
                           className="w-32"
@@ -366,7 +381,7 @@ export default function DailyTreadProductionPage() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={3}
+                      colSpan={4}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No SKUs available. Please create a production plan in the
