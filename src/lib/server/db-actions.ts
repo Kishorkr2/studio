@@ -16,6 +16,7 @@ import type {
   FlatProductionLogEntry,
   ReportDataRow,
   SkuStandard,
+  CuringLogEntry,
 } from '../types';
 import {format} from 'date-fns';
 import bcrypt from 'bcryptjs';
@@ -424,6 +425,23 @@ export async function saveTreadOpeningStock(stock: TreadStock[]) {
     await db.exec('ROLLBACK');
     throw error;
   }
+}
+
+export async function saveCuringLogEntry(entry: CuringLogEntry) {
+    try {
+        await db.run(
+            'INSERT INTO curingLogEntries (press_no, cavity1_sku, cavity1_qty, cavity2_sku, cavity2_qty) VALUES (?, ?, ?, ?, ?)',
+            entry.press_no,
+            entry.cavity1_sku,
+            entry.cavity1_qty,
+            entry.cavity2_sku,
+            entry.cavity2_qty
+        );
+        return { success: true };
+    } catch (error) {
+        console.error('Error saving curing log entry:', error);
+        return { success: false, message: 'Database error' };
+    }
 }
 
 // User Actions

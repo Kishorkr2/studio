@@ -149,3 +149,11 @@ export interface SkuStandard {
     stdWeight: number | null;
     stdHourlyProduction: number | null;
 }
+
+export interface CuringLogEntry {
+    press_no: number;
+    cavity1_sku: string;
+    cavity1_qty: number;
+    cavity2_sku: string;
+    cavity2_qty: number;
+}

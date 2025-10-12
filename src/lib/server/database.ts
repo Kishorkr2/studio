@@ -97,6 +97,15 @@ async function setup() {
       remark TEXT,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS curingLogEntries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        press_no INTEGER NOT NULL,
+        cavity1_sku TEXT,
+        cavity1_qty INTEGER,
+        cavity2_sku TEXT,
+        cavity2_qty INTEGER,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS dailyTreadProduction (
       id TEXT PRIMARY KEY,
       data TEXT

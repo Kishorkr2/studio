@@ -22,7 +22,7 @@ const featureCards = [
     {
         title: "Curing",
         description: "Manage curing press operations and production data.",
-        href: "/curing",
+        href: "/curing-entry",
         icon: <Flame className="w-8 h-8 text-red-500" />
     },
     {

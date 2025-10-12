@@ -14,6 +14,7 @@ import type {
   DailyProductionEntry,
   User,
   SkuStandard,
+  CuringLogEntry,
 } from '@/lib/types';
 import {SignUpInput} from './signup/page';
 
@@ -77,6 +78,8 @@ export const saveDailyProductionLog = async (
 export const saveTreadOpeningStock = async (stock: TreadStock[]) =>
   dbActions.saveTreadOpeningStock(stock);
 export const clearProductionPlan = async () => dbActions.clearProductionPlan();
+
+export const saveCuringLogEntry = async (entry: CuringLogEntry) => dbActions.saveCuringLogEntry(entry);
 
 // User actions
 export const signUpUser = async (data: SignUpInput) =>
