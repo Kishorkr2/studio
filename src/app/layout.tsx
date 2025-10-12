@@ -55,7 +55,7 @@ export default function RootLayout({
           <AppLayout>{children}</AppLayout>
         </Providers>
         <Toaster />
-        <PWAInstall />
+        {/* <PWAInstall /> */}
         {/* <ServiceWorkerRegistrar /> */}
       </body>
     </html>
