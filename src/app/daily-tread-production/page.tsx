@@ -42,6 +42,10 @@ import {
 import {Skeleton} from '@/components/ui/skeleton';
 import * as actions from '../actions';
 
+interface EnrichedSkuPlan extends SkuPlan {
+  tbmName: string;
+}
+
 export default function DailyTreadProductionPage() {
   const {toast} = useToast();
 
@@ -97,33 +101,50 @@ export default function DailyTreadProductionPage() {
     loadData();
   }, [loadData]);
 
-  const allSkusFromPlan = useMemo((): SkuPlan[] => {
-    const sapCodeMap = new Map<string, SkuPlan>();
+  const allSkusFromPlan = useMemo((): EnrichedSkuPlan[] => {
+    const sapCodeMap = new Map<string, EnrichedSkuPlan>();
+    const machineMap = new Map(allMachines.map(m => [m.id, m.name]));
+
     productionPlan.forEach(item => {
+      const tbmName = machineMap.get(item.machineId) || item.machineId;
       item.skus.forEach(skuPlan => {
         if (!skuPlan.sapCode) return;
+        
         const key = skuPlan.sapCode;
         const existing = sapCodeMap.get(key);
+
         if (existing) {
           sapCodeMap.set(key, {
             ...existing,
             quantity: (existing.quantity || 0) + (skuPlan.quantity || 0),
           });
         } else {
-          sapCodeMap.set(key, {...skuPlan});
+          sapCodeMap.set(key, { ...skuPlan, tbmName });
         }
       });
     });
     return Array.from(sapCodeMap.values());
-  }, [productionPlan]);
+  }, [productionPlan, allMachines]);
 
   useEffect(() => {
     if (!selectedDate || !selectedShift) return;
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
-    const entries = dailyProductionLog[dateKey]?.[shiftName] || {};
-    setDailyProductionEntries(entries);
-  }, [selectedDate, selectedShift, dailyProductionLog]);
+    const entriesForDayAndShift = dailyProductionLog[dateKey]?.[shiftName] || {};
+
+    const newEntries: Record<string, DailyProductionEntry> = {};
+    allSkusFromPlan.forEach(sku => {
+        const existingEntry = entriesForDayAndShift[sku.sapCode];
+        newEntries[sku.sapCode] = {
+            quantity: existingEntry?.quantity || 0,
+            trolleyNo: existingEntry?.trolleyNo || '',
+            tbmNo: existingEntry?.tbmNo || sku.tbmName,
+        };
+    });
+    
+    setDailyProductionEntries(newEntries);
+  }, [selectedDate, selectedShift, dailyProductionLog, allSkusFromPlan]);
+
 
   const handleDailyProductionChange = (
     sapCode: string,
@@ -154,10 +175,14 @@ export default function DailyTreadProductionPage() {
     }
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
+    
+    const entriesToSave = Object.fromEntries(
+      Object.entries(dailyProductionEntries).filter(([, value]) => value.quantity > 0 || value.trolleyNo)
+    );
 
     const updatedLogForDate = {
       ...(dailyProductionLog[dateKey] || {}),
-      [shiftName]: dailyProductionEntries,
+      [shiftName]: entriesToSave,
     };
 
     const newLog = {...dailyProductionLog, [dateKey]: updatedLogForDate};
