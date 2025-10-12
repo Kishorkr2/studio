@@ -138,6 +138,7 @@ export default function DailyTreadProductionPage() {
         newEntries[sku.sapCode] = {
             quantity: existingEntry?.quantity || 0,
             trolleyNo: existingEntry?.trolleyNo || '',
+            bibbinNo: existingEntry?.bibbinNo || '',
             tbmNo: existingEntry?.tbmNo || sku.tbmName,
         };
     });
@@ -148,11 +149,11 @@ export default function DailyTreadProductionPage() {
 
   const handleDailyProductionChange = (
     sapCode: string,
-    field: 'quantity' | 'trolleyNo' | 'tbmNo',
+    field: 'quantity' | 'trolleyNo' | 'tbmNo' | 'bibbinNo',
     value: string
   ) => {
     setDailyProductionEntries(currentEntries => {
-      const entry = currentEntries[sapCode] || {quantity: 0, trolleyNo: '', tbmNo: ''};
+      const entry = currentEntries[sapCode] || {quantity: 0, trolleyNo: '', bibbinNo: '', tbmNo: ''};
       const newEntry = {
         ...entry,
         [field]: field === 'quantity' ? parseInt(value, 10) || 0 : value,
@@ -177,7 +178,7 @@ export default function DailyTreadProductionPage() {
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
     
     const entriesToSave = Object.fromEntries(
-      Object.entries(dailyProductionEntries).filter(([, value]) => value.quantity > 0 || value.trolleyNo)
+      Object.entries(dailyProductionEntries).filter(([, value]) => value.quantity > 0 || value.trolleyNo || value.bibbinNo)
     );
 
     const updatedLogForDate = {
@@ -260,8 +261,7 @@ export default function DailyTreadProductionPage() {
         <CardHeader>
           <CardTitle>Log Tread Production</CardTitle>
           <CardDescription>
-            Enter the quantity of tread produced and the trolley number for each
-            SKU.
+            Enter the quantity of tread produced, trolley, and bibbin number for each SKU.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -339,6 +339,7 @@ export default function DailyTreadProductionPage() {
                   <TableHead>SKU</TableHead>
                   <TableHead>TBM No</TableHead>
                   <TableHead>Trolley No</TableHead>
+                  <TableHead>Bibbin</TableHead>
                   <TableHead className="text-right">
                     Production Quantity
                   </TableHead>
@@ -384,6 +385,22 @@ export default function DailyTreadProductionPage() {
                           }
                         />
                       </TableCell>
+                       <TableCell>
+                        <Input
+                          className="w-32"
+                          placeholder="e.g., B-01"
+                          value={
+                            dailyProductionEntries[req.sapCode]?.bibbinNo || ''
+                          }
+                          onChange={e =>
+                            handleDailyProductionChange(
+                              req.sapCode,
+                              'bibbinNo',
+                              e.target.value
+                            )
+                          }
+                        />
+                      </TableCell>
                       <TableCell className="text-right">
                         <Input
                           type="number"
@@ -406,7 +423,7 @@ export default function DailyTreadProductionPage() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={4}
+                      colSpan={5}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No SKUs available. Please create a production plan in the

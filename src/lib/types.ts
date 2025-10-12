@@ -108,6 +108,7 @@ export interface TreadStock {
 export interface DailyProductionEntry {
   quantity: number;
   trolleyNo: string;
+  bibbinNo?: string;
   tbmNo?: string;
 }
 
