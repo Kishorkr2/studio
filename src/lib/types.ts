@@ -110,6 +110,12 @@ export interface DailyProductionEntry {
   trolleyNo: string;
 }
 
+export type DailyTreadProductionLog = Record<
+  string,
+  Record<string, Record<string, DailyProductionEntry>>
+>;
+
+
 export interface ReportDataRow {
   date: string;
   shift: string;

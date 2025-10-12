@@ -16,6 +16,8 @@ import type {
   ProductionPlanItem,
   ReportDataRow,
   ShiftInfo,
+  TreadStock,
+  DailyTreadProductionLog,
 } from '@/lib/types';
 import {
   Package,
@@ -26,6 +28,10 @@ import {
   TrendingUp,
   Award,
   Search,
+  Box,
+  Layers,
+  Circle,
+  Disc,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import * as actions from '../actions';
@@ -70,21 +76,28 @@ export default function DashboardPage() {
   const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>([]);
   const [productionLogs, setProductionLogs] = useState<ReportDataRow[]>([]);
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
+  const [treadOpeningStock, setTreadOpeningStock] = useState<TreadStock[]>([]);
+  const [dailyTreadProduction, setDailyTreadProduction] = useState<DailyTreadProductionLog>({});
+
   const { toast } = useToast();
 
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [ops, plan, logs, shifts] = await Promise.all([
+      const [ops, plan, logs, shifts, openingStock, dailyLogs] = await Promise.all([
         actions.getOperators(),
         actions.getProductionPlan(),
         actions.getProductionLogs(),
         actions.getShifts(),
+        actions.getTreadOpeningStock(),
+        actions.getDailyTreadProductionLog(),
       ]);
       setOperators(ops);
       setProductionPlan(plan);
       setProductionLogs(logs as ReportDataRow[]);
       setAllShifts(shifts);
+      setTreadOpeningStock(openingStock);
+      setDailyTreadProduction(dailyLogs);
     } catch (error) {
       console.error('Failed to load initial data', error);
       toast({
@@ -158,13 +171,31 @@ export default function DashboardPage() {
     );
     const productionVsPlan =
       totalPlanQty > 0 ? (totalProduction / totalPlanQty) * 100 : 0;
+    
+    // Stock Calculations
+    const totalTreadProduction = Object.values(dailyTreadProduction).flatMap(dateData => 
+        Object.values(dateData).flatMap(shiftData => 
+            Object.values(shiftData).map(skuData => skuData.quantity)
+        )
+    ).reduce((sum, qty) => sum + qty, 0);
+
+    const totalOpeningStock = treadOpeningStock.reduce((sum, item) => sum + (item.openingStock || 0), 0);
+    
+    const totalTyreProduction = productionLogs
+        .filter(log => log.machineName?.startsWith('CP'))
+        .reduce((sum, log) => sum + (log.quantity || 0), 0);
+        
+    const greenTyreStock = totalOpeningStock + totalTreadProduction - totalTyreProduction;
+
     return {
       totalProduction,
       activeMachines,
       activeOperators,
       productionVsPlan: Math.min(100, productionVsPlan),
+      greenTyreStock: greenTyreStock,
     };
-  }, [filteredLogs, productionPlan]);
+  }, [filteredLogs, productionPlan, treadOpeningStock, dailyTreadProduction, productionLogs]);
+
 
   const operatorProduction = useMemo(() => {
     const operatorData = filteredLogs.reduce((acc, curr) => {
@@ -289,7 +320,7 @@ export default function DashboardPage() {
         </header>
 
         {/* KPI Cards */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">
@@ -304,6 +335,23 @@ export default function DashboardPage() {
               <p className="text-xs text-muted-foreground">
                 Units produced in selected period
               </p>
+            </CardContent>
+          </Card>
+          
+           <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Plan Compliance</CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {kpiData.productionVsPlan.toFixed(1)}%
+              </div>
+              <Progress
+                value={kpiData.productionVsPlan}
+                className="mt-2 h-2"
+                aria-label={`${kpiData.productionVsPlan.toFixed(1)}% of plan`}
+              />
             </CardContent>
           </Card>
 
@@ -340,24 +388,65 @@ export default function DashboardPage() {
               </p>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Plan Compliance</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {kpiData.productionVsPlan.toFixed(1)}%
-              </div>
-              <Progress
-                value={kpiData.productionVsPlan}
-                className="mt-2 h-2"
-                aria-label={`${kpiData.productionVsPlan.toFixed(1)}% of plan`}
-              />
-            </CardContent>
-          </Card>
         </div>
+        
+        {/* Stock Cards */}
+        <div className="mb-8">
+            <h2 className="text-xl font-bold tracking-tight text-foreground mb-4">Live Stock Overview</h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium">Green Tyre Stock</CardTitle>
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{kpiData.greenTyreStock.toLocaleString()}</div>
+                      <p className="text-xs text-muted-foreground">Current available stock</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium">Tread Stock</CardTitle>
+                      <Disc className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{kpiData.greenTyreStock.toLocaleString()}</div>
+                      <p className="text-xs text-muted-foreground">Same as Green Tyre Stock</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium">Bead Stock</CardTitle>
+                      <Circle className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">N/A</div>
+                      <p className="text-xs text-muted-foreground">Data not available</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium">Squeeze Roll Stock</CardTitle>
+                      <Box className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">N/A</div>
+                      <p className="text-xs text-muted-foreground">Data not available</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium">Fabric Roll Stock</CardTitle>
+                      <Layers className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">N/A</div>
+                      <p className="text-xs text-muted-foreground">Data not available</p>
+                    </CardContent>
+                  </Card>
+            </div>
+        </div>
+
 
         {/* Main Content Grid */}
         <div className="grid gap-6 lg:grid-cols-3">
@@ -509,4 +598,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
