@@ -113,8 +113,11 @@ export default function DashboardPage() {
           dateRange?.from && dateRange?.to
             ? logDate >= dateRange.from && logDate <= dateRange.to
             : true;
+        
+        const normalizedSelectedShift = selectedShift.replace(/\s+/g, '-');
         const inShift =
-          selectedShift === 'All' ? true : log.shift === selectedShift;
+          selectedShift === 'All' ? true : log.shift === normalizedSelectedShift;
+
         return inDateRange && inShift;
       } catch (error) {
         console.warn('Invalid date format in log:', log.date);
@@ -486,3 +489,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
