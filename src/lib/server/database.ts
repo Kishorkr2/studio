@@ -162,7 +162,7 @@ async function setup() {
       );
     }
     // Seed Curing Presses
-     for (let i = 1; i <= 41; i++) {
+     for (let i = 1; i <= 42; i++) {
         const curingPress: Machine = {
             id: `CP-${String(i).padStart(2, '0')}`,
             name: `Curing Press ${i}`,
