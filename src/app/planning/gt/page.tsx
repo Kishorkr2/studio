@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -56,6 +57,7 @@ export default function GTPlanningPage() {
   const [skuFilter, setSkuFilter] = useState('');
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
 
   const loadData = useCallback(async () => {
@@ -134,6 +136,13 @@ export default function GTPlanningPage() {
     return filteredData.filter(item => item.todaysPlan > 0);
   }, [filteredData]);
 
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+      setIsDatePickerOpen(false);
+    }
+  };
+
   const handleExportPdf = () => {
     if (exportableData.length === 0) {
         toast({ variant: 'destructive', title: "No data to export", description: "Please enter values in 'Today's Plan'." });
@@ -207,7 +216,7 @@ export default function GTPlanningPage() {
                 <div className="flex flex-col md:flex-row gap-4">
                     <div className="space-y-1">
                         <label className="text-sm font-medium">Date</label>
-                        <Popover>
+                        <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                             <PopoverTrigger asChild>
                                 <Button variant="outline" className={cn("w-full md:w-[240px] justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}>
                                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -215,7 +224,7 @@ export default function GTPlanningPage() {
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
-                                <Calendar mode="single" selected={selectedDate} onSelect={(d) => d && setSelectedDate(d)} initialFocus />
+                                <Calendar mode="single" selected={selectedDate} onSelect={handleDateSelect} initialFocus />
                             </PopoverContent>
                         </Popover>
                     </div>

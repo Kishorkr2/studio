@@ -126,6 +126,7 @@ export default function GTProductionEntryPage() {
   
   // State
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
   const [selectedRound, setSelectedRound] = useState<string>("");
   const [roundTimes, setRoundTimes] = useState<string[]>([]);
@@ -344,6 +345,7 @@ export default function GTProductionEntryPage() {
     if (date && selectedShift) {
         setSelectedDate(date);
         fetchAndSetLog(date, selectedShift);
+        setIsDatePickerOpen(false);
     }
   };
 
@@ -434,7 +436,7 @@ export default function GTProductionEntryPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-xl">
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-2 block">Date</label>
-                <Popover>
+                <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant={"outline"}
@@ -662,4 +664,3 @@ export default function GTProductionEntryPage() {
   );
 }
 
-    

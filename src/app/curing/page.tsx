@@ -137,6 +137,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   const {user} = useAuth();
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
   const [allCuringPresses, setAllCuringPresses] = useState<Machine[]>([]);
@@ -556,6 +557,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       loadEntriesForRound(selectedRound, log);
       setIsFetchingLog(false);
     }
+    setIsDatePickerOpen(false);
   }, [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound]);
 
   const roundTotal = useMemo(() => {
@@ -629,7 +631,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                 <p className="text-lg font-bold text-primary">{roundTotal.toLocaleString()}</p>
               </CardContent>
             </Card>
-            <Popover>
+            <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant={'outline'}

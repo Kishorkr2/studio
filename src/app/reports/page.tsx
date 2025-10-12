@@ -38,6 +38,7 @@ export default function GTReportDashboard() {
   const [shifts, setShifts] = useState<ShiftInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<string>("All");
 
   const loadData = useCallback(async () => {
@@ -141,6 +142,13 @@ export default function GTReportDashboard() {
     XLSX.utils.book_append_sheet(wb, ws, "RTPMS Report");
     XLSX.writeFile(wb, "RTPMS_Report.xlsx");
   };
+  
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    if (date) {
+      setIsDatePickerOpen(false);
+    }
+  };
 
   const clearFilters = () => {
     setSelectedDate(undefined);
@@ -170,7 +178,7 @@ export default function GTReportDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-             <Popover>
+             <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant={"outline"}
@@ -187,7 +195,7 @@ export default function GTReportDashboard() {
                 <Calendar
                   mode="single"
                   selected={selectedDate}
-                  onSelect={setSelectedDate}
+                  onSelect={handleDateSelect}
                   initialFocus
                 />
               </PopoverContent>

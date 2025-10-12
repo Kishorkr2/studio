@@ -52,6 +52,7 @@ export default function DailyTreadProductionPage() {
     Record<string, Record<string, Record<string, DailyProductionEntry>>>
   >({});
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [dailyProductionEntries, setDailyProductionEntries] = useState<
     Record<string, DailyProductionEntry>
   >({});
@@ -203,6 +204,13 @@ export default function DailyTreadProductionPage() {
     );
   }, [allSkusFromPlan, sapCodeFilter, skuFilter]);
 
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+      setIsDatePickerOpen(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -239,7 +247,7 @@ export default function DailyTreadProductionPage() {
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-              <Popover>
+              <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant={'outline'}
@@ -260,7 +268,7 @@ export default function DailyTreadProductionPage() {
                   <Calendar
                     mode="single"
                     selected={selectedDate}
-                    onSelect={date => date && setSelectedDate(date)}
+                    onSelect={handleDateSelect}
                     initialFocus
                   />
                 </PopoverContent>
