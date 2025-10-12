@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { DateRange } from 'react-day-picker';
@@ -56,7 +57,7 @@ import {
 } from '@/components/ui/select';
 
 // Professional color scheme for enterprise dashboards
-const SKU_COLORS = [
+const CHART_COLORS = [
   '#2563eb', '#7c3aed', '#059669', '#d97706', '#dc2626',
   '#0891b2', '#4f46e5', '#0d9488', '#ea580c', '#9333ea',
 ];
@@ -378,7 +379,7 @@ export default function DashboardPage() {
                     {skuProduction.slice(0, 10).map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={SKU_COLORS[index % SKU_COLORS.length]}
+                        fill={CHART_COLORS[index % CHART_COLORS.length]}
                       />
                     ))}
                   </RechartsBar>
@@ -421,52 +422,67 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
-
-            <Card className="flex-1">
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Operator Rankings
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Top 5 by production volume.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="max-h-[320px] overflow-y-auto">
-                    {operatorProduction.slice(0, 5).map((op, index) => (
-                      <div
-                        key={op.name}
-                        className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-muted/50"
-                      >
-                        <span
-                          className={cn(
-                            'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold',
-                            index === 0 && 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300',
-                            index === 1 && 'bg-slate-100 text-slate-800 dark:bg-slate-800/50 dark:text-slate-300',
-                            index === 2 && 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300',
-                            index > 2 && 'bg-muted text-muted-foreground'
-                          )}
-                        >
-                          {index + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="truncate text-sm font-medium">
-                            {op.name}
-                          </p>
-                        </div>
-                        <div className="text-sm font-semibold text-foreground">
-                          {op.production.toLocaleString()}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
           </div>
+        </div>
+
+        {/* Operator Chart - Full Width */}
+        <div className="mt-6 grid grid-cols-1">
+          <Card>
+            <CardHeader>
+              <CardTitle>Operator-wise Production</CardTitle>
+              <CardDescription>
+                Production volume by operator.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pl-2">
+              <ResponsiveContainer width="100%" height={400}>
+                <RechartsBarChart
+                  data={operatorProduction.slice(0, 15)}
+                  margin={{
+                    top: 5,
+                    right: 30,
+                    left: 20,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    stroke="#888888"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    angle={-45}
+                    textAnchor="end"
+                    height={70}
+                  />
+                  <YAxis stroke="#888888" fontSize={12} />
+                  <Tooltip
+                    cursor={{ fill: 'hsl(var(--muted))' }}
+                     contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      borderRadius: 'var(--radius)',
+                      border: '1px solid hsl(var(--border))',
+                    }}
+                  />
+                  <RechartsBar
+                    dataKey="production"
+                    name="Production"
+                    radius={[4, 4, 0, 0]}
+                  >
+                  {operatorProduction.slice(0, 15).map((entry, index) => (
+                      <Cell
+                        key={`cell-op-${index}`}
+                        fill={CHART_COLORS[index % CHART_COLORS.length]}
+                      />
+                    ))}
+                  </RechartsBar>
+                </RechartsBarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
   );
 }
-
-    
