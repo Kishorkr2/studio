@@ -73,15 +73,25 @@ export default function GTReportDashboard() {
     }
 
     if (selectedShift && selectedShift !== "All") {
-      dateFilteredLogs = dateFilteredLogs.filter(e => e.shift === selectedShift);
+      const normalizedShift = selectedShift.replace(/\s+/g, '-');
+      dateFilteredLogs = dateFilteredLogs.filter(e => e.shift === normalizedShift);
+    }
+
+    if (!searchTerm) {
+      return dateFilteredLogs;
     }
 
     return dateFilteredLogs.filter((e) => {
       const term = searchTerm.toLowerCase();
+      // Search across all relevant fields
       return (
+        e.date?.toLowerCase().includes(term) ||
+        e.shift?.toLowerCase().includes(term) ||
+        e.round?.toLowerCase().includes(term) ||
         e.machineName?.toLowerCase().includes(term) ||
         e.operatorName?.toLowerCase().includes(term) ||
         e.sku?.toLowerCase().includes(term) ||
+        e.sapCode?.toLowerCase().includes(term) ||
         e.quantity.toString().includes(term)
       );
     });
@@ -118,13 +128,14 @@ export default function GTReportDashboard() {
       return;
     }
     const ws = XLSX.utils.json_to_sheet(filteredSavedEntries.map(e => ({
-      'TBM No': e.machineName,
-      'Operator': e.operatorName,
-      'SKU': e.sku,
-      'Quantity': e.quantity,
       'Date': e.date,
       'Shift': e.shift,
       'Hour': e.round,
+      'TBM No': e.machineName,
+      'Operator': e.operatorName,
+      'SKU': e.sku,
+      'SAP Code': e.sapCode,
+      'Quantity': e.quantity,
     })));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "RTPMS Report");
@@ -210,7 +221,7 @@ export default function GTReportDashboard() {
            <div className="relative w-full md:w-1/3">
               <Search className="absolute left-2 top-2.5 text-gray-400 h-5 w-5" />
               <Input
-                placeholder="Search..."
+                placeholder="Search anything..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8 bg-white border-purple-300 focus:ring-2 focus:ring-purple-400"
@@ -300,7 +311,7 @@ export default function GTReportDashboard() {
                           : "from-white to-purple-50"
                       }`}
                     >
-                      <TableCell>{format(new Date(entry.date), "dd-MM-yyyy")}</TableCell>
+                      <TableCell>{entry.date ? format(new Date(entry.date), "dd-MM-yyyy") : 'N/A'}</TableCell>
                       <TableCell>{entry.shift}</TableCell>
                       <TableCell className="font-medium">{entry.machineName}</TableCell>
                       <TableCell>{entry.operatorName}</TableCell>
