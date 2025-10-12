@@ -25,6 +25,7 @@ import {
   Calendar as CalendarIcon,
   TrendingUp,
   Award,
+  Search,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import * as actions from '../actions';
@@ -55,6 +56,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 // Professional color scheme for enterprise dashboards
 const CHART_COLORS = [
@@ -104,6 +106,7 @@ export default function DashboardPage() {
     to: new Date(),
   });
   const [selectedShift, setSelectedShift] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const filteredLogs = useMemo(() => {
     return productionLogs.filter((log) => {
@@ -117,18 +120,26 @@ export default function DashboardPage() {
         const normalizedSelectedShift = selectedShift.replace(/\s+/g, '-');
         const inShift =
           selectedShift === 'All' ? true : log.shift === normalizedSelectedShift;
+        
+        const matchesSearch = searchTerm ?
+            (log.operatorName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (log.machineName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (log.sku?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (log.sapCode?.toLowerCase().includes(searchTerm.toLowerCase()))
+            : true;
 
-        return inDateRange && inShift;
+        return inDateRange && inShift && matchesSearch;
       } catch (error) {
         console.warn('Invalid date format in log:', log.date);
         return false;
       }
     });
-  }, [productionLogs, dateRange, selectedShift]);
+  }, [productionLogs, dateRange, selectedShift, searchTerm]);
 
   const clearFilters = () => {
     setDateRange({ from: addDays(new Date(), -7), to: new Date() });
     setSelectedShift('All');
+    setSearchTerm('');
   };
 
   const kpiData = useMemo(() => {
@@ -210,6 +221,15 @@ export default function DashboardPage() {
             </div>
             
             <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search..."
+                  className="pl-9 w-full sm:w-[200px]"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -490,4 +510,3 @@ export default function DashboardPage() {
   );
 }
 
-    
