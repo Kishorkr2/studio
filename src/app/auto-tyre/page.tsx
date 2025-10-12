@@ -32,9 +32,9 @@ const featureCards = [
         icon: <ClipboardList className="w-8 h-8 text-orange-500" />
     },
     {
-        title: "Daily Tread Production",
-        description: "Log daily tread production quantities per SKU.",
-        href: "/daily-tread-production",
+        title: "Tread Production Entry",
+        description: "Log tread production quantities per SKU.",
+        href: "/tread-production-entry",
         icon: <ListPlus className="w-8 h-8 text-indigo-500" />
     },
     {

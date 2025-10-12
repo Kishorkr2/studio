@@ -46,7 +46,7 @@ interface EnrichedSkuPlan extends SkuPlan {
   tbmName: string;
 }
 
-export default function DailyTreadProductionPage() {
+export default function TreadProductionEntryPage() {
   const {toast} = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -236,7 +236,7 @@ export default function DailyTreadProductionPage() {
     return (
       <div className="space-y-6 p-4 md:p-8">
         <h1 className="text-3xl font-bold tracking-tight">
-          Daily Tread Production
+          Tread Production Entry
         </h1>
         <Card>
           <CardHeader>
@@ -254,7 +254,7 @@ export default function DailyTreadProductionPage() {
   return (
     <div className="space-y-6 p-4 md:p-8">
       <h1 className="text-3xl font-bold tracking-tight">
-        Daily Tread Production
+        Tread Production Entry
       </h1>
 
       <Card>
