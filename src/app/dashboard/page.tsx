@@ -10,6 +10,22 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import type {
   Operator,
@@ -25,13 +41,13 @@ import {
   Users2,
   CheckCircle,
   Calendar as CalendarIcon,
-  TrendingUp,
   Award,
   Search,
   Box,
   Layers,
   Circle,
   Disc,
+  Warehouse,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import * as actions from '../actions';
@@ -70,6 +86,13 @@ const CHART_COLORS = [
   '#0891b2', '#4f46e5', '#0d9488', '#ea580c', '#9333ea',
 ];
 
+type DialogDataType = {
+  title: string;
+  description: string;
+  data: any;
+  type: 'kpi' | 'stock' | 'list';
+} | null;
+
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [operators, setOperators] = useState<Operator[]>([]);
@@ -78,6 +101,9 @@ export default function DashboardPage() {
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
   const [treadOpeningStock, setTreadOpeningStock] = useState<TreadStock[]>([]);
   const [dailyTreadProduction, setDailyTreadProduction] = useState<DailyTreadProductionLog>({});
+  
+  const [dialogData, setDialogData] = useState<DialogDataType>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -154,7 +180,7 @@ export default function DashboardPage() {
     setSelectedShift('All');
     setSearchTerm('');
   };
-
+  
   const kpiData = useMemo(() => {
     const totalProduction = filteredLogs.reduce(
       (sum, log) => sum + (log.quantity || 0),
@@ -181,11 +207,11 @@ export default function DashboardPage() {
 
     const totalOpeningStock = treadOpeningStock.reduce((sum, item) => sum + (item.openingStock || 0), 0);
     
-    const totalTyreProduction = productionLogs
+    const totalTyreConsumption = productionLogs
         .filter(log => log.machineName?.startsWith('CP'))
         .reduce((sum, log) => sum + (log.quantity || 0), 0);
         
-    const greenTyreStock = totalOpeningStock + totalTreadProduction - totalTyreProduction;
+    const greenTyreStock = totalOpeningStock + totalTreadProduction - totalTyreConsumption;
 
     return {
       totalProduction,
@@ -193,6 +219,9 @@ export default function DashboardPage() {
       activeOperators,
       productionVsPlan: Math.min(100, productionVsPlan),
       greenTyreStock: greenTyreStock,
+      totalOpeningStock,
+      totalTreadProduction,
+      totalTyreConsumption
     };
   }, [filteredLogs, productionPlan, treadOpeningStock, dailyTreadProduction, productionLogs]);
 
@@ -228,6 +257,11 @@ export default function DashboardPage() {
     return Object.values(skuData).sort((a, b) => b.production - a.production);
   }, [filteredLogs]);
 
+  const handleCardClick = (title: string, description: string, data: any, type: 'kpi' | 'stock' | 'list') => {
+    setDialogData({ title, description, data, type });
+    setIsDialogOpen(true);
+  };
+  
   if (loading) {
     return (
       <div className="flex h-full flex-1 items-center justify-center bg-slate-50">
@@ -238,6 +272,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background/50">
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <div className="mx-auto max-w-[1600px] p-4 sm:p-6 md:p-8">
         {/* Header Section */}
         <header className="mb-8">
@@ -321,7 +356,7 @@ export default function DashboardPage() {
 
         {/* KPI Cards */}
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
-          <Card>
+          <Card className="hover:bg-muted/50 cursor-pointer" onClick={() => handleCardClick('Total Production', 'Total units produced in selected period.', {tbm: filteredLogs.filter(l => l.machineName.startsWith('TBM')).reduce((s, l) => s + l.quantity, 0), curing: filteredLogs.filter(l => l.machineName.startsWith('CP')).reduce((s, l) => s + l.quantity, 0)}, 'kpi')}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">
                 Total Production
@@ -338,7 +373,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
           
-           <Card>
+           <Card className="hover:bg-muted/50 cursor-pointer" onClick={() => handleCardClick('Plan Compliance', 'Production vs. total plan requirement.', { plan: productionPlan.reduce((sum, item) => sum + item.skus.reduce((s, sku) => s + (sku.quantity || 0), 0), 0), actual: kpiData.totalProduction, compliance: kpiData.productionVsPlan }, 'kpi')}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Plan Compliance</CardTitle>
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
@@ -355,7 +390,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="hover:bg-muted/50 cursor-pointer" onClick={() => handleCardClick('Active Machines', 'Machines with production logs in the selected period.', [...new Set(filteredLogs.map((log) => log.machineName))], 'list')}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">
                 Active Machines
@@ -372,7 +407,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="hover:bg-muted/50 cursor-pointer" onClick={() => handleCardClick('Active Operators', 'Operators with logged shifts in the selected period.', [...new Set(filteredLogs.map((log) => log.operatorName))], 'list')}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">
                 Active Operators
@@ -394,17 +429,17 @@ export default function DashboardPage() {
         <div className="mb-8">
             <h2 className="text-xl font-bold tracking-tight text-foreground mb-4">Live Stock Overview</h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                 <Card>
+                  <Card className="hover:bg-muted/50 cursor-pointer" onClick={() => handleCardClick('Green Tyre Stock Ledger', 'Current available green tyre stock calculation.', { opening: kpiData.totalOpeningStock, production: kpiData.totalTreadProduction, consumption: kpiData.totalTyreConsumption, closing: kpiData.greenTyreStock }, 'stock')}>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium">Green Tyre Stock</CardTitle>
-                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <Warehouse className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{kpiData.greenTyreStock.toLocaleString()}</div>
                       <p className="text-xs text-muted-foreground">Current available stock</p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="hover:bg-muted/50 cursor-pointer" onClick={() => handleCardClick('Tread Stock Ledger', 'Current available tread stock calculation.', { opening: kpiData.totalOpeningStock, production: kpiData.totalTreadProduction, consumption: kpiData.totalTyreConsumption, closing: kpiData.greenTyreStock }, 'stock')}>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium">Tread Stock</CardTitle>
                       <Disc className="h-4 w-4 text-muted-foreground" />
@@ -554,7 +589,7 @@ export default function DashboardPage() {
                     top: 5,
                     right: 30,
                     left: 20,
-                    bottom: 5,
+                    bottom: 70, // Increased bottom margin
                   }}
                 >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -566,7 +601,7 @@ export default function DashboardPage() {
                     axisLine={false}
                     angle={-45}
                     textAnchor="end"
-                    height={70}
+                    interval={0}
                   />
                   <YAxis stroke="#888888" fontSize={12} />
                   <Tooltip
@@ -595,6 +630,81 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>{dialogData?.title}</DialogTitle>
+          <DialogDescription>{dialogData?.description}</DialogDescription>
+        </DialogHeader>
+        {dialogData?.type === 'kpi' && dialogData.data && (
+            <div className="grid gap-4 py-4">
+               {typeof dialogData.data.tbm !== 'undefined' && (
+                 <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Green Tyre Production (TBM)</span>
+                    <span className="font-bold">{dialogData.data.tbm.toLocaleString()}</span>
+                </div>
+               )}
+                {typeof dialogData.data.curing !== 'undefined' && (
+                 <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Cured Tyre Production</span>
+                    <span className="font-bold">{dialogData.data.curing.toLocaleString()}</span>
+                </div>
+               )}
+                {typeof dialogData.data.plan !== 'undefined' && (
+                 <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Total Plan</span>
+                    <span className="font-bold">{dialogData.data.plan.toLocaleString()}</span>
+                </div>
+               )}
+               {typeof dialogData.data.actual !== 'undefined' && (
+                 <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Actual Production</span>
+                    <span className="font-bold">{dialogData.data.actual.toLocaleString()}</span>
+                </div>
+               )}
+               {typeof dialogData.data.compliance !== 'undefined' && (
+                 <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Compliance</span>
+                    <span className="font-bold">{dialogData.data.compliance.toFixed(2)}%</span>
+                </div>
+               )}
+            </div>
+        )}
+        {dialogData?.type === 'list' && Array.isArray(dialogData.data) && (
+          <div className="max-h-60 overflow-y-auto border rounded-md">
+            <Table>
+              <TableBody>
+                {dialogData.data.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell>{item}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        {dialogData?.type === 'stock' && dialogData.data && (
+            <div className="space-y-2 py-4">
+                <div className="flex justify-between items-center p-2 rounded-md bg-muted/50">
+                    <span className="text-muted-foreground">Total Opening Stock</span>
+                    <span className="font-bold">{dialogData.data.opening.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 rounded-md bg-green-500/10 text-green-700">
+                    <span className="">(+) Total Tread Production</span>
+                    <span className="font-bold">{dialogData.data.production.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 rounded-md bg-red-500/10 text-red-700">
+                    <span className="">(-) Tyre Consumption</span>
+                    <span className="font-bold">{dialogData.data.consumption.toLocaleString()}</span>
+                </div>
+                <hr className="my-2"/>
+                 <div className="flex justify-between items-center p-2 rounded-md bg-blue-500/10 text-blue-700">
+                    <span className="font-semibold">(=) Current Stock</span>
+                    <span className="font-bold text-lg">{dialogData.data.closing.toLocaleString()}</span>
+                </div>
+            </div>
+        )}
+      </DialogContent>
+      </Dialog>
     </div>
   );
 }
