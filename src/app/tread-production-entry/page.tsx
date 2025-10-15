@@ -1,13 +1,10 @@
 
 'use client';
 
-import {useState, useEffect, useMemo, useCallback} from 'react';
-import {Button} from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-} from '@/components/ui/card';
-import {Input} from '@/components/ui/input';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -16,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {useToast} from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import type {
   ProductionPlanItem,
   ShiftInfo,
@@ -24,11 +21,11 @@ import type {
   DailyProductionEntry,
   Machine,
 } from '@/lib/types';
-import {CalendarIcon, Save} from 'lucide-react';
-import {cn} from '@/lib/utils';
-import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
-import {Calendar} from '@/components/ui/calendar';
-import {format} from 'date-fns';
+import { CalendarIcon, Save, Edit, XCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 import {
   Select,
   SelectContent,
@@ -36,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {Skeleton} from '@/components/ui/skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import * as actions from '../actions';
 
 interface EnrichedSkuPlan extends SkuPlan {
@@ -44,12 +41,9 @@ interface EnrichedSkuPlan extends SkuPlan {
 }
 
 export default function TreadProductionEntryPage() {
-  const {toast} = useToast();
-
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>(
-    []
-  );
+  const [productionPlan, setProductionPlan] = useState<ProductionPlanItem[]>([]);
   const [dailyProductionLog, setDailyProductionLog] = useState<
     Record<string, Record<string, Record<string, DailyProductionEntry>>>
   >({});
@@ -58,13 +52,12 @@ export default function TreadProductionEntryPage() {
   const [dailyProductionEntries, setDailyProductionEntries] = useState<
     Record<string, DailyProductionEntry>
   >({});
-
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
   const [allMachines, setAllMachines] = useState<Machine[]>([]);
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
-
   const [sapCodeFilter, setSapCodeFilter] = useState('');
   const [skuFilter, setSkuFilter] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -106,10 +99,8 @@ export default function TreadProductionEntryPage() {
       const tbmName = machineMap.get(item.machineId) || item.machineId;
       item.skus.forEach(skuPlan => {
         if (!skuPlan.sapCode) return;
-        
         const key = skuPlan.sapCode;
         const existing = sapCodeMap.get(key);
-
         if (existing) {
           sapCodeMap.set(key, {
             ...existing,
@@ -122,8 +113,8 @@ export default function TreadProductionEntryPage() {
     });
     return Array.from(sapCodeMap.values());
   }, [productionPlan, allMachines]);
-
-  useEffect(() => {
+  
+  const loadEntriesForDateAndShift = useCallback(() => {
     if (!selectedDate || !selectedShift) return;
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
@@ -131,29 +122,37 @@ export default function TreadProductionEntryPage() {
 
     const newEntries: Record<string, DailyProductionEntry> = {};
     allSkusFromPlan.forEach(sku => {
-        const existingEntry = entriesForDayAndShift[sku.sapCode];
-        newEntries[sku.sapCode] = {
-            quantity: existingEntry?.quantity || 0,
-            trolleyNo: existingEntry?.trolleyNo || '',
-            bobbinNo: existingEntry?.bobbinNo || '',
-        };
+      const existingEntry = entriesForDayAndShift[sku.sapCode];
+      newEntries[sku.sapCode] = {
+        quantity: existingEntry?.quantity || 0,
+        trolleyNo: existingEntry?.trolleyNo || '',
+        bobbinNo: existingEntry?.bobbinNo || '',
+      };
     });
-    
+
     setDailyProductionEntries(newEntries);
   }, [selectedDate, selectedShift, dailyProductionLog, allSkusFromPlan]);
+
+
+  useEffect(() => {
+    loadEntriesForDateAndShift();
+    setIsEditing(false); // Reset editing state when date/shift changes
+  }, [selectedDate, selectedShift, dailyProductionLog, allSkusFromPlan, loadEntriesForDateAndShift]);
+
 
   const totalProductionPerSku = useMemo(() => {
     const totals: Record<string, number> = {};
     for (const date in dailyProductionLog) {
       for (const shift in dailyProductionLog[date]) {
         for (const sapCode in dailyProductionLog[date][shift]) {
-          totals[sapCode] = (totals[sapCode] || 0) + (dailyProductionLog[date][shift][sapCode].quantity || 0);
+          totals[sapCode] =
+            (totals[sapCode] || 0) +
+            (dailyProductionLog[date][shift][sapCode].quantity || 0);
         }
       }
     }
     return totals;
   }, [dailyProductionLog]);
-
 
   const handleDailyProductionChange = (
     sapCode: string,
@@ -161,11 +160,15 @@ export default function TreadProductionEntryPage() {
     value: string
   ) => {
     setDailyProductionEntries(currentEntries => {
-      const entry = currentEntries[sapCode] || {quantity: 0, trolleyNo: '', bobbinNo: ''};
-      
+      const entry =
+        currentEntries[sapCode] || { quantity: 0, trolleyNo: '', bobbinNo: '' };
+
       const newEntry: DailyProductionEntry = {
         ...entry,
-        [field]: field === 'quantity' ? parseInt(value, 10) || 0 : value,
+        [field]:
+          field === 'quantity'
+            ? parseInt(value, 10) || 0
+            : value.toUpperCase(),
       };
 
       return {
@@ -185,9 +188,11 @@ export default function TreadProductionEntryPage() {
       return;
     }
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
-    
+
     const entriesToSave = Object.fromEntries(
-      Object.entries(dailyProductionEntries).filter(([, value]) => value.quantity > 0 || value.trolleyNo || value.bobbinNo)
+      Object.entries(dailyProductionEntries).filter(
+        ([, value]) => value.quantity > 0 || value.trolleyNo || value.bobbinNo
+      )
     );
 
     const result = await actions.saveDailyProductionLog(
@@ -197,7 +202,6 @@ export default function TreadProductionEntryPage() {
     );
 
     if (result && result.success) {
-      // Optimistically update the local state to reflect the save
       const shiftName = selectedShift.name.replace(/\s+/g, '-');
       setDailyProductionLog(prev => ({
         ...prev,
@@ -206,21 +210,46 @@ export default function TreadProductionEntryPage() {
           [shiftName]: entriesToSave,
         },
       }));
+      setIsEditing(false);
       toast({
-        title: 'Success!',
-        description: `Tread production for ${
-          selectedShift.name
-        } on ${format(selectedDate, 'PPP')} has been saved.`,
-        action: <Save className="text-green-500" />,
+        title: '✅ Saved Successfully',
+        description: `Tread production for ${selectedShift.name} on ${format(
+          selectedDate,
+          'PPP'
+        )} has been saved.`,
       });
     } else {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: result.error || 'Failed to save production data.',
+        description: 'Failed to save production data.',
       });
     }
   };
+
+  // 🧮 Calculate live totals
+  const totalBobbin = useMemo(() => {
+    return Object.values(dailyProductionEntries).reduce((sum, e) => {
+      const count = e.bobbinNo ? e.bobbinNo.split(',').filter(Boolean).length : 0;
+      return sum + count;
+    }, 0);
+  }, [dailyProductionEntries]);
+  
+  const totalQty = useMemo(() => {
+    return Object.values(dailyProductionEntries).reduce(
+      (sum, e) => sum + (e.quantity || 0),
+      0
+    );
+  }, [dailyProductionEntries]);
+  
+  const totalProduction = useMemo(() => {
+    return Object.values(dailyProductionEntries).reduce((acc, entry) => {
+        const bobbinCount = entry.bobbinNo ? entry.bobbinNo.split(',').filter(Boolean).length : 0;
+        const bobbinQty = bobbinCount * 110;
+        const manualQty = entry.quantity || 0;
+        return acc + bobbinQty + manualQty;
+    }, 0);
+  }, [dailyProductionEntries]);
 
   const filteredSkus = useMemo(() => {
     return allSkusFromPlan.filter(
@@ -232,10 +261,16 @@ export default function TreadProductionEntryPage() {
   }, [allSkusFromPlan, sapCodeFilter, skuFilter]);
 
   const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
-      setSelectedDate(date);
-    }
+    if (date) setSelectedDate(date);
     setIsDatePickerOpen(false);
+  };
+  
+  const handleEditToggle = () => {
+    if (isEditing) {
+      // If canceling, reload the original data
+      loadEntriesForDateAndShift();
+    }
+    setIsEditing(!isEditing);
   };
 
   if (loading) {
@@ -255,10 +290,41 @@ export default function TreadProductionEntryPage() {
 
   return (
     <div className="space-y-6 p-4 md:p-8">
-      <h1 className="text-3xl font-bold tracking-tight">
+      <h1 className="text-3xl font-bold tracking-tight text-primary">
         Tread Production Entry
       </h1>
 
+      {/* ✅ Total Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="bg-blue-100 border-blue-300 shadow">
+          <CardHeader>
+            <CardTitle className="text-blue-700">Total Bobbins</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-bold text-blue-900">
+            {totalBobbin}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-green-100 border-green-300 shadow">
+          <CardHeader>
+            <CardTitle className="text-green-700">Total Quantity (pcs)</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-bold text-green-900">
+            {totalQty.toLocaleString()}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-yellow-100 border-yellow-300 shadow">
+          <CardHeader>
+            <CardTitle className="text-yellow-700">Total Production</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-bold text-yellow-900">
+            {totalProduction.toLocaleString()}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 🔹 Filters & Date/Shift Selector */}
       <Card>
         <CardContent className="space-y-4 pt-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -273,11 +339,7 @@ export default function TreadProductionEntryPage() {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? (
-                      format(selectedDate, 'PPP')
-                    ) : (
-                      <span>Pick a date</span>
-                    )}
+                    {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -308,11 +370,21 @@ export default function TreadProductionEntryPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleSaveDailyProduction}>
-              <Save className="mr-2 h-4 w-4" /> Save
-            </Button>
+            <div className="flex items-center gap-2">
+               <Button
+                variant={isEditing ? 'destructive' : 'outline'}
+                onClick={handleEditToggle}
+              >
+                {isEditing ? <XCircle className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}
+                {isEditing ? 'Cancel' : 'Edit'}
+              </Button>
+              <Button onClick={handleSaveDailyProduction} className="bg-green-600 hover:bg-green-700" disabled={!isEditing}>
+                <Save className="mr-2 h-4 w-4" /> Save
+              </Button>
+            </div>
           </div>
 
+          {/* 🔍 Filters */}
           <div className="flex flex-col sm:flex-row gap-4 my-4">
             <Input
               placeholder="Filter by SAP Code..."
@@ -328,30 +400,36 @@ export default function TreadProductionEntryPage() {
             />
           </div>
 
+          {/* 🧾 Table */}
           <div className="border rounded-lg max-h-[60vh] overflow-x-auto">
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
                   <TableHead>SKU</TableHead>
                   <TableHead>Trolley No</TableHead>
-                  <TableHead>Bobbin No</TableHead>
+                  <TableHead>Bobbin No(s)</TableHead>
                   <TableHead className="text-right">
-                    Production Quantity (pcs)
+                    Quantity (pcs)
                   </TableHead>
+                  <TableHead className="text-right">Total Production</TableHead>
                   <TableHead className="text-right">
-                    Total Production
+                    Total Tread Production
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredSkus.length > 0 ? (
                   filteredSkus.map(req => (
-                    <TableRow key={req.sapCode}>
+                    <TableRow
+                      key={req.sapCode}
+                      className="hover:bg-gray-50 transition-all"
+                    >
                       <TableCell className="font-medium">{req.sku}</TableCell>
                       <TableCell>
                         <Input
-                          className="w-32"
-                          placeholder="e.g., T-123"
+                          className="w-28"
+                          placeholder="T-123"
+                          disabled={!isEditing}
                           value={
                             dailyProductionEntries[req.sapCode]?.trolleyNo || ''
                           }
@@ -364,10 +442,11 @@ export default function TreadProductionEntryPage() {
                           }
                         />
                       </TableCell>
-                       <TableCell>
+                      <TableCell>
                         <Input
-                          className="w-32"
-                          placeholder="e.g., B-456"
+                          className="w-28"
+                          placeholder="e.g., B-1,B-2"
+                          disabled={!isEditing}
                           value={
                             dailyProductionEntries[req.sapCode]?.bobbinNo || ''
                           }
@@ -383,8 +462,9 @@ export default function TreadProductionEntryPage() {
                       <TableCell className="text-right">
                         <Input
                           type="number"
-                          className="w-32 ml-auto text-right"
+                          className="w-24 ml-auto text-right"
                           placeholder="0"
+                          disabled={!isEditing}
                           value={
                             dailyProductionEntries[req.sapCode]?.quantity || ''
                           }
@@ -397,7 +477,13 @@ export default function TreadProductionEntryPage() {
                           }
                         />
                       </TableCell>
-                      <TableCell className="text-right font-bold">
+                      <TableCell className="text-right font-semibold text-blue-700">
+                        {(
+                          (dailyProductionEntries[req.sapCode]?.quantity || 0) +
+                          ((dailyProductionEntries[req.sapCode]?.bobbinNo || '').split(',').filter(Boolean).length * 110)
+                        ).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-green-700">
                         {(totalProductionPerSku[req.sapCode] || 0).toLocaleString()}
                       </TableCell>
                     </TableRow>
@@ -405,7 +491,7 @@ export default function TreadProductionEntryPage() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No SKUs available. Please create a production plan in the
