@@ -188,19 +188,18 @@ export default function TreadProductionEntryPage() {
       ...(dailyProductionLog[dateKey] || {}),
       [shiftName]: entriesToSave,
     };
-
-    const newLog = {...dailyProductionLog, [dateKey]: updatedLogForDate};
-
+    
     try {
-      const result = await actions.saveDailyProductionLog(newLog);
-      setDailyProductionLog(newLog);
+      const result = await actions.saveDailyProductionLog(dateKey, updatedLogForDate);
+      
+      setDailyProductionLog(prev => ({...prev, [dateKey]: updatedLogForDate}));
       
       if (result && result.success) {
         toast({
           title: 'Success!',
           description: `Tread production for ${
             selectedShift.name
-          } on ${format(selectedDate, 'PPP')} has been saved locally and synced to Firebase.`,
+          } on ${format(selectedDate, 'PPP')} has been saved.`,
           action: <Save className="text-green-500" />,
         });
       } else {
@@ -316,7 +315,7 @@ export default function TreadProductionEntryPage() {
               </Select>
             </div>
             <Button onClick={handleSaveDailyProduction}>
-              <Save className="mr-2 h-4 w-4" /> Save to Local & Firebase
+              <Save className="mr-2 h-4 w-4" /> Save
             </Button>
           </div>
 

@@ -56,15 +56,16 @@ export const saveProductionRound = async (
 export const clearShiftData = async (date: Date, shift: ShiftInfo) =>
   dbActions.clearShiftData(date, shift);
 export const saveDailyProductionLog = async (
-  log: Record<string, Record<string, Record<string, DailyProductionEntry>>>
+  dateKey: string,
+  logForDate: Record<string, Record<string, DailyProductionEntry>>
 ) => {
   try {
     // Save to local SQLite database first
-    await dbActions.saveDailyProductionLog(log);
+    await dbActions.saveDailyProductionLog(dateKey, logForDate);
     
     // Try to save to Firebase online
     try {
-      const firebaseResult = await firebaseActions.saveDailyProductionToFirebase(log);
+      const firebaseResult = await firebaseActions.saveDailyProductionToFirebase(dateKey, logForDate);
       return firebaseResult;
     } catch (firebaseError) {
       console.error('Firebase save failed:', firebaseError);

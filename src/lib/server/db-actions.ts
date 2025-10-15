@@ -395,16 +395,15 @@ export async function clearShiftData(date: Date, shift: ShiftInfo) {
 }
 
 export async function saveDailyProductionLog(
-  log: Record<string, Record<string, Record<string, DailyProductionEntry>>>
+  dateKey: string,
+  logForDate: Record<string, Record<string, DailyProductionEntry>>
 ) {
-  for (const [dateKey, dateData] of Object.entries(log)) {
-    const dataJson = JSON.stringify(dateData);
-    await db.run(
-      'INSERT OR REPLACE INTO dailyTreadProduction (id, data) VALUES (?, ?)',
-      dateKey,
-      dataJson
-    );
-  }
+  const dataJson = JSON.stringify(logForDate);
+  await db.run(
+    'INSERT OR REPLACE INTO dailyTreadProduction (id, data) VALUES (?, ?)',
+    dateKey,
+    dataJson
+  );
 }
 
 export async function saveTreadOpeningStock(stock: TreadStock[]) {
@@ -527,6 +526,7 @@ export async function updateSkuStandards(standards: SkuStandard[]) {
   await db.exec('BEGIN TRANSACTION');
   try {
     for (const standard of standards) {
+      if (!standard.sapCode) continue;
       await db.run(
         'INSERT OR REPLACE INTO skuStandards (sapCode, sku, stdWeight, stdHourlyProduction) VALUES (?, ?, ?, ?)',
         standard.sapCode,

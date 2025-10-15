@@ -6,17 +6,16 @@ import type { DailyProductionEntry } from '../types';
 import { format } from 'date-fns';
 
 export async function saveDailyProductionToFirebase(
-  log: Record<string, Record<string, Record<string, DailyProductionEntry>>>
+  dateKey: string,
+  logForDate: Record<string, Record<string, DailyProductionEntry>>
 ) {
   try {
-    for (const [dateKey, dateData] of Object.entries(log)) {
-      const docRef = doc(firestore, 'dailyTreadProduction', dateKey);
-      await setDoc(docRef, { data: dateData }, { merge: true });
-    }
+    const docRef = doc(firestore, 'dailyTreadProduction', dateKey);
+    await setDoc(docRef, { data: logForDate }, { merge: true });
     return { success: true };
   } catch (error) {
     console.error('Error saving to Firebase:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: (error as Error).message };
   }
 }
 
