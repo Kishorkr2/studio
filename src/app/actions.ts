@@ -59,22 +59,21 @@ export const saveDailyProductionLog = async (
   dateKey: string,
   logForDate: Record<string, Record<string, DailyProductionEntry>>
 ) => {
-  try {
-    // Save to local SQLite database first
-    await dbActions.saveDailyProductionLog(dateKey, logForDate);
-    
-    // Try to save to Firebase online
-    try {
-      const firebaseResult = await firebaseActions.saveDailyProductionToFirebase(dateKey, logForDate);
-      return firebaseResult;
-    } catch (firebaseError) {
-      console.error('Firebase save failed:', firebaseError);
-      return { success: false, error: 'Firebase sync failed but data saved locally' };
+    const localResult = await dbActions.saveDailyProductionLog(dateKey, logForDate);
+    if (!localResult.success) {
+        // If local save fails, don't even try Firebase.
+        return { success: false, error: localResult.error };
     }
-  } catch (error) {
-    console.error('Local save failed:', error);
-    return { success: false, error: 'Failed to save data' };
-  }
+    
+    // Local save was successful, now try to sync with Firebase.
+    // We don't block or return an error if Firebase fails, just log it.
+    firebaseActions.saveDailyProductionToFirebase(dateKey, logForDate)
+      .catch(firebaseError => {
+        console.error('Firebase sync failed in the background:', firebaseError);
+      });
+
+    // Return success based on the local save.
+    return { success: true };
 };
 export const saveTreadOpeningStock = async (stock: TreadStock[]) =>
   dbActions.saveTreadOpeningStock(stock);
