@@ -398,12 +398,18 @@ export async function saveDailyProductionLog(
   dateKey: string,
   logForDate: Record<string, Record<string, DailyProductionEntry>>
 ) {
-  const dataJson = JSON.stringify(logForDate);
-  await db.run(
-    'INSERT OR REPLACE INTO dailyTreadProduction (id, data) VALUES (?, ?)',
-    dateKey,
-    dataJson
-  );
+  try {
+    const dataJson = JSON.stringify(logForDate);
+    await db.run(
+      'INSERT OR REPLACE INTO dailyTreadProduction (id, data) VALUES (?, ?)',
+      dateKey,
+      dataJson
+    );
+    return { success: true };
+  } catch (error) {
+    console.error('Error in saveDailyProductionLog:', error);
+    return { success: false, error: (error as Error).message };
+  }
 }
 
 export async function saveTreadOpeningStock(stock: TreadStock[]) {
@@ -542,3 +548,6 @@ export async function updateSkuStandards(standards: SkuStandard[]) {
     throw error;
   }
 }
+
+
+    
