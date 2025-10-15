@@ -180,9 +180,9 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   }, []);
 
   const loadEntriesForRound = useCallback(
-    (round: string, log: ProductionLog) => {
+    (round: string, log: ProductionLog, presses: Machine[]) => {
       const logForRound = log[round]?.entries || [];
-      const newEntries = allCuringPresses
+      const newEntries = presses
         .filter(machine => machine.isAvailable)
         .map(machine => {
           const loggedEntry = logForRound.find(e => e.machineId === machine.id);
@@ -198,7 +198,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         });
       setEntries(newEntries);
     },
-    [allCuringPresses]
+    []
   );
   
   const fetchAndSetLog = useCallback(async (date: Date, shift: ShiftInfo) => {
@@ -299,20 +299,20 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       setGreenTyreStock(stock);
 
       const currentShift = getCurrentShift(shiftsData);
-      setSelectedShift(currentShift);
-
+      
       if (currentShift) {
+        setSelectedShift(currentShift);
         const newRoundTimes = generateRoundTimes(currentShift);
         setRoundTimes(newRoundTimes);
         
-        const log = await fetchAndSetLog(selectedDate, currentShift);
+        const log = await fetchAndSetLog(new Date(), currentShift);
 
         const savedRound = getLocalStorageItem('curingSelectedRound', '');
         const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || '';
         setSelectedRound(currentRound);
 
         machineOperatorMapRef.current = getLocalStorageItem('curingMachineOperatorMap', {});
-        loadEntriesForRound(currentRound, log);
+        loadEntriesForRound(currentRound, log, machinesData);
       }
     } catch (error) {
       console.error('Failed to load initial data:', error);
@@ -320,7 +320,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     } finally {
       setLoading(false);
     }
-  }, [toast, generateRoundTimes, fetchAndSetLog, loadEntriesForRound, selectedDate]);
+  }, [toast, generateRoundTimes, fetchAndSetLog, loadEntriesForRound]);
 
   useEffect(() => {
     loadInitialData();
@@ -335,7 +335,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     if (!selectedShift) return;
     await actions.clearShiftData(selectedDate, selectedShift);
     setProductionLog({});
-    loadEntriesForRound(selectedRound, {});
+    loadEntriesForRound(selectedRound, {}, allCuringPresses);
     machineOperatorMapRef.current = {};
     setLocalStorageItem('curingMachineOperatorMap', {});
     toast({
@@ -344,7 +344,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         selectedShift.name
       } on ${format(selectedDate, 'PPP')} have been removed.`,
     });
-  }, [selectedDate, selectedShift, toast, selectedRound, loadEntriesForRound]);
+  }, [selectedDate, selectedShift, toast, selectedRound, loadEntriesForRound, allCuringPresses]);
 
   useEffect(() => {
     if (setPageActions) {
@@ -394,7 +394,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   const handleSelectedRoundChange = (round: string) => {
     setSelectedRound(round);
     setLocalStorageItem('curingSelectedRound', round);
-    loadEntriesForRound(round, productionLog);
+    loadEntriesForRound(round, productionLog, allCuringPresses);
   };
 
   const handleOperatorChange = (machineId: string, operatorId: string) => {
@@ -539,11 +539,11 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         const log = await fetchAndSetLog(selectedDate, newShift);
         const currentRound = newRoundTimes[0] || '';
         setSelectedRound(currentRound);
-        loadEntriesForRound(currentRound, log);
+        loadEntriesForRound(currentRound, log, allCuringPresses);
         setIsFetchingLog(false);
       }
     },
-    [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound]
+    [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound, allCuringPresses]
   );
 
   const handleDateChange = useCallback(async (date: Date | undefined) => {
@@ -554,11 +554,11 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       
       setIsFetchingLog(true);
       const log = await fetchAndSetLog(date, selectedShift);
-      loadEntriesForRound(selectedRound, log);
+      loadEntriesForRound(selectedRound, log, allCuringPresses);
       setIsFetchingLog(false);
     }
     setIsDatePickerOpen(false);
-  }, [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound]);
+  }, [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound, allCuringPresses]);
 
   const roundTotal = useMemo(() => {
     return entries.reduce(
@@ -935,5 +935,3 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
-
-    

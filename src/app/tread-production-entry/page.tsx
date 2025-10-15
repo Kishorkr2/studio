@@ -65,7 +65,6 @@ export default function TreadProductionEntryPage() {
   const [isEditing, setIsEditing] = useState(false);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
     try {
       const [shifts, plan, log, machines] = await Promise.all([
         actions.getShifts(),
@@ -75,7 +74,7 @@ export default function TreadProductionEntryPage() {
       ]);
       setAllShifts(shifts);
       setAllMachines(machines);
-      if (shifts.length > 0 && !selectedShift) {
+      if (shifts.length > 0) {
         setSelectedShift(shifts[0]);
       }
       setProductionPlan(plan);
@@ -90,7 +89,7 @@ export default function TreadProductionEntryPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast, selectedShift]);
+  }, [toast]);
 
   useEffect(() => {
     loadData();
@@ -140,9 +139,11 @@ export default function TreadProductionEntryPage() {
 
 
   useEffect(() => {
-    loadEntriesForDateAndShift();
-    setIsEditing(false); // Reset editing state when date/shift changes
-  }, [selectedDate, selectedShift, dailyProductionLog, allSkusFromPlan, loadEntriesForDateAndShift]);
+    if(!loading) {
+      loadEntriesForDateAndShift();
+      setIsEditing(false); // Reset editing state when date/shift changes
+    }
+  }, [selectedDate, selectedShift, dailyProductionLog, allSkusFromPlan, loadEntriesForDateAndShift, loading]);
 
 
   const totalProductionPerSku = useMemo(() => {

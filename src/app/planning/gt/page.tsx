@@ -61,7 +61,6 @@ export default function GTPlanningPage() {
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
 
   const loadData = useCallback(async () => {
-    setLoading(true);
     try {
       const [plan, machines, logs, shifts] = await Promise.all([
         actions.getProductionPlan(),
@@ -73,7 +72,7 @@ export default function GTPlanningPage() {
       setAllMachines(machines);
       setProductionLogs(logs as ReportDataRow[]);
       setAllShifts(shifts);
-      if (shifts.length > 0 && !selectedShift) {
+      if (shifts.length > 0) {
         setSelectedShift(shifts[0]);
       }
     } catch (error) {
@@ -82,7 +81,7 @@ export default function GTPlanningPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast, selectedShift]);
+  }, [toast]);
 
   useEffect(() => {
     loadData();

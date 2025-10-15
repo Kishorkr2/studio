@@ -178,7 +178,6 @@ export default function GTProductionEntryPage() {
   }, [toast]);
   
   const loadInitialData = useCallback(async () => {
-    if (!loading) return; // Prevent re-fetching if already loaded
     try {
       const [shiftsData, machinesData, operatorsData, planData] = await Promise.all([
         actions.getShifts(),
@@ -208,7 +207,7 @@ export default function GTProductionEntryPage() {
     } finally {
       setLoading(false);
     }
-  }, [loading, generateRoundTimes, fetchAndSetLog, toast]);
+  }, [generateRoundTimes, fetchAndSetLog, toast]);
 
   useEffect(() => {
     loadInitialData();
@@ -663,4 +662,3 @@ export default function GTProductionEntryPage() {
     </div>
   );
 }
-
