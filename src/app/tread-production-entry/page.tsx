@@ -185,39 +185,39 @@ export default function TreadProductionEntryPage() {
       return;
     }
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
-    const shiftName = selectedShift.name.replace(/\s+/g, '-');
     
     const entriesToSave = Object.fromEntries(
       Object.entries(dailyProductionEntries).filter(([, value]) => value.quantity > 0 || value.trolleyNo || value.bobbinNo)
     );
 
-    const updatedLogForDate = {
-      ...(dailyProductionLog[dateKey] || {}),
-      [shiftName]: entriesToSave,
-    };
-    
-    try {
-      const result = await actions.saveDailyProductionLog(dateKey, updatedLogForDate);
-      
-      if (result && result.success) {
-        // Optimistically update the local state to reflect the save
-        setDailyProductionLog(prev => ({...prev, [dateKey]: updatedLogForDate}));
-        toast({
-          title: 'Success!',
-          description: `Tread production for ${
-            selectedShift.name
-          } on ${format(selectedDate, 'PPP')} has been saved.`,
-          action: <Save className="text-green-500" />,
-        });
-      } else {
-        throw new Error(result.error || 'Failed to save data.');
-      }
-    } catch (error) {
-      console.error('Save error:', error);
+    const result = await actions.saveDailyProductionLog(
+      dateKey,
+      selectedShift.name.replace(/\s+/g, '-'),
+      entriesToSave
+    );
+
+    if (result && result.success) {
+      // Optimistically update the local state to reflect the save
+      const shiftName = selectedShift.name.replace(/\s+/g, '-');
+      setDailyProductionLog(prev => ({
+        ...prev,
+        [dateKey]: {
+          ...(prev[dateKey] || {}),
+          [shiftName]: entriesToSave,
+        },
+      }));
+      toast({
+        title: 'Success!',
+        description: `Tread production for ${
+          selectedShift.name
+        } on ${format(selectedDate, 'PPP')} has been saved.`,
+        action: <Save className="text-green-500" />,
+      });
+    } else {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to save production data.',
+        description: result.error || 'Failed to save production data.',
       });
     }
   };
@@ -245,11 +245,7 @@ export default function TreadProductionEntryPage() {
           Tread Production Entry
         </h1>
         <Card>
-          <CardHeader>
-            <Skeleton className="h-8 w-1/3" />
-            <Skeleton className="h-4 w-1/2" />
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <Skeleton className="h-48 w-full" />
           </CardContent>
         </Card>
