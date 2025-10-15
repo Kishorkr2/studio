@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {useState, useEffect, useCallback, useMemo} from 'react';
@@ -297,7 +298,7 @@ function SkuStandardsManagement({
                             <TableRow>
                                 <TableHead>SKU</TableHead>
                                 <TableHead>SAP Code</TableHead>
-                                <TableHead className="text-right">Std Weight (kg)</TableHead>
+                                <TableHead className="text-right">Std Qty/Bobbin (kg)</TableHead>
                                 <TableHead className="text-right">Std Hourly Prod.</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -1568,4 +1569,3 @@ export default function AdminPage() {
     </div>
   );
 }
-

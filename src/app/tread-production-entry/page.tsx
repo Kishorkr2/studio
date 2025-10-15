@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {useState, useEffect, useMemo, useCallback} from 'react';
@@ -26,6 +27,7 @@ import type {
   SkuPlan,
   DailyProductionEntry,
   Machine,
+  SkuStandard,
 } from '@/lib/types';
 import {CalendarIcon, Save} from 'lucide-react';
 import {cn} from '@/lib/utils';
@@ -64,6 +66,7 @@ export default function TreadProductionEntryPage() {
 
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
   const [allMachines, setAllMachines] = useState<Machine[]>([]);
+  const [skuStandards, setSkuStandards] = useState<SkuStandard[]>([]);
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
 
   const [sapCodeFilter, setSapCodeFilter] = useState('');
@@ -72,14 +75,16 @@ export default function TreadProductionEntryPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [shifts, plan, log, machines] = await Promise.all([
+      const [shifts, plan, log, machines, standards] = await Promise.all([
         actions.getShifts(),
         actions.getProductionPlan(),
         actions.getDailyTreadProductionLog(),
         actions.getMachines('TBM'),
+        actions.getSkuStandards(),
       ]);
       setAllShifts(shifts);
       setAllMachines(machines);
+      setSkuStandards(standards);
       if (shifts.length > 0 && !selectedShift) {
         setSelectedShift(shifts[0]);
       }
@@ -138,8 +143,7 @@ export default function TreadProductionEntryPage() {
         newEntries[sku.sapCode] = {
             quantity: existingEntry?.quantity || 0,
             trolleyNo: existingEntry?.trolleyNo || '',
-            bobbinNo: existingEntry?.bobbinNo || '',
-            tbmNo: existingEntry?.tbmNo || sku.tbmName,
+            bobbinCount: existingEntry?.bobbinCount || 0,
         };
     });
     
@@ -149,15 +153,25 @@ export default function TreadProductionEntryPage() {
 
   const handleDailyProductionChange = (
     sapCode: string,
-    field: 'quantity' | 'trolleyNo' | 'tbmNo' | 'bobbinNo',
+    field: 'bobbinCount' | 'trolleyNo',
     value: string
   ) => {
     setDailyProductionEntries(currentEntries => {
-      const entry = currentEntries[sapCode] || {quantity: 0, trolleyNo: '', bobbinNo: '', tbmNo: ''};
-      const newEntry = {
+      const entry = currentEntries[sapCode] || {quantity: 0, trolleyNo: '', bobbinCount: 0};
+      const standard = skuStandards.find(s => s.sapCode === sapCode);
+      const stdWeight = standard?.stdWeight || 0;
+      
+      let newBobbinCount = entry.bobbinCount || 0;
+      if (field === 'bobbinCount') {
+        newBobbinCount = parseInt(value, 10) || 0;
+      }
+
+      const newEntry: DailyProductionEntry = {
         ...entry,
-        [field]: field === 'quantity' ? parseInt(value, 10) || 0 : value,
+        [field]: field === 'bobbinCount' ? newBobbinCount : value,
+        quantity: newBobbinCount * stdWeight
       };
+
       return {
         ...currentEntries,
         [sapCode]: newEntry,
@@ -178,7 +192,7 @@ export default function TreadProductionEntryPage() {
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
     
     const entriesToSave = Object.fromEntries(
-      Object.entries(dailyProductionEntries).filter(([, value]) => value.quantity > 0 || value.trolleyNo || value.bobbinNo)
+      Object.entries(dailyProductionEntries).filter(([, value]) => value.quantity > 0 || value.trolleyNo || value.bobbinCount > 0)
     );
 
     const updatedLogForDate = {
@@ -261,7 +275,7 @@ export default function TreadProductionEntryPage() {
         <CardHeader>
           <CardTitle>Log Tread Production</CardTitle>
           <CardDescription>
-            Enter the quantity of tread produced, trolley, and bobbin number for each SKU.
+            Enter the number of bobbins and trolley number for each SKU.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -337,11 +351,10 @@ export default function TreadProductionEntryPage() {
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
                   <TableHead>SKU</TableHead>
-                  <TableHead>TBM No</TableHead>
                   <TableHead>Trolley No</TableHead>
-                  <TableHead>Bobbin</TableHead>
+                  <TableHead>No. of Bobbins</TableHead>
                   <TableHead className="text-right">
-                    Production Quantity
+                    Production Quantity (kg)
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -350,25 +363,6 @@ export default function TreadProductionEntryPage() {
                   filteredSkus.map(req => (
                     <TableRow key={req.sapCode}>
                       <TableCell className="font-medium">{req.sku}</TableCell>
-                       <TableCell>
-                        <Select
-                          value={dailyProductionEntries[req.sapCode]?.tbmNo || ''}
-                          onValueChange={(value) =>
-                            handleDailyProductionChange(req.sapCode, 'tbmNo', value)
-                          }
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue placeholder="Select TBM" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {allMachines.map((m) => (
-                                <SelectItem key={m.id} value={m.name}>
-                                    {m.name}
-                                </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
                       <TableCell>
                         <Input
                           className="w-32"
@@ -387,15 +381,16 @@ export default function TreadProductionEntryPage() {
                       </TableCell>
                        <TableCell>
                         <Input
+                          type="number"
                           className="w-32"
-                          placeholder="e.g., B-01"
+                          placeholder="0"
                           value={
-                            dailyProductionEntries[req.sapCode]?.bobbinNo || ''
+                            dailyProductionEntries[req.sapCode]?.bobbinCount || ''
                           }
                           onChange={e =>
                             handleDailyProductionChange(
                               req.sapCode,
-                              'bobbinNo',
+                              'bobbinCount',
                               e.target.value
                             )
                           }
@@ -406,15 +401,10 @@ export default function TreadProductionEntryPage() {
                           type="number"
                           className="w-32 ml-auto text-right"
                           placeholder="0"
+                          readOnly
+                          disabled
                           value={
-                            dailyProductionEntries[req.sapCode]?.quantity || ''
-                          }
-                          onChange={e =>
-                            handleDailyProductionChange(
-                              req.sapCode,
-                              'quantity',
-                              e.target.value
-                            )
+                            dailyProductionEntries[req.sapCode]?.quantity.toFixed(2) || '0.00'
                           }
                         />
                       </TableCell>
@@ -423,7 +413,7 @@ export default function TreadProductionEntryPage() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={4}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No SKUs available. Please create a production plan in the

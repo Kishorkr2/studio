@@ -1,4 +1,5 @@
 
+
 export interface User {
   id: number;
   name: string;
@@ -108,8 +109,7 @@ export interface TreadStock {
 export interface DailyProductionEntry {
   quantity: number;
   trolleyNo: string;
-  bobbinNo?: string;
-  tbmNo?: string;
+  bobbinCount: number;
 }
 
 export type DailyTreadProductionLog = Record<
