@@ -66,7 +66,6 @@ export default function TreadProductionEntryPage() {
 
   const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
   const [allMachines, setAllMachines] = useState<Machine[]>([]);
-  const [skuStandards, setSkuStandards] = useState<SkuStandard[]>([]);
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
 
   const [sapCodeFilter, setSapCodeFilter] = useState('');
@@ -75,16 +74,14 @@ export default function TreadProductionEntryPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [shifts, plan, log, machines, standards] = await Promise.all([
+      const [shifts, plan, log, machines] = await Promise.all([
         actions.getShifts(),
         actions.getProductionPlan(),
         actions.getDailyTreadProductionLog(),
         actions.getMachines('TBM'),
-        actions.getSkuStandards(),
       ]);
       setAllShifts(shifts);
       setAllMachines(machines);
-      setSkuStandards(standards);
       if (shifts.length > 0 && !selectedShift) {
         setSelectedShift(shifts[0]);
       }
@@ -143,7 +140,7 @@ export default function TreadProductionEntryPage() {
         newEntries[sku.sapCode] = {
             quantity: existingEntry?.quantity || 0,
             trolleyNo: existingEntry?.trolleyNo || '',
-            bobbinCount: existingEntry?.bobbinCount || 0,
+            bobbinNo: existingEntry?.bobbinNo || '',
         };
     });
     
@@ -153,23 +150,15 @@ export default function TreadProductionEntryPage() {
 
   const handleDailyProductionChange = (
     sapCode: string,
-    field: 'bobbinCount' | 'trolleyNo',
+    field: keyof DailyProductionEntry,
     value: string
   ) => {
     setDailyProductionEntries(currentEntries => {
-      const entry = currentEntries[sapCode] || {quantity: 0, trolleyNo: '', bobbinCount: 0};
-      const standard = skuStandards.find(s => s.sapCode === sapCode);
-      const stdWeight = standard?.stdWeight || 0;
+      const entry = currentEntries[sapCode] || {quantity: 0, trolleyNo: '', bobbinNo: ''};
       
-      let newBobbinCount = entry.bobbinCount || 0;
-      if (field === 'bobbinCount') {
-        newBobbinCount = parseInt(value, 10) || 0;
-      }
-
       const newEntry: DailyProductionEntry = {
         ...entry,
-        [field]: field === 'bobbinCount' ? newBobbinCount : value,
-        quantity: newBobbinCount * stdWeight
+        [field]: field === 'quantity' ? parseInt(value, 10) || 0 : value,
       };
 
       return {
@@ -192,7 +181,7 @@ export default function TreadProductionEntryPage() {
     const shiftName = selectedShift.name.replace(/\s+/g, '-');
     
     const entriesToSave = Object.fromEntries(
-      Object.entries(dailyProductionEntries).filter(([, value]) => value.quantity > 0 || value.trolleyNo || value.bobbinCount > 0)
+      Object.entries(dailyProductionEntries).filter(([, value]) => value.quantity > 0 || value.trolleyNo || value.bobbinNo)
     );
 
     const updatedLogForDate = {
@@ -275,7 +264,7 @@ export default function TreadProductionEntryPage() {
         <CardHeader>
           <CardTitle>Log Tread Production</CardTitle>
           <CardDescription>
-            Enter the number of bobbins and trolley number for each SKU.
+            Enter the bobbin number, trolley number and production quantity for each SKU.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -352,9 +341,9 @@ export default function TreadProductionEntryPage() {
                 <TableRow>
                   <TableHead>SKU</TableHead>
                   <TableHead>Trolley No</TableHead>
-                  <TableHead>No. of Bobbins</TableHead>
+                  <TableHead>Bobbin No</TableHead>
                   <TableHead className="text-right">
-                    Production Quantity (kg)
+                    Production Quantity (pcs)
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -381,16 +370,15 @@ export default function TreadProductionEntryPage() {
                       </TableCell>
                        <TableCell>
                         <Input
-                          type="number"
                           className="w-32"
-                          placeholder="0"
+                          placeholder="e.g., B-456"
                           value={
-                            dailyProductionEntries[req.sapCode]?.bobbinCount || ''
+                            dailyProductionEntries[req.sapCode]?.bobbinNo || ''
                           }
                           onChange={e =>
                             handleDailyProductionChange(
                               req.sapCode,
-                              'bobbinCount',
+                              'bobbinNo',
                               e.target.value
                             )
                           }
@@ -401,10 +389,15 @@ export default function TreadProductionEntryPage() {
                           type="number"
                           className="w-32 ml-auto text-right"
                           placeholder="0"
-                          readOnly
-                          disabled
                           value={
-                            dailyProductionEntries[req.sapCode]?.quantity.toFixed(2) || '0.00'
+                            dailyProductionEntries[req.sapCode]?.quantity || ''
+                          }
+                          onChange={e =>
+                            handleDailyProductionChange(
+                              req.sapCode,
+                              'quantity',
+                              e.target.value
+                            )
                           }
                         />
                       </TableCell>

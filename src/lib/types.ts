@@ -109,7 +109,7 @@ export interface TreadStock {
 export interface DailyProductionEntry {
   quantity: number;
   trolleyNo: string;
-  bobbinCount: number;
+  bobbinNo?: string;
 }
 
 export type DailyTreadProductionLog = Record<
