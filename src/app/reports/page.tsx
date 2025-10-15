@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
   CardContent,
+  CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,7 @@ import {
   TableHead,
   TableRow,
 } from "@/components/ui/table";
-import { Search, FileDown, Calendar as CalendarIcon } from "lucide-react";
+import { Search, FileDown, Calendar as CalendarIcon, ArrowRight, Package, Warehouse } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList } from "recharts";
 import * as XLSX from "xlsx";
 import * as actions from "@/app/actions";
@@ -30,8 +31,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import Link from "next/link";
 
-export default function GTReportDashboard() {
+export default function ReportsDashboard() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<ReportDataRow[]>([]);
@@ -166,11 +168,60 @@ export default function GTReportDashboard() {
 
   return (
     <div className="p-6 space-y-6">
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Reports Dashboard</CardTitle>
+                <CardDescription>Select a report to view more details.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="grid md:grid-cols-2 gap-6">
+                    <Card className="hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-blue-100 rounded-lg">
+                                    <Package className="w-6 h-6 text-blue-600" />
+                                </div>
+                                <div>
+                                    <CardTitle>Production Report</CardTitle>
+                                    <CardDescription>View detailed production logs and analytics.</CardDescription>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {/* This section will now be part of the accordion */}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                             <div className="flex items-center gap-4">
+                                <div className="p-3 bg-green-100 rounded-lg">
+                                    <Warehouse className="w-6 h-6 text-green-600" />
+                                </div>
+                                <div>
+                                    <CardTitle>Stock Report</CardTitle>
+                                    <CardDescription>Check current stock levels for components.</CardDescription>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <Button asChild>
+                                <Link href="/reports/stock">
+                                    View Stock Report <ArrowRight className="ml-2 h-4 w-4" />
+                                </Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            </CardContent>
+        </Card>
+
       <Card className="shadow-xl border-l-4 border-purple-500 bg-gradient-to-br from-purple-50 via-pink-50 to-white">
         <CardHeader className="flex flex-col md:flex-row md:justify-between md:items-center space-y-3 md:space-y-0">
           <div className="flex items-center space-x-2">
             <h2 className="text-2xl font-extrabold text-purple-700 tracking-wide">
-              📊 Production Report
+              📊 Production Log
             </h2>
             <span className="bg-purple-200 text-purple-800 text-xs font-bold px-3 py-1 rounded-full shadow">
               {filteredSavedEntries.length} Records
