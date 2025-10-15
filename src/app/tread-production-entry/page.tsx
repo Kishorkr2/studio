@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {useState, useEffect, useMemo, useCallback} from 'react';
@@ -7,9 +6,6 @@ import {Button} from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import {Input} from '@/components/ui/input';
 import {
@@ -27,7 +23,6 @@ import type {
   SkuPlan,
   DailyProductionEntry,
   Machine,
-  SkuStandard,
 } from '@/lib/types';
 import {CalendarIcon, Save} from 'lucide-react';
 import {cn} from '@/lib/utils';
@@ -147,6 +142,18 @@ export default function TreadProductionEntryPage() {
     setDailyProductionEntries(newEntries);
   }, [selectedDate, selectedShift, dailyProductionLog, allSkusFromPlan]);
 
+  const totalProductionPerSku = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const date in dailyProductionLog) {
+      for (const shift in dailyProductionLog[date]) {
+        for (const sapCode in dailyProductionLog[date][shift]) {
+          totals[sapCode] = (totals[sapCode] || 0) + (dailyProductionLog[date][shift][sapCode].quantity || 0);
+        }
+      }
+    }
+    return totals;
+  }, [dailyProductionLog]);
+
 
   const handleDailyProductionChange = (
     sapCode: string,
@@ -192,9 +199,9 @@ export default function TreadProductionEntryPage() {
     try {
       const result = await actions.saveDailyProductionLog(dateKey, updatedLogForDate);
       
-      setDailyProductionLog(prev => ({...prev, [dateKey]: updatedLogForDate}));
-      
       if (result && result.success) {
+        // Optimistically update the local state to reflect the save
+        setDailyProductionLog(prev => ({...prev, [dateKey]: updatedLogForDate}));
         toast({
           title: 'Success!',
           description: `Tread production for ${
@@ -203,10 +210,7 @@ export default function TreadProductionEntryPage() {
           action: <Save className="text-green-500" />,
         });
       } else {
-        toast({
-          title: 'Saved Locally',
-          description: `Data saved locally. ${result?.error || 'Firebase sync may have failed.'}`,
-        });
+        throw new Error(result.error || 'Failed to save data.');
       }
     } catch (error) {
       console.error('Save error:', error);
@@ -260,13 +264,7 @@ export default function TreadProductionEntryPage() {
       </h1>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Log Tread Production</CardTitle>
-          <CardDescription>
-            Enter the bobbin number, trolley number and production quantity for each SKU.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
               <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
@@ -344,6 +342,9 @@ export default function TreadProductionEntryPage() {
                   <TableHead className="text-right">
                     Production Quantity (pcs)
                   </TableHead>
+                  <TableHead className="text-right">
+                    Total Production
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -400,12 +401,15 @@ export default function TreadProductionEntryPage() {
                           }
                         />
                       </TableCell>
+                      <TableCell className="text-right font-bold">
+                        {(totalProductionPerSku[req.sapCode] || 0).toLocaleString()}
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={4}
+                      colSpan={5}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No SKUs available. Please create a production plan in the
