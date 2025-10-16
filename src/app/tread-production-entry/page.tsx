@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -26,7 +25,7 @@ import type {
   DailyProductionEntry,
   Machine,
 } from '@/lib/types';
-import { CalendarIcon, Save, Edit, XCircle } from 'lucide-react';
+import { CalendarIcon, Save, Edit, XCircle, Copy, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -63,6 +62,8 @@ export default function TreadProductionEntryPage() {
   const [sapCodeFilter, setSapCodeFilter] = useState('');
   const [skuFilter, setSkuFilter] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -117,7 +118,7 @@ export default function TreadProductionEntryPage() {
     });
     return Array.from(sapCodeMap.values());
   }, [productionPlan, allMachines]);
-  
+
   const loadEntriesForDateAndShift = useCallback(() => {
     if (!selectedDate || !selectedShift) return;
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
@@ -135,16 +136,15 @@ export default function TreadProductionEntryPage() {
     });
 
     setDailyProductionEntries(newEntries);
+    setHasUnsavedChanges(false);
   }, [selectedDate, selectedShift, dailyProductionLog, allSkusFromPlan]);
 
-
   useEffect(() => {
-    if(!loading) {
+    if (!loading) {
       loadEntriesForDateAndShift();
-      setIsEditing(false); // Reset editing state when date/shift changes
+      setIsEditing(false);
     }
   }, [selectedDate, selectedShift, dailyProductionLog, allSkusFromPlan, loadEntriesForDateAndShift, loading]);
-
 
   const totalProductionPerSku = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -182,9 +182,21 @@ export default function TreadProductionEntryPage() {
         [sapCode]: newEntry,
       };
     });
+    setHasUnsavedChanges(true);
   };
 
-  const handleSaveDailyProduction = async () => {
+  // 🚀 NEW: Auto-save functionality
+  useEffect(() => {
+    if (!autoSaveEnabled || !hasUnsavedChanges) return;
+    
+    const timer = setTimeout(() => {
+      handleSaveDailyProduction(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [dailyProductionEntries, autoSaveEnabled, hasUnsavedChanges]);
+
+  const handleSaveDailyProduction = async (isAutoSave = false) => {
     if (!selectedDate || !selectedShift) {
       toast({
         variant: 'destructive',
@@ -216,9 +228,12 @@ export default function TreadProductionEntryPage() {
           [shiftName]: entriesToSave,
         },
       }));
-      setIsEditing(false);
+      setHasUnsavedChanges(false);
+      if (!isAutoSave) {
+        setIsEditing(false);
+      }
       toast({
-        title: '✅ Saved Successfully',
+        title: isAutoSave ? '💾 Auto-saved' : '✅ Saved Successfully',
         description: `Tread production for ${selectedShift.name} on ${format(
           selectedDate,
           'PPP'
@@ -233,27 +248,92 @@ export default function TreadProductionEntryPage() {
     }
   };
 
-  // 🧮 Calculate live totals
+  // 🚀 NEW: Copy from previous day
+  const handleCopyFromPreviousDay = async () => {
+    if (!selectedDate || !selectedShift) return;
+    
+    const yesterday = new Date(selectedDate);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dateKey = format(yesterday, 'yyyy-MM-dd');
+    const shiftName = selectedShift.name.replace(/\s+/g, '-');
+    
+    const previousEntries = dailyProductionLog[dateKey]?.[shiftName];
+    
+    if (previousEntries) {
+      setDailyProductionEntries(previousEntries);
+      setHasUnsavedChanges(true);
+      toast({
+        title: '📋 Copied',
+        description: `Data copied from ${format(yesterday, 'PPP')}`,
+      });
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'No Data',
+        description: 'No previous day data found to copy.',
+      });
+    }
+  };
+
+  // 🚀 NEW: Clear all entries
+  const handleClearAll = () => {
+    const emptyEntries: Record<string, DailyProductionEntry> = {};
+    allSkusFromPlan.forEach(sku => {
+      emptyEntries[sku.sapCode] = {
+        quantity: 0,
+        trolleyNo: '',
+        bobbinNo: '',
+      };
+    });
+    setDailyProductionEntries(emptyEntries);
+    setHasUnsavedChanges(true);
+    toast({
+      title: '🗑️ Cleared',
+      description: 'All entries have been cleared.',
+    });
+  };
+
+  // 🚀 NEW: Keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, sapCode: string, field: keyof DailyProductionEntry) => {
+    if (e.key === 'Enter' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const currentIndex = filteredSkus.findIndex(s => s.sapCode === sapCode);
+      if (currentIndex < filteredSkus.length - 1) {
+        const nextSku = filteredSkus[currentIndex + 1];
+        const nextInput = document.querySelector(`input[data-sku="${nextSku.sapCode}"][data-field="${field}"]`) as HTMLInputElement;
+        nextInput?.focus();
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const currentIndex = filteredSkus.findIndex(s => s.sapCode === sapCode);
+      if (currentIndex > 0) {
+        const prevSku = filteredSkus[currentIndex - 1];
+        const prevInput = document.querySelector(`input[data-sku="${prevSku.sapCode}"][data-field="${field}"]`) as HTMLInputElement;
+        prevInput?.focus();
+      }
+    }
+  };
+
   const totalBobbin = useMemo(() => {
     return Object.values(dailyProductionEntries).reduce((sum, e) => {
       const count = e.bobbinNo ? e.bobbinNo.split(',').filter(Boolean).length : 0;
       return sum + count;
     }, 0);
   }, [dailyProductionEntries]);
-  
+
   const totalQty = useMemo(() => {
     return Object.values(dailyProductionEntries).reduce(
       (sum, e) => sum + (e.quantity || 0),
       0
     );
   }, [dailyProductionEntries]);
-  
+
   const totalProduction = useMemo(() => {
     return Object.values(dailyProductionEntries).reduce((acc, entry) => {
-        const bobbinCount = entry.bobbinNo ? entry.bobbinNo.split(',').filter(Boolean).length : 0;
-        const bobbinQty = bobbinCount * 110;
-        const manualQty = entry.quantity || 0;
-        return acc + bobbinQty + manualQty;
+      const bobbinCount = entry.bobbinNo ? entry.bobbinNo.split(',').filter(Boolean).length : 0;
+      const bobbinQty = bobbinCount * 110;
+      const manualQty = entry.quantity || 0;
+      return acc + bobbinQty + manualQty;
     }, 0);
   }, [dailyProductionEntries]);
 
@@ -270,10 +350,9 @@ export default function TreadProductionEntryPage() {
     if (date) setSelectedDate(date);
     setIsDatePickerOpen(false);
   };
-  
+
   const handleEditToggle = () => {
     if (isEditing) {
-      // If canceling, reload the original data
       loadEntriesForDateAndShift();
     }
     setIsEditing(!isEditing);
@@ -296,45 +375,53 @@ export default function TreadProductionEntryPage() {
 
   return (
     <div className="space-y-6 p-4 md:p-8">
-      <h1 className="text-3xl font-bold tracking-tight text-primary">
-        Tread Production Entry
-      </h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight text-primary">
+          Tread Production Entry
+        </h1>
+        {hasUnsavedChanges && (
+          <span className="text-sm text-orange-600 font-medium">
+            ⚠️ Unsaved changes
+          </span>
+        )}
+      </div>
 
-      {/* ✅ Total Summary Cards */}
+      {/* Total Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="bg-blue-100 border-blue-300 shadow">
-          <CardHeader>
-            <CardTitle className="text-blue-700">Total Bobbins</CardTitle>
+        <Card className="bg-blue-50 border-blue-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-blue-700 text-sm">Total Bobbins</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold text-blue-900">
+          <CardContent className="text-3xl font-bold text-blue-900">
             {totalBobbin}
           </CardContent>
         </Card>
 
-        <Card className="bg-green-100 border-green-300 shadow">
-          <CardHeader>
-            <CardTitle className="text-green-700">Total Quantity (pcs)</CardTitle>
+        <Card className="bg-green-50 border-green-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-green-700 text-sm">Manual Quantity</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold text-green-900">
+          <CardContent className="text-3xl font-bold text-green-900">
             {totalQty.toLocaleString()}
           </CardContent>
         </Card>
 
-        <Card className="bg-yellow-100 border-yellow-300 shadow">
-          <CardHeader>
-            <CardTitle className="text-yellow-700">Total Production</CardTitle>
+        <Card className="bg-purple-50 border-purple-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-purple-700 text-sm">Total Production</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold text-yellow-900">
+          <CardContent className="text-3xl font-bold text-purple-900">
             {totalProduction.toLocaleString()}
           </CardContent>
         </Card>
       </div>
 
-      {/* 🔹 Filters & Date/Shift Selector */}
+      {/* Main Form Card */}
       <Card>
         <CardContent className="space-y-4 pt-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          {/* Date, Shift & Actions Row */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -376,66 +463,113 @@ export default function TreadProductionEntryPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2">
-               <Button
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyFromPreviousDay}
+                disabled={!isEditing}
+                title="Copy from previous day"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearAll}
+                disabled={!isEditing}
+                title="Clear all entries"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-md">
+                <input
+                  type="checkbox"
+                  id="autoSave"
+                  checked={autoSaveEnabled}
+                  onChange={(e) => setAutoSaveEnabled(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <label htmlFor="autoSave" className="text-sm cursor-pointer">
+                  Auto-save
+                </label>
+              </div>
+
+              <Button
                 variant={isEditing ? 'destructive' : 'outline'}
+                size="sm"
                 onClick={handleEditToggle}
               >
-                {isEditing ? <XCircle className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}
-                {isEditing ? 'Cancel' : 'Edit'}
+                {isEditing ? (
+                  <>
+                    <XCircle className="mr-2 h-4 w-4" /> Cancel
+                  </>
+                ) : (
+                  <>
+                    <Edit className="mr-2 h-4 w-4" /> Edit
+                  </>
+                )}
               </Button>
-              <Button onClick={handleSaveDailyProduction} className="bg-green-600 hover:bg-green-700" disabled={!isEditing}>
+
+              <Button
+                onClick={() => handleSaveDailyProduction(false)}
+                className="bg-green-600 hover:bg-green-700"
+                size="sm"
+                disabled={!isEditing || !hasUnsavedChanges}
+              >
                 <Save className="mr-2 h-4 w-4" /> Save
               </Button>
             </div>
           </div>
 
-          {/* 🔍 Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 my-4">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-3">
             <Input
-              placeholder="Filter by SAP Code..."
+              placeholder="🔍 Filter by SAP Code..."
               value={sapCodeFilter}
               onChange={e => setSapCodeFilter(e.target.value)}
               className="max-w-sm"
             />
             <Input
-              placeholder="Filter by SKU..."
+              placeholder="🔍 Filter by SKU..."
               value={skuFilter}
               onChange={e => setSkuFilter(e.target.value)}
               className="max-w-sm"
             />
           </div>
 
-          {/* 🧾 Table */}
-          <div className="border rounded-lg max-h-[60vh] overflow-x-auto">
+          {/* Production Table */}
+          <div className="border rounded-lg max-h-[60vh] overflow-auto">
             <Table>
-              <TableHeader className="sticky top-0 bg-background z-10">
+              <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
                 <TableRow>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Trolley No</TableHead>
-                  <TableHead>Bobbin No(s)</TableHead>
-                  <TableHead className="text-right">
-                    Quantity (pcs)
-                  </TableHead>
-                  <TableHead className="text-right">Total Production</TableHead>
-                  <TableHead className="text-right">
-                    Total Tread Production
-                  </TableHead>
+                  <TableHead className="w-[150px]">SKU</TableHead>
+                  <TableHead className="w-[120px]">Trolley No</TableHead>
+                  <TableHead className="w-[200px]">Bobbin No(s)</TableHead>
+                  <TableHead className="w-[120px] text-right">Quantity</TableHead>
+                  <TableHead className="w-[140px] text-right">Current Total</TableHead>
+                  <TableHead className="w-[140px] text-right">Overall Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredSkus.length > 0 ? (
-                  filteredSkus.map(req => (
+                  filteredSkus.map((req, index) => (
                     <TableRow
                       key={req.sapCode}
-                      className="hover:bg-gray-50 transition-all"
+                      className="hover:bg-blue-50 transition-colors"
                     >
                       <TableCell className="font-medium">{req.sku}</TableCell>
                       <TableCell>
                         <Input
-                          className="w-28"
+                          className="w-full"
                           placeholder="T-123"
                           disabled={!isEditing}
+                          data-sku={req.sapCode}
+                          data-field="trolleyNo"
                           value={
                             dailyProductionEntries[req.sapCode]?.trolleyNo || ''
                           }
@@ -446,13 +580,16 @@ export default function TreadProductionEntryPage() {
                               e.target.value
                             )
                           }
+                          onKeyDown={e => handleKeyDown(e, req.sapCode, 'trolleyNo')}
                         />
                       </TableCell>
                       <TableCell>
                         <Input
-                          className="w-28"
-                          placeholder="e.g., B-1,B-2"
+                          className="w-full"
+                          placeholder="B-1, B-2, B-3"
                           disabled={!isEditing}
+                          data-sku={req.sapCode}
+                          data-field="bobbinNo"
                           value={
                             dailyProductionEntries[req.sapCode]?.bobbinNo || ''
                           }
@@ -463,14 +600,17 @@ export default function TreadProductionEntryPage() {
                               e.target.value
                             )
                           }
+                          onKeyDown={e => handleKeyDown(e, req.sapCode, 'bobbinNo')}
                         />
                       </TableCell>
                       <TableCell className="text-right">
                         <Input
                           type="number"
-                          className="w-24 ml-auto text-right"
+                          className="w-full text-right"
                           placeholder="0"
                           disabled={!isEditing}
+                          data-sku={req.sapCode}
+                          data-field="quantity"
                           value={
                             dailyProductionEntries[req.sapCode]?.quantity || ''
                           }
@@ -481,6 +621,7 @@ export default function TreadProductionEntryPage() {
                               e.target.value
                             )
                           }
+                          onKeyDown={e => handleKeyDown(e, req.sapCode, 'quantity')}
                         />
                       </TableCell>
                       <TableCell className="text-right font-semibold text-blue-700">
@@ -498,10 +639,12 @@ export default function TreadProductionEntryPage() {
                   <TableRow>
                     <TableCell
                       colSpan={6}
-                      className="h-24 text-center text-muted-foreground"
+                      className="h-32 text-center text-muted-foreground"
                     >
-                      No SKUs available. Please create a production plan in the
-                      Admin panel.
+                      <div className="flex flex-col items-center gap-2">
+                        <p className="text-lg">📋 No SKUs available</p>
+                        <p className="text-sm">Please create a production plan in the Admin panel.</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
