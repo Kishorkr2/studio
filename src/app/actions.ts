@@ -2,7 +2,6 @@
 'use server';
 
 import * as dbActions from '@/lib/server/db-actions';
-import * as firebaseActions from '@/lib/server/firebase-actions';
 import type {
   Operator,
   Machine,
@@ -57,23 +56,10 @@ export const clearShiftData = async (date: Date, shift: ShiftInfo) =>
   dbActions.clearShiftData(date, shift);
 export const saveDailyProductionLog = async (
   dateKey: string,
-  logForDate: Record<string, Record<string, DailyProductionEntry>>
+  shiftName: string,
+  logForShift: Record<string, DailyProductionEntry>
 ) => {
-    const localResult = await dbActions.saveDailyProductionLog(dateKey, logForDate);
-    if (!localResult.success) {
-        // If local save fails, don't even try Firebase.
-        return { success: false, error: localResult.error };
-    }
-    
-    // Local save was successful, now try to sync with Firebase.
-    // We don't block or return an error if Firebase fails, just log it.
-    firebaseActions.saveDailyProductionToFirebase(dateKey, logForDate)
-      .catch(firebaseError => {
-        console.error('Firebase sync failed in the background:', firebaseError);
-      });
-
-    // Return success based on the local save.
-    return { success: true };
+    return dbActions.saveDailyProductionLog(dateKey, shiftName, logForShift);
 };
 export const saveTreadOpeningStock = async (stock: TreadStock[]) =>
   dbActions.saveTreadOpeningStock(stock);

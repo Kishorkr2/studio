@@ -396,10 +396,29 @@ export async function clearShiftData(date: Date, shift: ShiftInfo) {
 
 export async function saveDailyProductionLog(
   dateKey: string,
-  logForDate: Record<string, Record<string, DailyProductionEntry>>
-) {
+  shiftName: string,
+  logForShift: Record<string, DailyProductionEntry>
+): Promise<{ success: boolean; error?: string }> {
   try {
-    const dataJson = JSON.stringify(logForDate);
+    const existingData = await db.get(
+      'SELECT data FROM dailyTreadProduction WHERE id = ?',
+      dateKey
+    );
+
+    let fullDayLog: Record<string, Record<string, DailyProductionEntry>> = {};
+    if (existingData) {
+      try {
+        fullDayLog = JSON.parse(existingData.data);
+      } catch (e) {
+        console.error(`Failed to parse existing daily log for ${dateKey}`, e);
+        // If parsing fails, we might want to start fresh or handle the error.
+        // For now, we'll overwrite with the new shift data.
+      }
+    }
+    
+    fullDayLog[shiftName] = logForShift;
+
+    const dataJson = JSON.stringify(fullDayLog);
     await db.run(
       'INSERT OR REPLACE INTO dailyTreadProduction (id, data) VALUES (?, ?)',
       dateKey,
@@ -548,6 +567,3 @@ export async function updateSkuStandards(standards: SkuStandard[]) {
     throw error;
   }
 }
-
-
-    

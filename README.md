@@ -7,28 +7,15 @@ This is a Next.js application designed to manage and track tyre manufacturing pr
 
 To get this application running on your computer, you'll need to follow these steps.
 
-### 1. Set Up Your Environment Variables (API Keys & Firebase)
+### 1. Set Up Your Environment Variables (API Keys)
 
-The app uses Google's Gemini AI models and Firebase for online data storage.
+The app uses Google's Gemini AI models for some features.
 
 1.  **Get a Gemini API Key:** Create a free API key in [Google AI Studio](https://aistudio.google.com/app/apikey).
 
-2.  **Set Up Firebase Project:**
-    - Go to [Firebase Console](https://console.firebase.google.com/)
-    - Create a new project or use existing one
-    - Enable Firestore Database
-    - Get your Firebase configuration from Project Settings
-
-3.  **Create the Environment File:** Copy `.env.example` to `.env` and add your keys:
+2.  **Create the Environment File:** Copy `.env.example` to `.env` (if it doesn't exist) and add your key:
     ```
     GEMINI_API_KEY=your_gemini_api_key_here
-    
-    NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-    NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
     ```
 
 ### 2. Install Project Dependencies
@@ -41,6 +28,7 @@ Next, you need to install all the libraries and packages the project depends on.
     ```bash
     npm install
     ```
+    This will also automatically set up the local SQLite database file (`database.db`).
 
 ### 3. Run the Development Servers
 
@@ -64,6 +52,10 @@ This project has two parts that need to run at the same time: the main web appli
 Once both servers are running without errors in their respective terminals, you can open your web browser and go to the following address to use RTPMS:
 
 [http://localhost:9002](http://localhost:9002)
+
+The default login credentials are:
+- **Email:** `ralson@ralson.com`
+- **Password:** `ralson@123`
 
 ## Deploying to Firebase App Hosting
 
