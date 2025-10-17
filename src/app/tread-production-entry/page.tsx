@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -67,6 +68,7 @@ export default function TreadProductionEntryPage() {
 
   const loadData = useCallback(async () => {
     try {
+      if (!loading) setLoading(true);
       const [shifts, plan, log, machines] = await Promise.all([
         actions.getShifts(),
         actions.getProductionPlan(),
@@ -75,7 +77,7 @@ export default function TreadProductionEntryPage() {
       ]);
       setAllShifts(shifts);
       setAllMachines(machines);
-      if (shifts.length > 0) {
+      if (shifts.length > 0 && !selectedShift) {
         setSelectedShift(shifts[0]);
       }
       setProductionPlan(plan);
@@ -90,11 +92,12 @@ export default function TreadProductionEntryPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, loading, selectedShift]);
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const allSkusFromPlan = useMemo((): EnrichedSkuPlan[] => {
     const sapCodeMap = new Map<string, EnrichedSkuPlan>();
@@ -185,18 +188,8 @@ export default function TreadProductionEntryPage() {
     setHasUnsavedChanges(true);
   };
 
-  // 🚀 NEW: Auto-save functionality
-  useEffect(() => {
-    if (!autoSaveEnabled || !hasUnsavedChanges) return;
-    
-    const timer = setTimeout(() => {
-      handleSaveDailyProduction(true);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [dailyProductionEntries, autoSaveEnabled, hasUnsavedChanges]);
-
-  const handleSaveDailyProduction = async (isAutoSave = false) => {
+  
+  const handleSaveDailyProduction = useCallback(async (isAutoSave = false) => {
     if (!selectedDate || !selectedShift) {
       toast({
         variant: 'destructive',
@@ -206,47 +199,63 @@ export default function TreadProductionEntryPage() {
       return;
     }
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
+    const shiftName = selectedShift.name.replace(/\s+/g, '-');
 
     const entriesToSave = Object.fromEntries(
       Object.entries(dailyProductionEntries).filter(
         ([, value]) => value.quantity > 0 || value.trolleyNo || value.bobbinNo
       )
     );
+    
+    try {
+        const result = await actions.saveDailyProductionLog(
+          dateKey,
+          shiftName,
+          entriesToSave
+        );
 
-    const result = await actions.saveDailyProductionLog(
-      dateKey,
-      selectedShift.name.replace(/\s+/g, '-'),
-      entriesToSave
-    );
-
-    if (result && result.success) {
-      const shiftName = selectedShift.name.replace(/\s+/g, '-');
-      setDailyProductionLog(prev => ({
-        ...prev,
-        [dateKey]: {
-          ...(prev[dateKey] || {}),
-          [shiftName]: entriesToSave,
-        },
-      }));
-      setHasUnsavedChanges(false);
-      if (!isAutoSave) {
-        setIsEditing(false);
-      }
-      toast({
-        title: isAutoSave ? '💾 Auto-saved' : '✅ Saved Successfully',
-        description: `Tread production for ${selectedShift.name} on ${format(
-          selectedDate,
-          'PPP'
-        )} has been saved.`,
-      });
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to save production data.',
-      });
+        if (result && result.success) {
+          setDailyProductionLog(prev => ({
+            ...prev,
+            [dateKey]: {
+              ...(prev[dateKey] || {}),
+              [shiftName]: entriesToSave,
+            },
+          }));
+          setHasUnsavedChanges(false);
+          if (!isAutoSave) {
+            setIsEditing(false);
+          }
+          toast({
+            title: isAutoSave ? '💾 Auto-saved' : '✅ Saved Successfully',
+            description: `Tread production for ${selectedShift.name} on ${format(
+              selectedDate,
+              'PPP'
+            )} has been saved.`,
+          });
+        } else {
+          throw new Error(result?.error || 'Failed to save production data.');
+        }
+    } catch(error) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: (error as Error).message,
+        });
     }
-  };
+  },[selectedDate, selectedShift, dailyProductionEntries, toast]);
+
+    // 🚀 NEW: Auto-save functionality
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (autoSaveEnabled && hasUnsavedChanges) {
+      timer = setTimeout(() => {
+        handleSaveDailyProduction(true);
+      }, 3000);
+    }
+    return () => clearTimeout(timer);
+  }, [dailyProductionEntries, autoSaveEnabled, hasUnsavedChanges, handleSaveDailyProduction]);
+
 
   // 🚀 NEW: Copy from previous day
   const handleCopyFromPreviousDay = async () => {
@@ -399,7 +408,7 @@ export default function TreadProductionEntryPage() {
 
         <Card className="bg-green-50 border-green-200 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="pb-3">
-            <CardTitle className="text-green-700 text-sm">Manual Quantity</CardTitle>
+            <CardTitle className="text-green-700 text-sm">Tread Quantity</CardTitle>
           </CardHeader>
           <CardContent className="text-3xl font-bold text-green-900">
             {totalQty.toLocaleString()}
@@ -550,7 +559,7 @@ export default function TreadProductionEntryPage() {
                   <TableHead className="w-[150px]">SKU</TableHead>
                   <TableHead className="w-[120px]">Trolley No</TableHead>
                   <TableHead className="w-[200px]">Bobbin No(s)</TableHead>
-                  <TableHead className="w-[120px] text-right">Quantity</TableHead>
+                  <TableHead className="w-[120px] text-right">Production Quantity (pcs)</TableHead>
                   <TableHead className="w-[140px] text-right">Current Total</TableHead>
                   <TableHead className="w-[140px] text-right">Overall Total</TableHead>
                 </TableRow>
