@@ -32,6 +32,7 @@ import { useAuth } from './auth-provider';
 import { RalsonTyreIcon } from './icons/ralson-tyre-icon';
 import { ThemePresetSelector } from './theme-preset-selector';
 import { useNavigation } from '@/hooks/use-navigation';
+import { useToast } from '@/hooks/use-toast';
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -116,12 +117,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
 function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
   const { logout, user } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
+  const { toast } = useToast();
 
   const handleLogout = () => {
-    logout();
-    router.push('/login');
+    const { name } = logout();
+    toast({
+      title: `Goodbye, ${name || 'User'}!`,
+      description: 'You have been successfully logged out.',
+    });
   };
 
   return (
@@ -145,7 +148,7 @@ function UserMenu({ pageActions }: { pageActions: React.ReactNode | null }) {
             </Link>
           </DropdownMenuItem>
         ))}
-        {(pathname === '/gt-production-entry' || pathname === '/curing') && pageActions}
+        {(usePathname() === '/gt-production-entry' || usePathname() === '/curing') && pageActions}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />

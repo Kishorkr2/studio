@@ -19,8 +19,8 @@ interface AuthContextType {
   login: (
     email: string,
     pass: string
-  ) => Promise<{ success: boolean; message?: string }>;
-  logout: () => void;
+  ) => Promise<{ success: boolean; message?: string; user?: User }>;
+  logout: () => { name: string | null };
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (
     email: string,
     pass: string
-  ): Promise<{ success: boolean; message?: string }> => {
+  ): Promise<{ success: boolean; message?: string; user?: User }> => {
     try {
       const { success, message, user } = await dbActions.verifyUserLogin(
         email,
@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('authData', JSON.stringify(authData));
         setIsAuthenticated(true);
         setUser(authData.user as User);
-        return { success: true };
+        return { success: true, user: authData.user as User };
       }
       return { success: false, message };
     } catch (error) {
@@ -102,10 +102,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    const currentUser = user;
     localStorage.removeItem('authData');
     setIsAuthenticated(false);
     setUser(null);
     router.push('/login');
+    return { name: currentUser?.name || null };
   };
 
   if (loading) {

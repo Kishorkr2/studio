@@ -36,10 +36,10 @@ export default function LoginPage() {
     const result = await login(email, password);
     setLoading(false);
     
-    if (result.success) {
+    if (result.success && result.user) {
       toast({
-        title: 'Login Successful',
-        description: 'Welcome back!',
+        title: `Welcome back, ${result.user.name}!`,
+        description: 'You have been successfully logged in.',
       });
       router.push('/');
     } else {
