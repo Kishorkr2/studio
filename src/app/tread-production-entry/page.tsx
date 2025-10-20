@@ -66,35 +66,34 @@ export default function TreadProductionEntryPage() {
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const loadData = useCallback(async () => {
-    try {
-      if (!loading) setLoading(true);
-      const [shifts, plan, log, machines] = await Promise.all([
-        actions.getShifts(),
-        actions.getProductionPlan(),
-        actions.getDailyTreadProductionLog(),
-        actions.getMachines('TBM'),
-      ]);
-      setAllShifts(shifts);
-      setAllMachines(machines);
-      if (shifts.length > 0 && !selectedShift) {
-        setSelectedShift(shifts[0]);
-      }
-      setProductionPlan(plan);
-      setDailyProductionLog(log);
-    } catch (error) {
-      console.error('Failed to load data', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Could not load data from the server.',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast, loading, selectedShift]);
-
   useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [shifts, plan, log, machines] = await Promise.all([
+          actions.getShifts(),
+          actions.getProductionPlan(),
+          actions.getDailyTreadProductionLog(),
+          actions.getMachines('TBM'),
+        ]);
+        setAllShifts(shifts);
+        setAllMachines(machines);
+        if (shifts.length > 0 && !selectedShift) {
+          setSelectedShift(shifts[0]);
+        }
+        setProductionPlan(plan);
+        setDailyProductionLog(log);
+      } catch (error) {
+        console.error('Failed to load data', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Could not load data from the server.',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -154,14 +153,16 @@ export default function TreadProductionEntryPage() {
     for (const date in dailyProductionLog) {
       for (const shift in dailyProductionLog[date]) {
         for (const sapCode in dailyProductionLog[date][shift]) {
-          totals[sapCode] =
-            (totals[sapCode] || 0) +
-            (dailyProductionLog[date][shift][sapCode].quantity || 0);
+          const entry = dailyProductionLog[date][shift][sapCode];
+          const bobbinCount = entry.bobbinNo ? entry.bobbinNo.split(',').filter(Boolean).length : 0;
+          const bobbinQty = bobbinCount * 110;
+          totals[sapCode] = (totals[sapCode] || 0) + (entry.quantity || 0) + bobbinQty;
         }
       }
     }
     return totals;
   }, [dailyProductionLog]);
+
 
   const handleDailyProductionChange = (
     sapCode: string,
@@ -245,7 +246,6 @@ export default function TreadProductionEntryPage() {
     }
   },[selectedDate, selectedShift, dailyProductionEntries, toast]);
 
-    // 🚀 NEW: Auto-save functionality
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (autoSaveEnabled && hasUnsavedChanges) {
@@ -256,8 +256,6 @@ export default function TreadProductionEntryPage() {
     return () => clearTimeout(timer);
   }, [dailyProductionEntries, autoSaveEnabled, hasUnsavedChanges, handleSaveDailyProduction]);
 
-
-  // 🚀 NEW: Copy from previous day
   const handleCopyFromPreviousDay = async () => {
     if (!selectedDate || !selectedShift) return;
     
@@ -284,7 +282,6 @@ export default function TreadProductionEntryPage() {
     }
   };
 
-  // 🚀 NEW: Clear all entries
   const handleClearAll = () => {
     const emptyEntries: Record<string, DailyProductionEntry> = {};
     allSkusFromPlan.forEach(sku => {
@@ -302,7 +299,6 @@ export default function TreadProductionEntryPage() {
     });
   };
 
-  // 🚀 NEW: Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, sapCode: string, field: keyof DailyProductionEntry) => {
     if (e.key === 'Enter' || e.key === 'ArrowDown') {
       e.preventDefault();
@@ -665,3 +661,5 @@ export default function TreadProductionEntryPage() {
     </div>
   );
 }
+
+    

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Spline, Circle, ToyBrick, Layers, Factory, Scale, ClipboardList, Download, FileText, Calendar as CalendarIcon } from 'lucide-react';
+import { Spline, Download, FileText, Calendar as CalendarIcon } from 'lucide-react';
 import type {
   ProductionPlanItem,
   Machine,
@@ -61,6 +61,7 @@ export default function GTPlanningPage() {
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
 
   const loadData = useCallback(async () => {
+    setLoading(true);
     try {
       const [plan, machines, logs, shifts] = await Promise.all([
         actions.getProductionPlan(),
@@ -88,6 +89,7 @@ export default function GTPlanningPage() {
   }, [loadData]);
   
   useEffect(() => {
+      if (loading) return;
       const machineMap = new Map(allMachines.map(m => [m.id, m.name]));
       
       const productionBySapCode = productionLogs.reduce((acc, log) => {
@@ -114,7 +116,7 @@ export default function GTPlanningPage() {
       );
       setGtPlanningData(planningData);
 
-  }, [productionPlan, allMachines, productionLogs]);
+  }, [productionPlan, allMachines, productionLogs, loading]);
   
   const handleTodaysPlanChange = (sapCode: string, value: string) => {
     const newPlan = parseInt(value, 10) || 0;
@@ -293,3 +295,5 @@ export default function GTPlanningPage() {
     </div>
   )
 }
+
+    

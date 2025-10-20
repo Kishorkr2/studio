@@ -74,28 +74,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     pass: string
   ): Promise<{ success: boolean; message?: string; user?: User }> => {
     try {
-      const { success, message, user } = await dbActions.verifyUserLogin(
+      const result = await dbActions.verifyUserLogin(
         email,
         pass
       );
-      if (success && user) {
+      if (result.success && result.user) {
         const expiry = new Date().getTime() + 24 * 60 * 60 * 1000; // 24 hours
         const authData = {
           isAuthenticated: true,
           expiry,
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            isAdmin: user.isAdmin,
-          },
+          user: result.user,
         };
         localStorage.setItem('authData', JSON.stringify(authData));
         setIsAuthenticated(true);
-        setUser(authData.user as User);
-        return { success: true, user: authData.user as User };
+        setUser(authData.user);
+        return { success: true, user: authData.user };
       }
-      return { success: false, message };
+      return { success: false, message: result.message };
     } catch (error) {
       return { success: false, message: 'An unexpected error occurred.' };
     }
@@ -132,3 +127,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+    

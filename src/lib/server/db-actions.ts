@@ -525,8 +525,19 @@ export async function verifyUserLogin(
     };
   }
 
-  return {success: true, user};
+  const userData: User = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    mobile: user.mobile,
+    password: '', // Don't send password to client
+    isApproved: user.isApproved,
+    isAdmin: user.isAdmin,
+  };
+
+  return {success: true, user: userData};
 }
+
 
 export async function getUsers(): Promise<User[]> {
   return db.all(
@@ -567,3 +578,5 @@ export async function updateSkuStandards(standards: SkuStandard[]) {
     throw error;
   }
 }
+
+    

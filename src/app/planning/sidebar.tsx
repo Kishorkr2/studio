@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -26,11 +27,13 @@ const planningNavItems = [
     href: '/planning/bead',
     label: 'Bead Planning',
     icon: Circle,
+    disabled: true,
   },
   {
     href: '/planning/fabric',
     label: 'Fabric Planning',
     icon: Layers,
+    disabled: true,
   },
 ];
 
@@ -38,10 +41,10 @@ export function PlanningSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 border-r bg-background flex-shrink-0">
+    <aside className="w-64 border-r bg-background flex-shrink-0 hidden md:block">
       <div className="p-4">
         <h2 className="text-lg font-semibold tracking-tight">
-          Development Planning
+          Production Planning
         </h2>
       </div>
       <nav className="px-2">
@@ -52,6 +55,7 @@ export function PlanningSidebar() {
                 variant={pathname === item.href ? 'secondary' : 'ghost'}
                 className="w-full justify-start"
                 asChild
+                disabled={item.disabled}
               >
                 <Link href={item.href}>
                   <item.icon className="mr-2 h-4 w-4" />
@@ -65,3 +69,5 @@ export function PlanningSidebar() {
     </aside>
   );
 }
+
+    

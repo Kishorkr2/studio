@@ -216,113 +216,113 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     }
   }, [toast]);
   
-  const loadInitialData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [
-        shiftsData,
-        machinesData,
-        operatorsData,
-        planData,
-        openingStock,
-        dailyLogs,
-        historyLogs,
-      ] = await Promise.all([
-        actions.getShifts(),
-        actions.getMachines('CuringPress'),
-        actions.getOperators(),
-        actions.getProductionPlan(),
-        actions.getTreadOpeningStock(),
-        actions.getDailyTreadProductionLog(),
-        actions.getProductionLogs(),
-      ]);
-
-      setAllShifts(shiftsData);
-      setAllCuringPresses(machinesData);
-      setAllOperators(operatorsData);
-
-      const skuMap = new Map<string, SkuPlan>();
-      planData.forEach(item => {
-        item.skus.forEach(skuPlan => {
-          if (!skuPlan.sapCode) return;
-          const key = skuPlan.sapCode;
-          const existing = skuMap.get(key);
-          if (existing) {
-            skuMap.set(key, {
-              ...existing,
-              quantity: (existing.quantity || 0) + (skuPlan.quantity || 0),
+  useEffect(() => {
+    const loadInitialData = async () => {
+        setLoading(true);
+        try {
+          const [
+            shiftsData,
+            machinesData,
+            operatorsData,
+            planData,
+            openingStock,
+            dailyLogs,
+            historyLogs,
+          ] = await Promise.all([
+            actions.getShifts(),
+            actions.getMachines('CuringPress'),
+            actions.getOperators(),
+            actions.getProductionPlan(),
+            actions.getTreadOpeningStock(),
+            actions.getDailyTreadProductionLog(),
+            actions.getProductionLogs(),
+          ]);
+    
+          setAllShifts(shiftsData);
+          setAllCuringPresses(machinesData);
+          setAllOperators(operatorsData);
+    
+          const skuMap = new Map<string, SkuPlan>();
+          planData.forEach(item => {
+            item.skus.forEach(skuPlan => {
+              if (!skuPlan.sapCode) return;
+              const key = skuPlan.sapCode;
+              const existing = skuMap.get(key);
+              if (existing) {
+                skuMap.set(key, {
+                  ...existing,
+                  quantity: (existing.quantity || 0) + (skuPlan.quantity || 0),
+                });
+              } else {
+                skuMap.set(key, {...skuPlan});
+              }
             });
-          } else {
-            skuMap.set(key, {...skuPlan});
+          });
+          const skus = Array.from(skuMap.values());
+          setAllSkusFromPlan(skus);
+    
+          const dailyTotals: Record<string, number> = {};
+          if (dailyLogs) {
+            for (const dateKey in dailyLogs) {
+              for (const shiftName in dailyLogs[dateKey]) {
+                for (const sapCode in dailyLogs[dateKey][shiftName]) {
+                  const entry = dailyLogs[dateKey][shiftName][sapCode];
+                  dailyTotals[sapCode] = (dailyTotals[sapCode] || 0) + (entry.quantity || 0);
+                }
+              }
+            }
           }
-        });
-      });
-      const skus = Array.from(skuMap.values());
-      setAllSkusFromPlan(skus);
-
-      const dailyTotals: Record<string, number> = {};
-      for (const dateKey in dailyLogs) {
-        for (const shiftName in dailyLogs[dateKey]) {
-          for (const sapCode in dailyLogs[dateKey][shiftName]) {
-            dailyTotals[sapCode] =
-              (dailyTotals[sapCode] || 0) +
-              (dailyLogs[dateKey][shiftName][sapCode].quantity || 0);
+    
+          const tyreProd: Record<string, number> = {};
+          (historyLogs as any[])
+            .filter(log => log.machineName && log.machineName.startsWith('CP'))
+            .forEach(entry => {
+              if (entry.sapCode && entry.quantity > 0) {
+                tyreProd[entry.sapCode] =
+                  (tyreProd[entry.sapCode] || 0) + (entry.quantity || 0);
+              }
+            });
+    
+          const stock = skus.map(req => {
+            const openingStockInfo = openingStock.find(
+              t => t.sapCode === req.sapCode
+            ) || {openingStock: 0};
+            const totalProduction = dailyTotals[req.sapCode] || 0;
+            const tyreProduction = tyreProd[req.sapCode] || 0;
+            const currentTreadStock =
+              (openingStockInfo.openingStock || 0) + totalProduction - tyreProduction;
+            return {
+              ...req,
+              openingStock: openingStockInfo.openingStock,
+              production: totalProduction,
+              currentTreadStock,
+            };
+          });
+          setGreenTyreStock(stock);
+    
+          const currentShift = getCurrentShift(shiftsData);
+          
+          if (currentShift) {
+            setSelectedShift(currentShift);
+            const newRoundTimes = generateRoundTimes(currentShift);
+            setRoundTimes(newRoundTimes);
+            
+            const log = await fetchAndSetLog(new Date(), currentShift);
+    
+            const savedRound = getLocalStorageItem('curingSelectedRound', '');
+            const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || '';
+            setSelectedRound(currentRound);
+    
+            machineOperatorMapRef.current = getLocalStorageItem('curingMachineOperatorMap', {});
+            loadEntriesForRound(currentRound, log, machinesData);
           }
+        } catch (error) {
+          console.error('Failed to load initial data:', error);
+          toast({variant: 'destructive', title: 'Error loading data'});
+        } finally {
+          setLoading(false);
         }
       }
-
-      const tyreProd: Record<string, number> = {};
-      (historyLogs as any[])
-        .filter(log => log.machineName && log.machineName.startsWith('CP'))
-        .forEach(entry => {
-          if (entry.sapCode && entry.quantity > 0) {
-            tyreProd[entry.sapCode] =
-              (tyreProd[entry.sapCode] || 0) + (entry.quantity || 0);
-          }
-        });
-
-      const stock = skus.map(req => {
-        const openingStockInfo = openingStock.find(
-          t => t.sapCode === req.sapCode
-        ) || {openingStock: 0};
-        const totalProduction = dailyTotals[req.sapCode] || 0;
-        const tyreProduction = tyreProd[req.sapCode] || 0;
-        const currentTreadStock =
-          (openingStockInfo.openingStock || 0) + totalProduction - tyreProduction;
-        return {
-          ...req,
-          openingStock: openingStockInfo.openingStock,
-          production: totalProduction,
-          currentTreadStock,
-        };
-      });
-      setGreenTyreStock(stock);
-
-      const currentShift = getCurrentShift(shiftsData);
-      
-      if (currentShift) {
-        setSelectedShift(currentShift);
-        const newRoundTimes = generateRoundTimes(currentShift);
-        setRoundTimes(newRoundTimes);
-        
-        const log = await fetchAndSetLog(new Date(), currentShift);
-
-        const savedRound = getLocalStorageItem('curingSelectedRound', '');
-        const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || '';
-        setSelectedRound(currentRound);
-
-        machineOperatorMapRef.current = getLocalStorageItem('curingMachineOperatorMap', {});
-        loadEntriesForRound(currentRound, log, machinesData);
-      }
-    } catch (error) {
-      console.error('Failed to load initial data:', error);
-      toast({variant: 'destructive', title: 'Error loading data'});
-    } finally {
-      setLoading(false);
-    }
-  }, [toast, generateRoundTimes, fetchAndSetLog, loadEntriesForRound]);
-
-  useEffect(() => {
     loadInitialData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -532,7 +532,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         setEntries([]);
         setSelectedShift(newShift);
         
-        setIsFetchingLog(true);
         const newRoundTimes = generateRoundTimes(newShift);
         setRoundTimes(newRoundTimes);
         
@@ -540,7 +539,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         const currentRound = newRoundTimes[0] || '';
         setSelectedRound(currentRound);
         loadEntriesForRound(currentRound, log, allCuringPresses);
-        setIsFetchingLog(false);
       }
     },
     [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound, allCuringPresses]
@@ -552,10 +550,8 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       setEntries([]);
       setSelectedDate(date);
       
-      setIsFetchingLog(true);
       const log = await fetchAndSetLog(date, selectedShift);
       loadEntriesForRound(selectedRound, log, allCuringPresses);
-      setIsFetchingLog(false);
     }
     setIsDatePickerOpen(false);
   }, [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound, allCuringPresses]);
@@ -606,7 +602,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         <p className="text-sm font-medium text-muted-foreground">
           Shift Total (Saved)
         </p>
-        <p className="text-2xl font-bold text-accent">
+        <p className="text-2xl font-bold text-accent-foreground">
           {cumulativeTotal.toLocaleString()}
         </p>
       </div>
@@ -935,3 +931,5 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
+
+    

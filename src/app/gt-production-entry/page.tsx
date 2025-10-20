@@ -177,41 +177,46 @@ export default function GTProductionEntryPage() {
     }
   }, [toast]);
   
-  const loadInitialData = useCallback(async () => {
-    try {
-      const [shiftsData, machinesData, operatorsData, planData] = await Promise.all([
-        actions.getShifts(),
-        actions.getMachines("TBM"),
-        actions.getOperators(),
-        actions.getProductionPlan(),
-      ]);
-  
-      setAllShifts(shiftsData);
-      setAllMachines(machinesData.filter(m => m.isAvailable));
-      setAllOperators(operatorsData);
-      setAllProductionPlan(planData);
-      
-      const currentShift = getCurrentShift(shiftsData);
-      if (currentShift) {
-        setSelectedShift(currentShift);
-        const newRoundTimes = generateRoundTimes(currentShift);
-        setRoundTimes(newRoundTimes);
-        const savedRound = getLocalStorageItem("selectedRound", "");
-        const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || "";
-        setSelectedRound(currentRound);
-        await fetchAndSetLog(new Date(), currentShift);
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        const [shiftsData, machinesData, operatorsData, planData] = await Promise.all([
+          actions.getShifts(),
+          actions.getMachines("TBM"),
+          actions.getOperators(),
+          actions.getProductionPlan(),
+        ]);
+    
+        setAllShifts(shiftsData);
+        setAllMachines(machinesData.filter(m => m.isAvailable));
+        setAllOperators(operatorsData);
+        setAllProductionPlan(planData);
+        
+        const currentShift = getCurrentShift(shiftsData);
+        if (currentShift) {
+          setSelectedShift(currentShift);
+          const newRoundTimes = generateRoundTimes(currentShift);
+          setRoundTimes(newRoundTimes);
+          const savedRound = getLocalStorageItem("selectedRound", "");
+          const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || "";
+          setSelectedRound(currentRound);
+          await fetchAndSetLog(new Date(), currentShift);
+        }
+      } catch (error) {
+        console.error("Failed to load initial data", error);
+        toast({ variant: "destructive", title: "Error loading initial data." });
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to load initial data", error);
-      toast({ variant: "destructive", title: "Error loading initial data." });
-    } finally {
-      setLoading(false);
-    }
+    };
+    loadInitialData();
   }, [generateRoundTimes, fetchAndSetLog, toast]);
 
   useEffect(() => {
-    loadInitialData();
-  }, [loadInitialData]);
+    if (selectedDate && selectedShift) {
+      fetchAndSetLog(selectedDate, selectedShift);
+    }
+  }, [selectedDate, selectedShift, fetchAndSetLog]);
 
   const hourlyProduction = useMemo(() => {
     if (!productionLog) return {};
@@ -341,9 +346,8 @@ export default function GTProductionEntryPage() {
   };
 
   const handleDateChange = (date: Date | undefined) => {
-    if (date && selectedShift) {
+    if (date) {
         setSelectedDate(date);
-        fetchAndSetLog(date, selectedShift);
         setIsDatePickerOpen(false);
     }
   };
@@ -355,7 +359,6 @@ export default function GTProductionEntryPage() {
         const newRoundTimes = generateRoundTimes(newShift);
         setRoundTimes(newRoundTimes);
         setSelectedRound(newRoundTimes[0] || "");
-        fetchAndSetLog(selectedDate, newShift);
     }
   };
 
@@ -662,3 +665,5 @@ export default function GTProductionEntryPage() {
     </div>
   );
 }
+
+    
