@@ -347,7 +347,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   }, [selectedDate, selectedShift, toast, selectedRound, loadEntriesForRound, allCuringPresses]);
 
   useEffect(() => {
-    if (setPageActions) {
+    if (setPageActions && selectedShift) {
       const pageActions = (
         <>
           <DropdownMenuSeparator />
@@ -367,8 +367,8 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
                   This will permanently delete all production data for the
-                  selected shift ({selectedShift?.name} on{' '}
-                  {selectedDate ? format(selectedDate, 'PPP') : ''}). This
+                  selected shift ({selectedShift.name} on{' '}
+                  {format(selectedDate, 'PPP')}). This
                   action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>

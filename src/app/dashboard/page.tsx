@@ -489,49 +489,64 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle>SKU Production Analysis</CardTitle>
               <CardDescription>
-                Top 10 performing SKUs by production volume.
+                Production volume by SKU.
               </CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
-              <ResponsiveContainer width="100%" height={350}>
-                <RechartsBarChart
-                  data={skuProduction.slice(0, 10)}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 30, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" stroke="#888888" fontSize={12} />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    stroke="#888888"
-                    fontSize={12}
-                    tick={{ width: 100 }}
-                    width={100}
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'hsl(var(--muted))' }}
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      borderRadius: 'var(--radius)',
-                      border: '1px solid hsl(var(--border))',
-                    }}
-                  />
-                  <RechartsBar
-                    dataKey="production"
-                    name="Production Volume"
-                    radius={[0, 4, 4, 0]}
-                    background={{ fill: 'hsl(var(--muted))' }}
+              {skuProduction.length > 0 ? (
+                <ResponsiveContainer width="100%" height={350}>
+                  <RechartsBarChart
+                    data={skuProduction}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 30, bottom: 5 }}
                   >
-                    {skuProduction.slice(0, 10).map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={CHART_COLORS[index % CHART_COLORS.length]}
-                      />
-                    ))}
-                  </RechartsBar>
-                </RechartsBarChart>
-              </ResponsiveContainer>
+                    <defs>
+                      {CHART_COLORS.map((color, index) => (
+                        <linearGradient key={index} id={`colorSku${index}`} x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="5%" stopColor={color} stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor={color} stopOpacity={0.4}/>
+                        </linearGradient>
+                      ))}
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tick={{ width: 100 }}
+                      width={100}
+                      tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value}
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'hsl(var(--muted))' }}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--background))',
+                        borderRadius: 'var(--radius)',
+                        border: '1px solid hsl(var(--border))',
+                      }}
+                      labelStyle={{ color: 'hsl(var(--foreground))' }}
+                    />
+                    <RechartsBar
+                      dataKey="production"
+                      name="Production Volume"
+                      radius={[0, 4, 4, 0]}
+                    >
+                      {skuProduction.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={`url(#colorSku${index})`}
+                        />
+                      ))}
+                    </RechartsBar>
+                  </RechartsBarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-[350px] items-center justify-center text-muted-foreground">
+                  No SKU production data available for the selected period.
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -582,50 +597,66 @@ export default function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
-              <ResponsiveContainer width="100%" height={400}>
-                <RechartsBarChart
-                  data={operatorProduction.slice(0, 15)}
-                  margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 70, // Increased bottom margin
-                  }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="name"
-                    stroke="#888888"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    angle={-45}
-                    textAnchor="end"
-                    interval={0}
-                  />
-                  <YAxis stroke="#888888" fontSize={12} />
-                  <Tooltip
-                    cursor={{ fill: 'hsl(var(--muted))' }}
-                     contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      borderRadius: 'var(--radius)',
-                      border: '1px solid hsl(var(--border))',
+              {operatorProduction.length > 0 ? (
+                <ResponsiveContainer width="100%" height={400}>
+                  <RechartsBarChart
+                    data={operatorProduction}
+                    margin={{
+                      top: 20,
+                      right: 30,
+                      left: 20,
+                      bottom: 70,
                     }}
-                  />
-                  <RechartsBar
-                    dataKey="production"
-                    name="Production"
-                    radius={[4, 4, 0, 0]}
                   >
-                  {operatorProduction.slice(0, 15).map((entry, index) => (
-                      <Cell
-                        key={`cell-op-${index}`}
-                        fill={CHART_COLORS[index % CHART_COLORS.length]}
-                      />
-                    ))}
-                  </RechartsBar>
-                </RechartsBarChart>
-              </ResponsiveContainer>
+                    <defs>
+                      {CHART_COLORS.map((color, index) => (
+                        <linearGradient key={index} id={`colorOp${index}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={color} stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor={color} stopOpacity={0.4}/>
+                        </linearGradient>
+                      ))}
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="name"
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      angle={-45}
+                      textAnchor="end"
+                      interval={0}
+                    />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <Tooltip
+                      cursor={{ fill: 'hsl(var(--muted))' }}
+                       contentStyle={{
+                        backgroundColor: 'hsl(var(--background))',
+                        borderRadius: 'var(--radius)',
+                        border: '1px solid hsl(var(--border))',
+                      }}
+                      labelStyle={{ color: 'hsl(var(--foreground))' }}
+                    />
+                    <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                    <RechartsBar
+                      dataKey="production"
+                      name="Production"
+                      radius={[4, 4, 0, 0]}
+                    >
+                    {operatorProduction.map((entry, index) => (
+                        <Cell
+                          key={`cell-op-${index}`}
+                          fill={`url(#colorOp${index})`}
+                        />
+                      ))}
+                    </RechartsBar>
+                  </RechartsBarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-[400px] items-center justify-center text-muted-foreground">
+                  No operator production data available for the selected period.
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
