@@ -141,13 +141,13 @@ export default function DashboardPage() {
     try {
       // ✅ Local fallback data
       const mockOperators: Operator[] = [
-        { id: '1', name: 'John Doe', email: 'john@example.com', createdAt: new Date(), updatedAt: new Date() },
-        { id: '2', name: 'Jane Smith', email: 'jane@example.com', createdAt: new Date(), updatedAt: new Date() },
+        { cardNo: '1', name: 'John Doe', builderNo: 'B-01', skillRating: 4, isAbsent: false },
+        { cardNo: '2', name: 'Jane Smith', builderNo: 'B-02', skillRating: 5, isAbsent: false },
       ];
 
       const mockShifts: ShiftInfo[] = [
-        { id: '1', name: 'Morning Shift', startTime: '06:00', endTime: '14:00', createdAt: new Date(), updatedAt: new Date() },
-        { id: '2', name: 'Evening Shift', startTime: '14:00', endTime: '22:00', createdAt: new Date(), updatedAt: new Date() },
+        { name: 'Morning Shift', startTime: '06:00', endTime: '14:00' },
+        { name: 'Evening Shift', startTime: '14:00', endTime: '22:00' },
       ];
 
       const [ops, plan, logs, shifts, openingStock, dailyLogs] = await Promise.all([
