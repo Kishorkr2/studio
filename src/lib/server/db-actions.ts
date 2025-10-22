@@ -476,7 +476,7 @@ export async function signUpUser(
   try {
     const existingUser = await db.get(
       'SELECT * FROM users WHERE email = ?',
-      email
+      email.toLowerCase()
     );
     if (existingUser) {
       return {
@@ -488,7 +488,7 @@ export async function signUpUser(
     await db.run(
       'INSERT INTO users (name, email, mobile, password) VALUES (?, ?, ?, ?)',
       name,
-      email,
+      email.toLowerCase(),
       mobile,
       hashedPassword
     );
@@ -578,3 +578,5 @@ export async function updateSkuStandards(standards: SkuStandard[]) {
     throw error;
   }
 }
+
+    
