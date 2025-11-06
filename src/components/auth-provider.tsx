@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const authDataString = localStorage.getItem('authData');
       if (authDataString) {
         const authData = JSON.parse(authDataString);
-        if (new Date().getTime() < authData.expiry) {
+        if (authData.expiry && new Date().getTime() < authData.expiry) {
           setIsAuthenticated(true);
           setUser(authData.user);
         } else {
