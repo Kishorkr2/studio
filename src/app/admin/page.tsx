@@ -42,12 +42,6 @@ import {
   Users,
   UserPlus,
   Calendar,
-  LayoutDashboard,
-  Users2,
-  ListChecks,
-  Package,
-  Factory,
-  Percent,
   Ruler,
 } from 'lucide-react';
 import {useToast} from '@/hooks/use-toast';

@@ -40,11 +40,11 @@ export async function getMachines(
       type
     );
   }
-  
+
   // Convert isAvailable from 0/1 to boolean
   return machines.map(m => ({
     ...m,
-    isAvailable: Boolean(m.isAvailable)
+    isAvailable: Boolean(m.isAvailable),
   }));
 }
 
@@ -92,7 +92,9 @@ export async function getProductionLogs(): Promise<ReportDataRow[]> {
     shift: log.shiftName,
     round: log.round,
     operatorId: log.operatorId,
-    operatorName: log.operatorId ? operatorMap.get(log.operatorId) || 'N/A' : 'N/A',
+    operatorName: log.operatorId
+      ? operatorMap.get(log.operatorId) || 'N/A'
+      : 'N/A',
     machineId: log.machineId,
     machineName: machineMap.get(log.machineId) || 'N/A',
     sku: log.sku,
@@ -110,12 +112,12 @@ export async function getProductionLogForShift(
 ): Promise<ProductionLog> {
   const dateKey = format(date, 'yyyy-MM-dd');
   const shiftName = shift.name.replace(/\s+/g, '-');
-  
+
   const rows = await db.all<FlatProductionLogEntry[]>(
     'SELECT * FROM productionLogEntries WHERE date = ? AND shiftName = ? ORDER BY round, machineId',
     [dateKey, shiftName]
   );
-  
+
   const log: ProductionLog = {};
 
   for (const row of rows) {
@@ -140,8 +142,8 @@ export async function getProductionLogForShift(
     };
 
     if (machineEntry) {
-      if(skuProduction.sku) {
-         machineEntry.skus.push(skuProduction);
+      if (skuProduction.sku) {
+        machineEntry.skus.push(skuProduction);
       }
     } else {
       const newMachineEntry: MachineProductionData = {
@@ -155,7 +157,7 @@ export async function getProductionLogForShift(
       log[row.round].entries.push(newMachineEntry);
     }
   }
-  
+
   return log;
 }
 
@@ -372,7 +374,7 @@ export async function saveProductionRound(
             entry.operatorId,
             entry.userId || null,
             entry.userName || null,
-            0
+            0,
           ]
         );
       }
@@ -398,7 +400,7 @@ export async function saveDailyProductionLog(
   dateKey: string,
   shiftName: string,
   logForShift: Record<string, DailyProductionEntry>
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{success: boolean; error?: string}> {
   try {
     const existingData = await db.get(
       'SELECT data FROM dailyTreadProduction WHERE id = ?',
@@ -415,7 +417,7 @@ export async function saveDailyProductionLog(
         // For now, we'll overwrite with the new shift data.
       }
     }
-    
+
     fullDayLog[shiftName] = logForShift;
 
     const dataJson = JSON.stringify(fullDayLog);
@@ -424,10 +426,10 @@ export async function saveDailyProductionLog(
       dateKey,
       dataJson
     );
-    return { success: true };
+    return {success: true};
   } catch (error) {
     console.error('Error in saveDailyProductionLog:', error);
-    return { success: false, error: (error as Error).message };
+    return {success: false, error: (error as Error).message};
   }
 }
 
@@ -452,20 +454,20 @@ export async function saveTreadOpeningStock(stock: TreadStock[]) {
 }
 
 export async function saveCuringLogEntry(entry: CuringLogEntry) {
-    try {
-        await db.run(
-            'INSERT INTO curingLogEntries (press_no, cavity1_sku, cavity1_qty, cavity2_sku, cavity2_qty) VALUES (?, ?, ?, ?, ?)',
-            entry.press_no,
-            entry.cavity1_sku,
-            entry.cavity1_qty,
-            entry.cavity2_sku,
-            entry.cavity2_qty
-        );
-        return { success: true };
-    } catch (error) {
-        console.error('Error saving curing log entry:', error);
-        return { success: false, message: 'Database error' };
-    }
+  try {
+    await db.run(
+      'INSERT INTO curingLogEntries (press_no, cavity1_sku, cavity1_qty, cavity2_sku, cavity2_qty) VALUES (?, ?, ?, ?, ?)',
+      entry.press_no,
+      entry.cavity1_sku,
+      entry.cavity1_qty,
+      entry.cavity2_sku,
+      entry.cavity2_qty
+    );
+    return {success: true};
+  } catch (error) {
+    console.error('Error saving curing log entry:', error);
+    return {success: false, message: 'Database error'};
+  }
 }
 
 // User Actions
@@ -504,7 +506,7 @@ export async function verifyUserLogin(
   pass: string
 ): Promise<{success: boolean; message?: string; user?: User}> {
   const user = await db.get<User>(
-    'SELECT * FROM users WHERE email = ?',
+    'SELECT * FROM users WHERE LOWER(email) = ?',
     email.toLowerCase()
   );
 
@@ -537,7 +539,6 @@ export async function verifyUserLogin(
 
   return {success: true, user: userData};
 }
-
 
 export async function getUsers(): Promise<User[]> {
   return db.all(

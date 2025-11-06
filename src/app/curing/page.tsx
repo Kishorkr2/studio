@@ -193,7 +193,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
             machineId: machine.id,
             name: machine.name,
             operatorId: operatorId || '',
-            skus: skus.length > 0 ? skus : [],
+            skus: skus.length > 0 ? skus : [{sku: '', sapCode: '', quantity: 0, leftQty: 0, rightQty: 0}],
           };
         });
       setEntries(newEntries);
@@ -545,16 +545,15 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   );
 
   const handleDateChange = useCallback(async (date: Date | undefined) => {
-    if (date && selectedShift && format(date, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
+    if (date && selectedShift) {
+      setSelectedDate(date);
       setProductionLog({});
       setEntries([]);
-      setSelectedDate(date);
-      
       const log = await fetchAndSetLog(date, selectedShift);
       loadEntriesForRound(selectedRound, log, allCuringPresses);
     }
     setIsDatePickerOpen(false);
-  }, [selectedDate, selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound, allCuringPresses]);
+  }, [selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound, allCuringPresses]);
 
   const roundTotal = useMemo(() => {
     return entries.reduce(
@@ -931,5 +930,3 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
-
-    

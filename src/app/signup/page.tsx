@@ -1,7 +1,7 @@
 
 'use client';
 
-import {useState} from 'react';
+import {useState, useEffect} from 'react';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {useForm, type SubmitHandler} from 'react-hook-form';
@@ -29,6 +29,7 @@ import {useToast} from '@/hooks/use-toast';
 import {UserPlus} from 'lucide-react';
 import * as actions from '../actions';
 import { RalsonTyreIcon } from '@/components/icons/ralson-tyre-icon';
+import { useAuth } from '@/components/auth-provider';
 
 const signUpSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -43,6 +44,13 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const {toast} = useToast();
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/');
+    }
+  }, [isAuthenticated, router]);
 
   const form = useForm<SignUpInput>({
     resolver: zodResolver(signUpSchema),

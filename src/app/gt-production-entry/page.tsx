@@ -239,8 +239,8 @@ export default function GTProductionEntryPage() {
   }, [productionLog]);
   
   const totalShiftProduction = useMemo(() => {
-    return Object.values(hourlyProduction).reduce((sum, qty) => sum + qty, 0);
-  }, [hourlyProduction]);
+    return Object.values(productionLog).flatMap(round => round.entries).flatMap(entry => entry.skus).reduce((sum, sku) => sum + (sku.quantity || 0), 0);
+  }, [productionLog]);
 
   const activeTbmCount = useMemo(() => {
     const machineIds = new Set<string>();
@@ -665,5 +665,3 @@ export default function GTProductionEntryPage() {
     </div>
   );
 }
-
-    
