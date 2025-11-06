@@ -1,120 +1,59 @@
-
 'use client';
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  type ReactNode,
-} from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import * as dbActions from '@/lib/server/db-actions';
-import type { User } from '@/lib/types';
-import { Loader } from './ui/loader';
+import { createContext, useContext, useState } from 'react';
 
 interface AuthContextType {
-  isAuthenticated: boolean;
-  user: User | null;
-  login: (
-    email: string,
-    pass: string
-  ) => Promise<{ success: boolean; message?: string; user?: User }>;
-  logout: () => { name: string | null };
+  user: any;
+  login: (email: string, password: string) => Promise<any>;
+  logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const pathname = usePathname();
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<any>(null);
 
-  useEffect(() => {
+  const login = async (email: string, password: string) => {
     try {
-      const authDataString = localStorage.getItem('authData');
-      if (authDataString) {
-        const authData = JSON.parse(authDataString);
-        if (authData.expiry && new Date().getTime() < authData.expiry) {
-          setIsAuthenticated(true);
-          setUser(authData.user);
-        } else {
-          localStorage.removeItem('authData');
-          setIsAuthenticated(false);
-          setUser(null);
-        }
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-      }
-    } catch (error) {
-      console.warn('Could not read auth status from localStorage.', error);
-      setIsAuthenticated(false);
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-  useEffect(() => {
-    if (loading) return;
-
-    const publicPaths = ['/login', '/signup'];
-    if (!isAuthenticated && !publicPaths.includes(pathname)) {
-      router.push('/login');
-    } else if (isAuthenticated && publicPaths.includes(pathname)) {
-      router.push('/');
-    }
-  }, [isAuthenticated, pathname, router, loading]);
-
-  const login = async (
-    email: string,
-    pass: string
-  ): Promise<{ success: boolean; message?: string; user?: User }> => {
-    try {
-      const result = await dbActions.verifyUserLogin(
-        email,
-        pass
-      );
-      if (result.success && result.user) {
-        const expiry = new Date().getTime() + 24 * 60 * 60 * 1000; // 24 hours
-        const authData = {
-          isAuthenticated: true,
-          expiry,
-          user: result.user,
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        return {
+          success: false,
+          message: err?.message || 'Invalid credentials or server error.',
         };
-        localStorage.setItem('authData', JSON.stringify(authData));
-        setIsAuthenticated(true);
-        setUser(authData.user);
-        return { success: true, user: authData.user };
       }
-      return { success: false, message: result.message };
-    } catch (error) {
-      return { success: false, message: 'An unexpected error occurred.' };
+
+      const data = await res.json();
+      if (data?.success && data?.user) {
+        setUser(data.user);
+        return { success: true, user: data.user };
+      }
+
+      return {
+        success: false,
+        message: data?.message || 'Invalid response from server.',
+      };
+    } catch (error: any) {
+      console.error('AuthProvider login error:', error);
+      return {
+        success: false,
+        message: error.message || 'Network error occurred.',
+      };
     }
   };
 
   const logout = () => {
-    const currentUser = user;
-    localStorage.removeItem('authData');
-    setIsAuthenticated(false);
     setUser(null);
-    router.push('/login');
-    return { name: currentUser?.name || null };
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader />
-      </div>
-    );
-  }
-
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -122,8 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context)
     throw new Error('useAuth must be used within an AuthProvider');
-  }
   return context;
 };

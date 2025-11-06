@@ -578,5 +578,3 @@ export async function updateSkuStandards(standards: SkuStandard[]) {
     throw error;
   }
 }
-
-    

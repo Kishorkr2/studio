@@ -82,7 +82,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return child;
   });
 
-  if (!isAuthenticated || pathname === '/login' || pathname === '/signup') {
+  if (pathname === '/login' || pathname === '/signup') {
     return <main className="flex-1">{children}</main>;
   }
 
