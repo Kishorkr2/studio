@@ -81,29 +81,52 @@ export async function getProductionLogs(): Promise<ReportDataRow[]> {
   const [operators, machines, logs] = await Promise.all([
     db.all('SELECT cardNo, name FROM operators'),
     db.all('SELECT id, name FROM machines'),
-    db.all('SELECT * FROM productionLogEntries'),
+    db.all('SELECT * FROM productionLogEntries ORDER BY date, shiftName, round, machineId, id'),
   ]);
 
   const operatorMap = new Map(operators.map(op => [op.cardNo, op.name]));
   const machineMap = new Map(machines.map(m => [m.id, m.name]));
 
-  return logs.map(log => ({
-    date: log.date,
-    shift: log.shiftName,
-    round: log.round,
-    operatorId: log.operatorId,
-    operatorName: log.operatorId
-      ? operatorMap.get(log.operatorId) || 'N/A'
-      : 'N/A',
-    machineId: log.machineId,
-    machineName: machineMap.get(log.machineId) || 'N/A',
-    sku: log.sku,
-    sapCode: log.sapCode,
-    quantity: log.quantity,
-    userId: log.userId,
-    userName: log.userName,
-    remark: log.remark,
-  }));
+  const groupedLogs: Record<string, FlatProductionLogEntry[]> = {};
+  for (const log of logs) {
+    const key = `${log.date}-${log.shiftName}-${log.round}-${log.machineId}`;
+    if (!groupedLogs[key]) {
+      groupedLogs[key] = [];
+    }
+    groupedLogs[key].push(log);
+  }
+
+  const reportRows: ReportDataRow[] = [];
+
+  for (const key in groupedLogs) {
+    const entries = groupedLogs[key];
+    const firstEntry = entries[0];
+    
+    // If there are multiple entries for the same machine in the same round, it's likely a multi-SKU entry.
+    for (const log of entries) {
+      if (log.sku && log.quantity > 0) { // Only process entries that have an SKU and quantity
+          reportRows.push({
+            date: log.date,
+            shift: log.shiftName,
+            round: log.round,
+            operatorId: firstEntry.operatorId, // Use operator from first entry for consistency across all SKUs
+            operatorName: firstEntry.operatorId
+              ? operatorMap.get(firstEntry.operatorId) || 'N/A'
+              : 'N/A',
+            machineId: log.machineId,
+            machineName: machineMap.get(log.machineId) || 'N/A',
+            sku: log.sku,
+            sapCode: log.sapCode,
+            quantity: log.quantity,
+            userId: firstEntry.userId,
+            userName: firstEntry.userName,
+            remark: log.remark,
+          });
+      }
+    }
+  }
+
+  return reportRows;
 }
 
 export async function getProductionLogForShift(
@@ -322,18 +345,23 @@ export async function saveProductionRound(
 
   await db.exec('BEGIN TRANSACTION');
   try {
-    await db.run(
-      `DELETE FROM productionLogEntries 
-       WHERE date = ? AND shiftName = ? AND round = ?`,
-      [dateKey, shiftName, round]
-    );
+    // We only want to delete entries for the specific machines being updated in this round
+    const machineIdsToDelete = entries.map(e => e.machineId);
+    if(machineIdsToDelete.length > 0) {
+      const placeholders = machineIdsToDelete.map(() => '?').join(',');
+      await db.run(
+        `DELETE FROM productionLogEntries 
+        WHERE date = ? AND shiftName = ? AND round = ? AND machineId IN (${placeholders})`,
+        [dateKey, shiftName, round, ...machineIdsToDelete]
+      );
+    }
 
     for (const entry of entries) {
-      if (!entry.operatorId && (!entry.skus || entry.skus.length === 0)) {
+      if (!entry.operatorId && (!entry.skus || entry.skus.length === 0 || entry.skus.every(s => !s.sku && !s.sapCode))) {
         continue;
       }
 
-      if (entry.skus && entry.skus.length > 0) {
+      if (entry.skus && entry.skus.length > 0 && entry.skus.some(s => s.sku || s.sapCode)) {
         for (const sku of entry.skus) {
           if (!sku.sku && !sku.sapCode) continue;
           await db.run(
@@ -360,6 +388,7 @@ export async function saveProductionRound(
           );
         }
       } else if (entry.operatorId) {
+        // This case handles saving just the operator assignment without any production
         await db.run(
           `INSERT INTO productionLogEntries 
            (date, shiftName, round, machineId, name, status, operatorId, userId, userName, quantity) 
@@ -506,10 +535,10 @@ export async function verifyUserLogin(
   pass: string
 ): Promise<{success: boolean; message?: string; user?: User}> {
   const user = await db.get<User>(
-    'SELECT * FROM users WHERE LOWER(email) = ?',
+    'SELECT * FROM users WHERE email = ?',
     email.toLowerCase()
   );
-
+  
   if (!user) {
     return {success: false, message: 'Invalid email or password.'};
   }
@@ -527,17 +556,10 @@ export async function verifyUserLogin(
     };
   }
 
-  const userData: User = {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    mobile: user.mobile,
-    password: '', // Don't send password to client
-    isApproved: user.isApproved,
-    isAdmin: user.isAdmin,
-  };
+  // Important: Do not send the password hash to the client
+  const { password, ...userWithoutPassword } = user;
 
-  return {success: true, user: userData};
+  return {success: true, user: userWithoutPassword as User};
 }
 
 export async function getUsers(): Promise<User[]> {
