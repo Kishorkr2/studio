@@ -86,48 +86,33 @@ export async function getProductionLogs(): Promise<ReportDataRow[]> {
 
   const operatorMap = new Map(operators.map(op => [op.cardNo, op.name]));
   const machineMap = new Map(machines.map(m => [m.id, m.name]));
-
-  const groupedLogs: Record<string, FlatProductionLogEntry[]> = {};
-  for (const log of logs) {
-    const key = `${log.date}-${log.shiftName}-${log.round}-${log.machineId}`;
-    if (!groupedLogs[key]) {
-      groupedLogs[key] = [];
-    }
-    groupedLogs[key].push(log);
-  }
-
+  
   const reportRows: ReportDataRow[] = [];
 
-  for (const key in groupedLogs) {
-    const entries = groupedLogs[key];
-    const firstEntry = entries[0];
-    
-    // If there are multiple entries for the same machine in the same round, it's likely a multi-SKU entry.
-    for (const log of entries) {
-      if (log.sku && log.quantity > 0) { // Only process entries that have an SKU and quantity
-          reportRows.push({
-            date: log.date,
-            shift: log.shiftName,
-            round: log.round,
-            operatorId: firstEntry.operatorId, // Use operator from first entry for consistency across all SKUs
-            operatorName: firstEntry.operatorId
-              ? operatorMap.get(firstEntry.operatorId) || 'N/A'
-              : 'N/A',
-            machineId: log.machineId,
-            machineName: machineMap.get(log.machineId) || 'N/A',
-            sku: log.sku,
-            sapCode: log.sapCode,
-            quantity: log.quantity,
-            userId: firstEntry.userId,
-            userName: firstEntry.userName,
-            remark: log.remark,
-          });
-      }
+  for (const log of logs) {
+    // Only process entries that have an SKU and quantity
+    if (log.sku && log.quantity > 0) {
+      reportRows.push({
+        date: log.date,
+        shift: log.shiftName,
+        round: log.round,
+        operatorId: log.operatorId,
+        operatorName: log.operatorId ? (operatorMap.get(log.operatorId) || 'N/A') : 'N/A',
+        machineId: log.machineId,
+        machineName: machineMap.get(log.machineId) || 'N/A',
+        sku: log.sku,
+        sapCode: log.sapCode,
+        quantity: log.quantity,
+        userId: log.userId,
+        userName: log.userName,
+        remark: log.remark,
+      });
     }
   }
 
   return reportRows;
 }
+
 
 export async function getProductionLogForShift(
   date: Date,
@@ -535,7 +520,7 @@ export async function verifyUserLogin(
   pass: string
 ): Promise<{success: boolean; message?: string; user?: User}> {
   const user = await db.get<User>(
-    'SELECT * FROM users WHERE email = ?',
+    'SELECT * FROM users WHERE lower(email) = ?',
     email.toLowerCase()
   );
   
@@ -558,8 +543,18 @@ export async function verifyUserLogin(
 
   // Important: Do not send the password hash to the client
   const { password, ...userWithoutPassword } = user;
+  
+  const userData: User = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      mobile: user.mobile,
+      isApproved: Boolean(user.isApproved),
+      isAdmin: Boolean(user.isAdmin),
+      password: '', // This should not be sent to client
+  };
 
-  return {success: true, user: userWithoutPassword as User};
+  return {success: true, user: userData};
 }
 
 export async function getUsers(): Promise<User[]> {
