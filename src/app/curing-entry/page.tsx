@@ -1,17 +1,17 @@
 
 'use client';
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Save, RotateCcw, Calendar as CalendarIcon, Plus, X, List, Factory, Trash2 } from 'lucide-react';
+import { Save, RotateCcw, Calendar as CalendarIcon, Plus, X, List, Factory, Trash2, Edit } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import type { CuringLogEntry, SkuPlan, Machine } from '@/lib/types';
+import type { CuringLogEntry, SkuPlan, Machine, ProductionLog, ShiftInfo } from '@/lib/types';
 import * as actions from '@/app/actions';
 import { Loader } from '@/components/ui/loader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -29,13 +29,46 @@ interface NewEntry {
   quantity: number;
 }
 
+const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
+  if (!shifts.length) return undefined;
+
+  const now = new Date();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
+
+  for (const shift of shifts) {
+    const [startHour, startMinute] = shift.startTime.split(':').map(Number);
+    const [endHour, endMinute] = shift.endTime.split(':').map(Number);
+
+    let startTimeInMinutes = startHour * 60 + startMinute;
+    let endTimeInMinutes = endHour * 60 + endMinute;
+
+    if (endTimeInMinutes < startTimeInMinutes) {
+      if (currentTime >= startTimeInMinutes || currentTime < endTimeInMinutes) {
+        return shift;
+      }
+    } else {
+      if (currentTime >= startTimeInMinutes && currentTime < endTimeInMinutes) {
+        return shift;
+      }
+    }
+  }
+  return shifts[0];
+};
+
 export default function CuringEntryPage() {
   const [allSkus, setAllSkus] = useState<SkuPlan[]>([]);
   const [allPresses, setAllPresses] = useState<Machine[]>([]);
+  const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [shift, setShift] = useState<'Day' | 'Night' | 'Combined'>('Day');
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
+  
+  const [productionLog, setProductionLog] = useState<ProductionLog>({});
+
   const [entries, setEntries] = useState<NewEntry[]>([]);
+  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
 
   // Form states
   const [pressId, setPressId] = useState('');
@@ -49,14 +82,21 @@ export default function CuringEntryPage() {
 
   const loadInitialData = useCallback(async () => {
     try {
-      const [plan, machines] = await Promise.all([
+      const [plan, machines, shiftsData] = await Promise.all([
         actions.getProductionPlan(),
         actions.getMachines('CuringPress'),
+        actions.getShifts(),
       ]);
       const skus = Array.isArray(plan) ? plan.flatMap((p: any) => p.skus || []) : [];
       const uniqueSkus = Array.from(new Map(skus.map((s: any) => [s.sku ?? s.sapCode ?? JSON.stringify(s), s])).values());
       setAllSkus(uniqueSkus);
       setAllPresses(machines.filter(m => m.isAvailable));
+      setAllShifts(shiftsData);
+      
+      const currentShift = getCurrentShift(shiftsData);
+      if (currentShift) {
+        setSelectedShift(currentShift);
+      }
     } catch (error) {
       console.error('Failed to load initial data', error);
       toast({ variant: 'destructive', title: 'Failed to load initial data' });
@@ -65,10 +105,41 @@ export default function CuringEntryPage() {
     }
   }, [toast]);
 
+  const fetchProductionLog = useCallback(async (date: Date, shift: ShiftInfo) => {
+    try {
+      const log = await actions.getProductionLogForShift(date, shift);
+      // Filter for curing press logs only
+      const curingLog: ProductionLog = {};
+      for (const round in log) {
+        curingLog[round] = {
+          ...log[round],
+          entries: log[round].entries.filter(e => e.machineId.startsWith('CP-')),
+        };
+      }
+      setProductionLog(curingLog);
+    } catch (error) {
+      console.error('Failed to fetch production log:', error);
+      toast({ variant: 'destructive', title: 'Error fetching shift data.' });
+    }
+  }, [toast]);
+
   useEffect(() => { loadInitialData(); }, [loadInitialData]);
 
+  useEffect(() => {
+    if (selectedDate && selectedShift) {
+      fetchProductionLog(selectedDate, selectedShift);
+    }
+  }, [selectedDate, selectedShift, fetchProductionLog]);
 
-  const handleAddEntry = () => {
+  const resetForm = () => {
+    setPressId('');
+    setCavity('');
+    setSku('');
+    setQuantity('');
+    setEditingEntryId(null);
+  }
+
+  const handleAddOrUpdateEntry = () => {
     if (!pressId || !cavity || !sku || !quantity || quantity <= 0) {
       toast({ variant: 'destructive', title: 'Missing Information', description: 'Please fill all fields with valid data.' });
       return;
@@ -76,24 +147,51 @@ export default function CuringEntryPage() {
     const selectedSku = allSkus.find(s => s.sku === sku);
     const selectedPress = allPresses.find(p => p.id === pressId);
 
-    const newEntry: NewEntry = {
-      id: Date.now(),
-      pressId: pressId,
-      pressName: selectedPress?.name || pressId,
-      cavity: cavity as 'L' | 'R',
-      sku: sku,
-      sapCode: selectedSku?.sapCode || '',
-      quantity: Number(quantity),
-    };
-    
-    setEntries(prev => [...prev, newEntry]);
-
-    // Reset form
-    setSku('');
-    setQuantity('');
-    toast({ title: 'Entry Added', description: `${sku} x${quantity} for ${selectedPress?.name} (${cavity})` });
+    if (editingEntryId) {
+        // Update existing entry
+        setEntries(prev => prev.map(entry => {
+            if (entry.id === editingEntryId) {
+                return {
+                    ...entry,
+                    pressId,
+                    pressName: selectedPress?.name || pressId,
+                    cavity: cavity as 'L' | 'R',
+                    sku,
+                    sapCode: selectedSku?.sapCode || '',
+                    quantity: Number(quantity)
+                }
+            }
+            return entry;
+        }));
+        toast({ title: 'Entry Updated' });
+    } else {
+        // Add new entry
+        const newEntry: NewEntry = {
+          id: Date.now(),
+          pressId: pressId,
+          pressName: selectedPress?.name || pressId,
+          cavity: cavity as 'L' | 'R',
+          sku: sku,
+          sapCode: selectedSku?.sapCode || '',
+          quantity: Number(quantity),
+        };
+        setEntries(prev => [...prev, newEntry]);
+        toast({ title: 'Entry Added', description: `${sku} x${quantity} for ${selectedPress?.name} (${cavity})` });
+    }
+    resetForm();
   };
   
+  const handleEditItem = (id: number) => {
+    const entryToEdit = entries.find(e => e.id === id);
+    if(entryToEdit) {
+      setPressId(entryToEdit.pressId);
+      setCavity(entryToEdit.cavity);
+      setSku(entryToEdit.sku);
+      setQuantity(entryToEdit.quantity);
+      setEditingEntryId(id);
+    }
+  }
+
   const handleRemoveItem = (id: number) => {
     setEntries(prev => prev.filter(entry => entry.id !== id));
     toast({title: 'Item removed'});
@@ -101,52 +199,53 @@ export default function CuringEntryPage() {
 
   const handleSaveAll = async () => {
     if (entries.length === 0) { toast({ variant: 'destructive', title: 'No entries to save' }); return; }
-    if (!selectedDate || !shift) { toast({ variant: 'destructive', title: 'Date or Shift not selected' }); return; }
+    if (!selectedDate || !selectedShift) { toast({ variant: 'destructive', title: 'Date or Shift not selected' }); return; }
 
-    setLoading(true);
+    setIsSaving(true);
     
     // Group entries by press
     const entriesByPress = entries.reduce((acc, entry) => {
       if (!acc[entry.pressId]) {
-        acc[entry.pressId] = { press_no: parseInt(entry.pressName.match(/\d+/)![0], 10), cavity1_items: [], cavity2_items: [] };
+        acc[entry.pressId] = { machineId: entry.pressId, name: entry.pressName, skus: [] };
       }
-      const item = { sku: entry.sku, qty: entry.quantity };
-      if (entry.cavity === 'L') {
-        acc[entry.pressId].cavity1_items.push(item);
-      } else {
-        acc[entry.pressId].cavity2_items.push(item);
-      }
+      acc[entry.pressId].skus.push({ sku: entry.sku, sapCode: entry.sapCode, quantity: entry.quantity, leftQty: entry.cavity === 'L' ? entry.quantity : 0, rightQty: entry.cavity === 'R' ? entry.quantity : 0 });
       return acc;
-    }, {} as Record<string, { press_no: number; cavity1_items: {sku: string, qty: number}[]; cavity2_items: {sku: string, qty: number}[] }>);
+    }, {} as Record<string, { machineId: string, name: string; skus: {sku: string, sapCode: string, quantity: number, leftQty: number, rightQty: number}[] }>);
     
     try {
-      for (const pressData of Object.values(entriesByPress)) {
-        const curingEntry: CuringLogEntry = {
-          press_no: pressData.press_no,
-          cavity1_items: pressData.cavity1_items,
-          cavity2_items: pressData.cavity2_items,
-          date: format(selectedDate, 'yyyy-MM-dd'),
-          shift: shift
-        };
-        await actions.saveCuringLogEntry(curingEntry);
-      }
+      const round = 'Curing'; // Using a fixed round for simplicity
+      await actions.saveProductionRound(selectedDate, selectedShift, round, Object.values(entriesByPress));
       
       toast({ title: `✅ Saved ${entries.length} entries successfully` });
       setEntries([]);
+      await fetchProductionLog(selectedDate, selectedShift);
     } catch (error) {
       console.error('Save failed', error);
       toast({ variant: 'destructive', title: 'Save failed' });
     } finally {
-      setLoading(false);
+      setIsSaving(false);
     }
   };
   
   const handleDateChange = (date: Date | undefined) => {
-      setSelectedDate(date);
+      if (date) {
+        setSelectedDate(date);
+      }
       setIsDatePickerOpen(false);
   }
 
-  const totalProduction = entries.reduce((sum, e) => sum + e.quantity, 0);
+  const handleShiftChange = (shiftName: string) => {
+    const newShift = allShifts.find(s => s.name === shiftName);
+    setSelectedShift(newShift);
+  };
+
+  const totalBatchProduction = useMemo(() => entries.reduce((sum, e) => sum + e.quantity, 0), [entries]);
+  const shiftTotalProduction = useMemo(() => {
+    return Object.values(productionLog)
+      .flatMap(log => log.entries)
+      .flatMap(entry => entry.skus)
+      .reduce((sum, sku) => sum + (sku.quantity || 0), 0);
+  }, [productionLog]);
 
   if (loading) return <div className="flex justify-center items-center min-h-screen"><Loader /></div>;
   
@@ -180,20 +279,24 @@ export default function CuringEntryPage() {
                       />
                     </PopoverContent>
                   </Popover>
-                 <Select value={shift} onValueChange={(v) => setShift(v as any)}>
+                 <Select value={selectedShift?.name} onValueChange={handleShiftChange}>
                     <SelectTrigger className="w-[180px]"><SelectValue placeholder="Shift" /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="Day">Day (9→19)</SelectItem>
-                        <SelectItem value="Night">Night (21→7)</SelectItem>
-                        <SelectItem value="Combined">Combined</SelectItem>
+                        {allShifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name} ({s.startTime}-{s.endTime})</SelectItem>)}
                     </SelectContent>
                 </Select>
+                 <Card>
+                    <CardContent className="p-2">
+                        <p className="text-xs font-medium text-muted-foreground">Shift Total Production</p>
+                        <p className="text-lg font-bold text-center">{shiftTotalProduction.toLocaleString()}</p>
+                    </CardContent>
+                </Card>
             </div>
         </header>
 
         <Card>
             <CardHeader>
-                <CardTitle>Add Production Entry</CardTitle>
+                <CardTitle>{editingEntryId ? 'Edit' : 'Add'} Production Entry</CardTitle>
                 <CardDescription>Fill the form below to log a production quantity for a specific press and cavity.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -232,9 +335,13 @@ export default function CuringEntryPage() {
                     </div>
                 </div>
             </CardContent>
-            <CardFooter>
-                 <Button onClick={handleAddEntry} disabled={loading}>
-                    <Plus className="mr-2 h-4 w-4" /> Add Entry
+            <CardFooter className="justify-between">
+                 <Button onClick={handleAddOrUpdateEntry} disabled={isSaving}>
+                    {editingEntryId ? <><Edit className="mr-2 h-4 w-4" /> Update Entry</> : <><Plus className="mr-2 h-4 w-4" /> Add Entry</>}
+                </Button>
+                {editingEntryId && <Button variant="ghost" onClick={resetForm}>Cancel Edit</Button>}
+                <Button onClick={handleSaveAll} disabled={isSaving || entries.length === 0}>
+                    <Save className="mr-2 h-4 w-4" /> Save Batch ({entries.length})
                 </Button>
             </CardFooter>
         </Card>
@@ -247,8 +354,8 @@ export default function CuringEntryPage() {
                         <CardDescription>Review the entries below before saving them all.</CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="font-semibold">Total Production:</span>
-                        <Badge variant="secondary" className="text-lg">{totalProduction.toLocaleString()}</Badge>
+                        <span className="font-semibold">Total Batch Production:</span>
+                        <Badge variant="secondary" className="text-lg">{totalBatchProduction.toLocaleString()}</Badge>
                     </div>
                 </div>
             </CardHeader>
@@ -284,7 +391,10 @@ export default function CuringEntryPage() {
                                     <TableCell>{entry.sku}</TableCell>
                                     <TableCell>{entry.sapCode}</TableCell>
                                     <TableCell className="text-right font-semibold">{entry.quantity.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right">
+                                    <TableCell className="text-right space-x-2">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditItem(entry.id)}>
+                                            <Edit className="h-4 w-4 text-blue-600" />
+                                        </Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemoveItem(entry.id)}>
                                             <Trash2 className="h-4 w-4 text-destructive" />
                                         </Button>
@@ -296,11 +406,8 @@ export default function CuringEntryPage() {
                 </div>
             </CardContent>
             <CardFooter className="justify-end gap-2">
-                 <Button variant="outline" className="flex-1 md:flex-none" onClick={() => setEntries([])} disabled={loading || entries.length === 0}>
+                 <Button variant="outline" className="flex-1 md:flex-none" onClick={() => setEntries([])} disabled={isSaving || entries.length === 0}>
                     <RotateCcw className="mr-2 h-4 w-4" /> Clear All Entries
-                </Button>
-                <Button className="flex-1 md:flex-none" onClick={handleSaveAll} disabled={loading || entries.length === 0}>
-                    <Save className="mr-2 h-4 w-4" /> Save Batch to Database
                 </Button>
             </CardFooter>
         </Card>
