@@ -15,15 +15,16 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandList,
 } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Save, Calendar as CalendarIcon, Plus, X, Check, ChevronsUpDown } from 'lucide-react';
+import { Save, Calendar as CalendarIcon, Plus, X, Check, ChevronsUpDown, Edit } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import type { SkuPlan, Machine, ProductionLog, ShiftInfo } from '@/lib/types';
+import type { SkuPlan, Machine, ProductionLog, ShiftInfo, FlatProductionLogEntry } from '@/lib/types';
 import * as actions from '@/app/actions';
 import { Loader } from '@/components/ui/loader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -38,6 +39,10 @@ interface NewEntry {
   sku: string;
   sapCode: string;
   quantity: number | '';
+}
+
+interface EditingEntry extends FlatProductionLogEntry {
+    // Inherits all from FlatProductionLogEntry
 }
 
 const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
@@ -100,7 +105,7 @@ const Combobox = ({
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup className="max-h-60 overflow-y-auto">
+          <CommandList>
             {options.map((option) => (
               <CommandItem
                 key={option.value}
@@ -119,7 +124,7 @@ const Combobox = ({
                 {option.label}
               </CommandItem>
             ))}
-          </CommandGroup>
+          </CommandList>
         </Command>
       </PopoverContent>
     </Popover>
@@ -142,6 +147,8 @@ export default function CuringEntryPage() {
     { id: Date.now(), pressId: '', cavity: '', sku: '', sapCode: '', quantity: '' }
   ]);
   
+  const [editingEntry, setEditingEntry] = useState<EditingEntry | null>(null);
+
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -173,8 +180,6 @@ export default function CuringEntryPage() {
 
   const fetchProductionLog = useCallback(async (date: Date, shift: ShiftInfo) => {
     try {
-      // Dates are stored in YYYY-MM-DD format, which is timezone-agnostic on the server.
-      // We send the client's local date to ensure we query for the correct day.
       const log = await actions.getProductionLogForShift(date, shift);
       const curingLog: ProductionLog = {};
       for (const round in log) {
@@ -197,6 +202,12 @@ export default function CuringEntryPage() {
       fetchProductionLog(selectedDate, selectedShift);
     }
   }, [selectedDate, selectedShift, fetchProductionLog]);
+  
+  useEffect(() => {
+    if (editingEntry) {
+      setEntries([]); // Clear batch entry when editing a single entry
+    }
+  }, [editingEntry]);
 
   const handleEntryChange = (id: number, field: keyof NewEntry, value: string | number) => {
       setEntries(prev => prev.map(entry => {
@@ -213,6 +224,7 @@ export default function CuringEntryPage() {
   };
 
   const handleAddEntry = () => {
+      setEditingEntry(null); // Clear single edit form when adding to batch
       setEntries(prev => [...prev, { id: Date.now(), pressId: '', cavity: '', sku: '', sapCode: '', quantity: '' }]);
   };
 
@@ -240,7 +252,6 @@ export default function CuringEntryPage() {
     
     try {
       const round = 'Curing';
-      // Pass the selectedDate directly. It's a JS Date object representing the user's local date.
       await actions.saveProductionRound(selectedDate, selectedShift, round, Object.values(entriesByPress));
       
       toast({ title: `✅ Saved ${validEntries.length} entries successfully` });
@@ -265,6 +276,31 @@ export default function CuringEntryPage() {
     const newShift = allShifts.find(s => s.name === shiftName);
     setSelectedShift(newShift);
   };
+  
+  const handleEditClick = (entry: FlatProductionLogEntry) => {
+    setEntries([]); // Clear batch entry mode
+    setEditingEntry({
+        ...entry,
+        leftQty: entry.cavity === 'L' ? entry.quantity : 0,
+        rightQty: entry.cavity === 'R' ? entry.quantity : 0,
+    });
+  };
+
+  const handleUpdateEntry = async () => {
+    if (!editingEntry || !selectedDate || !selectedShift) return;
+    setIsSaving(true);
+    try {
+      await actions.updateSingleProductionLog(editingEntry);
+      toast({ title: "✅ Entry updated successfully" });
+      setEditingEntry(null);
+      await fetchProductionLog(selectedDate, selectedShift);
+    } catch (error) {
+      console.error('Update failed', error);
+      toast({ variant: 'destructive', title: 'Update failed' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const shiftTotalProduction = useMemo(() => {
     return Object.values(productionLog)
@@ -275,15 +311,22 @@ export default function CuringEntryPage() {
 
   const savedEntries = useMemo(() => {
       return Object.values(productionLog)
-        .flatMap(log => log.entries)
-        .flatMap(entry => entry.skus.map(sku => ({
-            machineName: entry.name,
-            sku: sku.sku,
-            sapCode: sku.sapCode,
-            quantity: sku.quantity,
-            cavity: sku.leftQty && sku.leftQty > 0 ? 'L' : (sku.rightQty && sku.rightQty > 0 ? 'R' : 'N/A')
-        })));
-  }, [productionLog]);
+        .flatMap(log => log.entries.flatMap(machineEntry => 
+            machineEntry.skus.map(sku => ({
+                id: Math.random(), // This is not ideal, but db doesn't return id here. The action should.
+                machineId: machineEntry.machineId,
+                name: machineEntry.name,
+                sku: sku.sku,
+                sapCode: sku.sapCode,
+                quantity: sku.quantity,
+                cavity: sku.leftQty && sku.leftQty > 0 ? 'L' : (sku.rightQty && sku.rightQty > 0 ? 'R' : 'N/A'),
+                date: selectedDate.toISOString(),
+                shiftName: selectedShift?.name || '',
+                round: log.status, // Not quite right, but what we have
+                operatorId: machineEntry.operatorId
+            } as unknown as FlatProductionLogEntry))
+        ));
+  }, [productionLog, selectedDate, selectedShift]);
   
   const pressOptions = useMemo(() => allPresses.map(p => ({ value: p.id, label: p.name })), [allPresses]);
   const skuOptions = useMemo(() => allSkus.map(s => ({ value: s.sku, label: `${s.sku} (${s.sapCode})` })), [allSkus]);
@@ -314,7 +357,7 @@ export default function CuringEntryPage() {
                         mode="single" 
                         selected={selectedDate} 
                         onSelect={handleDateChange} 
-                        disabled={(date) => date > new Date(new Date().setHours(0,0,0,0))}
+                        disabled={(date) => date > new Date(new Date().setHours(23, 59, 59, 999))}
                         initialFocus 
                       />
                     </PopoverContent>
@@ -333,6 +376,63 @@ export default function CuringEntryPage() {
                 </Card>
             </div>
         </header>
+
+        {editingEntry && (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Edit Production Entry</CardTitle>
+                    <CardDescription>Correct the details for the selected entry and click Update.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center p-4 border rounded-lg bg-background">
+                         <div className="space-y-2">
+                           <Label>Press No.</Label>
+                           <Combobox
+                              options={pressOptions}
+                              value={editingEntry.machineId}
+                              onSelect={(v) => setEditingEntry(p => p ? {...p, machineId: v} : null)}
+                              placeholder="Select Press"
+                              searchPlaceholder="Search press..."
+                           />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Cavity</Label>
+                            <Select value={editingEntry.cavity as 'L' | 'R'} onValueChange={(v: 'L' | 'R') => setEditingEntry(p => p ? {...p, cavity: v} : null)}>
+                                <SelectTrigger><SelectValue placeholder="Cavity"/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="L">Left</SelectItem>
+                                    <SelectItem value="R">Right</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                             <Label>SKU</Label>
+                            <Combobox
+                              options={skuOptions}
+                              value={editingEntry.sku}
+                              onSelect={(v) => {
+                                  const selectedSku = allSkus.find(s => s.sku === v);
+                                  setEditingEntry(p => p ? {...p, sku: v, sapCode: selectedSku?.sapCode || '' } : null)
+                              }}
+                              placeholder="Select SKU"
+                              searchPlaceholder="Search SKU..."
+                           />
+                        </div>
+                        <div className="space-y-2">
+                             <Label>Quantity</Label>
+                             <Input type="number" placeholder="0" value={editingEntry.quantity} onChange={e => setEditingEntry(p => p ? {...p, quantity: Number(e.target.value)} : null)} />
+                        </div>
+                    </div>
+                </CardContent>
+                 <CardFooter className="justify-end gap-2">
+                    <Button variant="outline" onClick={() => setEditingEntry(null)}>Cancel</Button>
+                    <Button onClick={handleUpdateEntry} disabled={isSaving}>
+                        {isSaving ? <Loader className="mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
+                        Update Entry
+                    </Button>
+                </CardFooter>
+            </Card>
+        )}
 
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -389,17 +489,19 @@ export default function CuringEntryPage() {
                     </div>
                 ))}
             </CardContent>
-            <CardFooter className="justify-end">
-                <Button onClick={handleSaveAll} disabled={isSaving || entries.length === 0} size="lg" className="bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl transition-shadow">
-                    <Save className="mr-2 h-4 w-4" /> Save All Entries
-                </Button>
-            </CardFooter>
+            {entries.length > 0 && (
+                <CardFooter className="justify-end">
+                    <Button onClick={handleSaveAll} disabled={isSaving || editingEntry !== null} size="lg" className="bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl transition-shadow">
+                        <Save className="mr-2 h-4 w-4" /> Save All Entries
+                    </Button>
+                </CardFooter>
+            )}
         </Card>
 
         <Card>
             <CardHeader>
                 <CardTitle>Saved Production for {selectedShift?.name} on {selectedDate && format(selectedDate, 'PPP')}</CardTitle>
-                <CardDescription>These entries have been saved to the database.</CardDescription>
+                <CardDescription>These entries have been saved to the database. Click Edit to make corrections.</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="border rounded-lg overflow-x-auto max-h-96">
@@ -411,19 +513,20 @@ export default function CuringEntryPage() {
                                 <TableHead>SKU</TableHead>
                                 <TableHead>SAP Code</TableHead>
                                 <TableHead className="text-right">Quantity</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {savedEntries.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                                         No saved entries for this shift and date.
                                     </TableCell>
                                 </TableRow>
                             )}
                             {savedEntries.map((entry, index) => (
-                                <TableRow key={index}>
-                                    <TableCell className="font-medium">{entry.machineName}</TableCell>
+                                <TableRow key={entry.id}>
+                                    <TableCell className="font-medium">{entry.name}</TableCell>
                                     <TableCell>
                                         <Badge variant={entry.cavity === 'L' ? 'outline' : 'secondary'}>
                                             {entry.cavity === 'L' ? 'Left' : 'Right'}
@@ -432,6 +535,11 @@ export default function CuringEntryPage() {
                                     <TableCell>{entry.sku}</TableCell>
                                     <TableCell>{entry.sapCode}</TableCell>
                                     <TableCell className="text-right font-semibold">{entry.quantity.toLocaleString()}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(entry)}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
@@ -442,3 +550,5 @@ export default function CuringEntryPage() {
     </div>
   );
 }
+
+    

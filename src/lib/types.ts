@@ -44,6 +44,7 @@ export interface OperatorEntry {
 
 // Represents the data for a single machine card in a given round
 export interface MachineProductionData {
+  id?: number; // Optional ID from DB
   machineId: string;
   name: string;
   operatorId?: string;
@@ -55,6 +56,7 @@ export interface MachineProductionData {
 
 // This is the raw row from the DB
 export interface FlatProductionLogEntry {
+  id: number;
   date: string;
   shiftName: string;
   round: string;
@@ -66,6 +68,7 @@ export interface FlatProductionLogEntry {
   quantity: number;
   leftQty?: number;
   rightQty?: number;
+  cavity?: 'L' | 'R' | '';
   operatorId?: string;
   userId?: number;
   userName?: string;
@@ -119,6 +122,7 @@ export type DailyTreadProductionLog = Record<
 
 
 export interface ReportDataRow {
+  id?: number;
   date: string;
   shift: string;
   round: string;
@@ -164,3 +168,5 @@ export type SignUpInput = {
   mobile: string;
   password: string;
 };
+
+    

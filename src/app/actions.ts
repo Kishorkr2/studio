@@ -14,6 +14,7 @@ import type {
   User,
   SkuStandard,
   CuringLogEntry,
+  FlatProductionLogEntry,
 } from '@/lib/types';
 import {SignUpInput} from './signup/page';
 
@@ -52,6 +53,7 @@ export const saveProductionRound = async (
   round: string,
   entries: MachineProductionData[]
 ) => dbActions.saveProductionRound(date, shift, round, entries);
+export const updateSingleProductionLog = async (entry: FlatProductionLogEntry) => dbActions.updateSingleProductionLog(entry);
 export const clearShiftData = async (date: Date, shift: ShiftInfo) =>
   dbActions.clearShiftData(date, shift);
 export const saveDailyProductionLog = async (
@@ -80,3 +82,5 @@ export const saveCuringPlan = async (curingPlan: any[]) => dbActions.saveCuringP
 // SKU Standards
 export const getSkuStandards = async () => dbActions.getSkuStandards();
 export const updateSkuStandards = async (standards: SkuStandard[]) => dbActions.updateSkuStandards(standards);
+
+    

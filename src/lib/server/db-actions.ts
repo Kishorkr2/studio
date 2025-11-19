@@ -98,6 +98,7 @@ export async function getProductionLogs(): Promise<ReportDataRow[]> {
     // Only process entries that have an SKU and quantity
     if (log.sku && log.quantity > 0) {
       reportRows.push({
+        id: log.id,
         date: log.date,
         shift: log.shiftName,
         round: log.round,
@@ -167,6 +168,7 @@ export async function getProductionLogForShift(
         skus: skuProduction.sku ? [skuProduction] : [],
         userId: row.userId,
         userName: row.userName,
+        id: row.id,
       };
       log[row.round].entries.push(newMachineEntry);
     }
@@ -421,6 +423,49 @@ export async function saveProductionRound(
   }
 }
 
+export async function updateSingleProductionLog(entry: FlatProductionLogEntry) {
+  await connect();
+  
+  const cavity = entry.leftQty && entry.leftQty > 0 ? 'L' : 'R';
+
+  await db.run('BEGIN TRANSACTION');
+  try {
+    // Delete the original entry. A robust solution would use the primary key (id)
+    await db.run(
+      'DELETE FROM productionLogEntries WHERE id = ?',
+      [entry.id]
+    );
+
+    // Insert the updated entry as a new row
+    await db.run(
+      `INSERT INTO productionLogEntries (date, shiftName, round, machineId, name, sku, sapCode, quantity, leftQty, rightQty, operatorId, userId, userName)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        entry.date,
+        entry.shiftName,
+        entry.round,
+        entry.machineId,
+        entry.name,
+        entry.sku,
+        entry.sapCode,
+        entry.quantity,
+        cavity === 'L' ? entry.quantity : 0,
+        cavity === 'R' ? entry.quantity : 0,
+        entry.operatorId,
+        entry.userId,
+        entry.userName,
+      ]
+    );
+    
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    console.error('Failed to update single production log entry:', error);
+    throw error;
+  }
+}
+
+
 export async function clearShiftData(date: Date, shift: ShiftInfo) {
   await connect();
   const dateKey = format(date, 'yyyy-MM-dd');
@@ -663,3 +708,5 @@ export async function saveCuringPlan(curingPlan: any[]) {
     throw error;
   }
 }
+
+    
