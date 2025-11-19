@@ -145,12 +145,14 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   
   const [allSkusFromPlan, setAllSkusFromPlan] = useState<SkuPlan[]>([]);
   const [greenTyreStock, setGreenTyreStock] = useState<TreadStock[]>([]);
+  const [curingPlanData, setCuringPlanData] = useState([]);
 
   const [roundTimes, setRoundTimes] = useState<string[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>('');
   const [entries, setEntries] = useState<MachineProductionData[]>([]);
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
+  const [curingEntries, setCuringEntries] = useState([]);
   
   const machineOperatorMapRef = useRef<Record<string, string>>({});
   const [isFetchingLog, setIsFetchingLog] = useState(false);
@@ -189,16 +191,63 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
           const skus = loggedEntry?.skus?.filter(s => s.sku || s.sapCode) || [];
           const operatorId =
             loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id];
+          
+          // Auto-populate SKUs from curing plan if no logged entry exists
+          let initialSkus = skus;
+          if (skus.length === 0) {
+            const pressConfig = curingPlanData.find(p => p.pressId === machine.id);
+            if (pressConfig) {
+              const leftSku = pressConfig.leftCavity?.sku;
+              const rightSku = pressConfig.rightCavity?.sku;
+              
+              if (leftSku && rightSku && leftSku === rightSku) {
+                // Same SKU in both cavities
+                initialSkus = [{
+                  sku: leftSku,
+                  sapCode: pressConfig.leftCavity.sapCode,
+                  quantity: 0,
+                  leftQty: 0,
+                  rightQty: 0
+                }];
+              } else {
+                // Different SKUs or only one cavity has SKU
+                initialSkus = [];
+                if (leftSku) {
+                  initialSkus.push({
+                    sku: leftSku,
+                    sapCode: pressConfig.leftCavity.sapCode,
+                    quantity: 0,
+                    leftQty: 0,
+                    rightQty: 0
+                  });
+                }
+                if (rightSku && rightSku !== leftSku) {
+                  initialSkus.push({
+                    sku: rightSku,
+                    sapCode: pressConfig.rightCavity.sapCode,
+                    quantity: 0,
+                    leftQty: 0,
+                    rightQty: 0
+                  });
+                }
+              }
+            }
+            // Fallback to empty SKU if no plan data
+            if (initialSkus.length === 0) {
+              initialSkus = [{sku: '', sapCode: '', quantity: 0, leftQty: 0, rightQty: 0}];
+            }
+          }
+          
           return {
             machineId: machine.id,
             name: machine.name,
             operatorId: operatorId || '',
-            skus: skus.length > 0 ? skus : [{sku: '', sapCode: '', quantity: 0, leftQty: 0, rightQty: 0}],
+            skus: initialSkus,
           };
         });
       setEntries(newEntries);
     },
-    []
+    [curingPlanData]
   );
   
   const fetchAndSetLog = useCallback(async (date: Date, shift: ShiftInfo) => {
@@ -228,6 +277,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
             openingStock,
             dailyLogs,
             historyLogs,
+            curingPlan,
           ] = await Promise.all([
             actions.getShifts(),
             actions.getMachines('CuringPress'),
@@ -236,6 +286,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
             actions.getTreadOpeningStock(),
             actions.getDailyTreadProductionLog(),
             actions.getProductionLogs(),
+            actions.getCuringPlan(),
           ]);
     
           setAllShifts(shiftsData);
@@ -299,6 +350,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
             };
           });
           setGreenTyreStock(stock);
+          setCuringPlanData(curingPlan || []);
     
           const currentShift = getCurrentShift(shiftsData);
           
@@ -314,7 +366,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
             setSelectedRound(currentRound);
     
             machineOperatorMapRef.current = getLocalStorageItem('curingMachineOperatorMap', {});
-            loadEntriesForRound(currentRound, log, machinesData);
+            // loadEntriesForRound will be called by useEffect when curingPlanData is set
           }
         } catch (error) {
           console.error('Failed to load initial data:', error);
@@ -330,6 +382,20 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   useEffect(() => {
     setAvailableOperators(allOperators.filter(op => !op.isAbsent));
   }, [allOperators]);
+
+  // Initialize with one empty entry
+  useEffect(() => {
+    if (curingEntries.length === 0) {
+      setCuringEntries([{
+        pressId: '',
+        cavity: '',
+        operatorId: '',
+        sku: '',
+        sapCode: '',
+        quantity: 0
+      }]);
+    }
+  }, [curingEntries.length]);
 
   const handleClearShiftData = useCallback(async () => {
     if (!selectedShift) return;
@@ -456,32 +522,36 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     );
   };
 
-  const handleAddSku = (machineId: string) => {
-    setEntries(prev =>
-      prev.map(entry => {
-        if (entry.machineId === machineId) {
-          return {
-            ...entry,
-            skus: [...entry.skus, {sku: '', sapCode: '', quantity: 0, leftQty: 0, rightQty: 0}],
-          };
-        }
-        return entry;
-      })
-    );
+  const handleAddCuringEntry = () => {
+    setCuringEntries(prev => [...prev, {
+      pressId: '',
+      cavity: '',
+      operatorId: '',
+      sku: '',
+      sapCode: '',
+      quantity: 0
+    }]);
   };
 
-  const handleRemoveSku = (machineId: string, skuIndex: number) => {
-    setEntries(prev =>
-      prev.map(entry => {
-        if (entry.machineId === machineId) {
-          const updatedSkus = entry.skus.filter(
-            (_, index) => index !== skuIndex
-          );
-          return {...entry, skus: updatedSkus};
+  const handleRemoveCuringEntry = (index: number) => {
+    setCuringEntries(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCuringEntryChange = (index: number, field: string, value: any) => {
+    setCuringEntries(prev => prev.map((entry, i) => {
+      if (i === index) {
+        const updated = { ...entry, [field]: value };
+        // Auto-fill SAP code when SKU is selected
+        if (field === 'sku') {
+          const selectedSku = allSkusFromPlan.find(s => s.sku === value);
+          if (selectedSku) {
+            updated.sapCode = selectedSku.sapCode;
+          }
         }
-        return entry;
-      })
-    );
+        return updated;
+      }
+      return entry;
+    }));
   };
 
   const handleSaveRound = useCallback(async () => {
@@ -501,28 +571,48 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       });
       return;
     }
-    const entriesToSave = entries.map(entry => ({
-      ...entry,
-      userId: user.id,
-      userName: user.name,
-    }));
+    
+    // Convert curing entries to the expected format
+    const entriesByMachine = new Map();
+    curingEntries.forEach(entry => {
+      if (!entry.pressId || !entry.sku || !entry.quantity) return;
+      
+      if (!entriesByMachine.has(entry.pressId)) {
+        entriesByMachine.set(entry.pressId, {
+          machineId: entry.pressId,
+          name: allCuringPresses.find(p => p.id === entry.pressId)?.name || '',
+          operatorId: entry.operatorId,
+          skus: [],
+          userId: user.id,
+          userName: user.name,
+        });
+      }
+      
+      const machineEntry = entriesByMachine.get(entry.pressId);
+      const skuEntry = {
+        sku: entry.sku,
+        sapCode: entry.sapCode,
+        quantity: entry.quantity,
+        leftQty: entry.cavity === 'left' ? entry.quantity : 0,
+        rightQty: entry.cavity === 'right' ? entry.quantity : 0,
+      };
+      machineEntry.skus.push(skuEntry);
+    });
+    
+    const entriesToSave = Array.from(entriesByMachine.values());
     await actions.saveProductionRound(
       selectedDate,
       selectedShift,
       selectedRound,
       entriesToSave
     );
-    const log = await actions.getProductionLogForShift(
-      selectedDate,
-      selectedShift
-    );
-    setProductionLog(log);
+    
     toast({
       title: 'Round Data Saved',
       description: `Data for round ${selectedRound} has been saved.`,
       action: <Save className="text-green-500" />,
     });
-  }, [selectedDate, selectedShift, selectedRound, entries, toast, user]);
+  }, [selectedDate, selectedShift, selectedRound, curingEntries, allCuringPresses, toast, user]);
 
   const handleShiftChange = useCallback(
     async (name: string) => {
@@ -556,13 +646,8 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   }, [selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound, allCuringPresses]);
 
   const roundTotal = useMemo(() => {
-    return entries.reduce(
-      (acc, entry) =>
-        acc +
-        entry.skus.reduce((skuAcc, sku) => skuAcc + (sku.quantity || 0), 0),
-      0
-    );
-  }, [entries]);
+    return curingEntries.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
+  }, [curingEntries]);
 
   const cumulativeTotal = useMemo(() => {
     const total = Object.values(productionLog)
@@ -742,164 +827,121 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
              </CardContent>
            </Card>
         )}
-        {!isFetchingLog && entries.length === 0 && (
-          <Card>
-            <CardContent className="p-10 text-center text-muted-foreground">
-              <p>No curing presses available for data entry.</p>
-              <p className="text-sm">
-                Please check machine availability in the Admin panel.
-              </p>
+        {curingEntries.map((entry, index) => (
+          <Card key={index}>
+            <CardContent className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                <div className="space-y-2">
+                  <Label>Press No</Label>
+                  <Select
+                    value={entry.pressId || ''}
+                    onValueChange={val => handleCuringEntryChange(index, 'pressId', val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Press" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allCuringPresses.filter(p => p.isAvailable).map(press => (
+                        <SelectItem key={press.id} value={press.id}>
+                          {press.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Cavity</Label>
+                  <Select
+                    value={entry.cavity || ''}
+                    onValueChange={val => handleCuringEntryChange(index, 'cavity', val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Cavity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="left">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                          Left Cavity
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="right">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          Right Cavity
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Operator</Label>
+                  <Select
+                    value={entry.operatorId || ''}
+                    onValueChange={val => handleCuringEntryChange(index, 'operatorId', val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Operator" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableOperators.map(op => (
+                        <SelectItem key={op.cardNo} value={op.cardNo}>
+                          {op.name} ({op.cardNo})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>SKU</Label>
+                  <Select
+                    value={entry.sku || ''}
+                    onValueChange={val => handleCuringEntryChange(index, 'sku', val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select SKU" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allSkusFromPlan.map(skuPlan => (
+                        <SelectItem key={`${skuPlan.sku}-${skuPlan.sapCode}`} value={skuPlan.sku}>
+                          {skuPlan.sku} ({skuPlan.sapCode})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Quantity</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    min="0"
+                    value={entry.quantity === 0 ? '' : entry.quantity}
+                    onChange={e => handleCuringEntryChange(index, 'quantity', parseInt(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveCuringEntry(index)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
-        )}
-        {!isFetchingLog && entries.map(entry => {
-          return (
-            <Card key={entry.machineId}>
-              <CardContent className="p-4 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
-                  <Label className="font-bold text-base sm:w-1/6">
-                    {entry.name}
-                  </Label>
-                  <div className="flex-1 sm:w-5/6">
-                      <Select
-                        value={entry.operatorId || ''}
-                        onValueChange={val =>
-                          handleOperatorChange(entry.machineId, val)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Operator" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableOperators.map(op => (
-                            <SelectItem key={op.cardNo} value={op.cardNo}>
-                              {op.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                  </div>
-                </div>
-                  <div className="space-y-3 pl-4 border-l-2">
-                    {entry.skus.map((skuEntry, skuIndex) => (
-                      <div
-                        key={skuIndex}
-                        className="flex flex-col sm:flex-row sm:items-center sm:gap-4"
-                      >
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <div className="space-y-1 sm:col-span-1">
-                            <Label
-                              htmlFor={`sku-${entry.machineId}-${skuIndex}`}
-                            >
-                              SKU
-                            </Label>
-                            <Select
-                              value={skuEntry.sku}
-                              onValueChange={val =>
-                                handleSkuChange(entry.machineId, skuIndex, val)
-                              }
-                              disabled={allSkusFromPlan.length === 0}
-                            >
-                              <SelectTrigger
-                                id={`sku-${entry.machineId}-${skuIndex}`}
-                              >
-                                <SelectValue
-                                  placeholder={
-                                    allSkusFromPlan.length > 0
-                                      ? 'Select SKU'
-                                      : 'No SKUs'
-                                  }
-                                />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {allSkusFromPlan.map(skuPlan => (
-                                  <SelectItem
-                                    key={`${skuPlan.sku}-${skuPlan.sapCode}`}
-                                    value={skuPlan.sku}
-                                  >
-                                    {skuPlan.sku}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1">
-                            <Label
-                              htmlFor={`left-qty-${entry.machineId}-${skuIndex}`}
-                            >
-                              Left Qty
-                            </Label>
-                            <Input
-                              id={`left-qty-${entry.machineId}-${skuIndex}`}
-                              type="number"
-                              placeholder="0"
-                              value={
-                                skuEntry.leftQty === 0
-                                  ? ''
-                                  : skuEntry.leftQty
-                              }
-                              onChange={e =>
-                                handleQuantityChange(
-                                  entry.machineId,
-                                  skuIndex,
-                                  'left',
-                                  parseInt(e.target.value) || 0
-                                )
-                              }
-                            />
-                          </div>
-                           <div className="space-y-1">
-                            <Label
-                              htmlFor={`right-qty-${entry.machineId}-${skuIndex}`}
-                            >
-                              Right Qty
-                            </Label>
-                            <Input
-                              id={`right-qty-${entry.machineId}-${skuIndex}`}
-                              type="number"
-                              placeholder="0"
-                              value={
-                                skuEntry.rightQty === 0
-                                  ? ''
-                                  : skuEntry.rightQty
-                              }
-                              onChange={e =>
-                                handleQuantityChange(
-                                  entry.machineId,
-                                  skuIndex,
-                                  'right',
-                                  parseInt(e.target.value) || 0
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-                        <div className="flex-shrink-0 mt-2 sm:mt-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() =>
-                              handleRemoveSku(entry.machineId, skuIndex)
-                            }
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAddSku(entry.machineId)}
-                    >
-                      <PlusCircle className="mr-2 h-4 w-4" /> Add SKU
-                    </Button>
-                  </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+        ))}
+        <Card>
+          <CardContent className="p-4">
+            <Button onClick={handleAddCuringEntry} className="w-full">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Curing Entry
+            </Button>
+          </CardContent>
+        </Card>
       </main>
       <footer className="sticky bottom-0 z-10 flex h-20 items-center justify-end gap-4 border-t bg-background px-4">
         <div className="flex items-center gap-2">

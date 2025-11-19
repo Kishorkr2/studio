@@ -74,6 +74,8 @@ export const getUsers = async () => dbActions.getUsers();
 export const approveUser = async (userId: number) =>
   dbActions.approveUser(userId);
 export const deleteUser = async (userId: number) => dbActions.deleteUser(userId);
+export const getCuringPlan = async () => dbActions.getCuringPlan();
+export const saveCuringPlan = async (curingPlan: any[]) => dbActions.saveCuringPlan(curingPlan);
 
 // SKU Standards
 export const getSkuStandards = async () => dbActions.getSkuStandards();

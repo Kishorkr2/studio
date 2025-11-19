@@ -1,15 +1,6 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -17,29 +8,22 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { useToast } from '@/hooks/use-toast';
+} from '../../../components/ui/table';
+import { useToast } from '../../../hooks/use-toast';
 import type {
   ProductionPlanItem,
   ShiftInfo,
   SkuPlan,
   DailyProductionEntry,
   Machine,
-} from '@/lib/types';
-import { CalendarIcon, Save, Edit, XCircle, Copy, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+} from '../../../lib/types';
 import { format } from 'date-fns';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '../../../components/ui/skeleton';
 import * as actions from '../actions';
+import { SummaryCard, Controls, QuantityInput } from './components';
+import { Box, Package, PackageCheck } from 'lucide-react';
+import { Input } from '../../../components/ui/input';
+import { Card, CardContent } from '../../../components/ui/card';
 
 interface EnrichedSkuPlan extends SkuPlan {
   tbmName: string;
@@ -100,11 +84,11 @@ export default function TreadProductionEntryPage() {
 
   const allSkusFromPlan = useMemo((): EnrichedSkuPlan[] => {
     const sapCodeMap = new Map<string, EnrichedSkuPlan>();
-    const machineMap = new Map(allMachines.map(m => [m.id, m.name]));
+    const machineMap = new Map(allMachines.map((m: Machine) => [m.id, m.name]));
 
-    productionPlan.forEach(item => {
+    productionPlan.forEach((item) => {
       const tbmName = machineMap.get(item.machineId) || item.machineId;
-      item.skus.forEach(skuPlan => {
+      item.skus.forEach((skuPlan: SkuPlan) => {
         if (!skuPlan.sapCode) return;
         const key = skuPlan.sapCode;
         const existing = sapCodeMap.get(key);
@@ -352,7 +336,9 @@ export default function TreadProductionEntryPage() {
   }, [allSkusFromPlan, sapCodeFilter, skuFilter]);
 
   const handleDateSelect = (date: Date | undefined) => {
-    if (date) setSelectedDate(date);
+    if (date) {
+      setSelectedDate(date);
+    }
     setIsDatePickerOpen(false);
   };
 
@@ -385,281 +371,170 @@ export default function TreadProductionEntryPage() {
           Tread Production Entry
         </h1>
         {hasUnsavedChanges && (
-          <span className="text-sm text-orange-600 font-medium">
+          <span className="text-sm text-orange-600 font-medium animate-pulse">
             ⚠️ Unsaved changes
           </span>
         )}
       </div>
 
-      {/* Total Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="bg-blue-50 border-blue-200 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-blue-700 text-sm">Total Bobbins</CardTitle>
-          </CardHeader>
-          <CardContent className="text-3xl font-bold text-blue-900">
-            {totalBobbin}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-green-50 border-green-200 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-green-700 text-sm">Tread Quantity</CardTitle>
-          </CardHeader>
-          <CardContent className="text-3xl font-bold text-green-900">
-            {totalQty.toLocaleString()}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-purple-50 border-purple-200 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-purple-700 text-sm">Total Production</CardTitle>
-          </CardHeader>
-          <CardContent className="text-3xl font-bold text-purple-900">
-            {totalProduction.toLocaleString()}
-          </CardContent>
-        </Card>
+        <SummaryCard
+          title="Total Bobbins"
+          value={totalBobbin}
+          icon={<Box className="h-5 w-5 text-blue-500" />}
+          color="blue"
+        />
+        <SummaryCard
+          title="Tread Quantity"
+          value={totalQty.toLocaleString()}
+          icon={<Package className="h-5 w-5 text-green-500" />}
+          color="green"
+        />
+        <SummaryCard
+          title="Total Production"
+          value={totalProduction.toLocaleString()}
+          icon={<PackageCheck className="h-5 w-5 text-purple-500" />}
+          color="purple"
+        />
       </div>
 
-      {/* Main Form Card */}
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          {/* Date, Shift & Actions Row */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={'outline'}
-                    className={cn(
-                      'w-full sm:w-[240px] justify-start text-left font-normal',
-                      !selectedDate && 'text-muted-foreground'
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={handleDateSelect}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+      <Controls
+        selectedDate={selectedDate}
+        setSelectedDate={setSelectedDate}
+        isDatePickerOpen={isDatePickerOpen}
+        setIsDatePickerOpen={setIsDatePickerOpen}
+        selectedShift={selectedShift}
+        setSelectedShift={setSelectedShift}
+        allShifts={allShifts}
+        isEditing={isEditing}
+        handleCopyFromPreviousDay={handleCopyFromPreviousDay}
+        handleClearAll={handleClearAll}
+        autoSaveEnabled={autoSaveEnabled}
+        setAutoSaveEnabled={setAutoSaveEnabled}
+        handleEditToggle={handleEditToggle}
+        handleSave={() => handleSaveDailyProduction(false)}
+        hasUnsavedChanges={hasUnsavedChanges}
+        sapCodeFilter={sapCodeFilter}
+        setSapCodeFilter={setSapCodeFilter}
+        skuFilter={skuFilter}
+        setSkuFilter={setSkuFilter}
+      />
 
-              <Select
-                value={selectedShift?.name}
-                onValueChange={name =>
-                  setSelectedShift(allShifts.find(s => s.name === name))
-                }
-              >
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Select shift" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allShifts.map(s => (
-                    <SelectItem key={s.name} value={s.name}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCopyFromPreviousDay}
-                disabled={!isEditing}
-                title="Copy from previous day"
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClearAll}
-                disabled={!isEditing}
-                title="Clear all entries"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-md">
-                <input
-                  type="checkbox"
-                  id="autoSave"
-                  checked={autoSaveEnabled}
-                  onChange={(e) => setAutoSaveEnabled(e.target.checked)}
-                  className="w-4 h-4"
-                />
-                <label htmlFor="autoSave" className="text-sm cursor-pointer">
-                  Auto-save
-                </label>
-              </div>
-
-              <Button
-                variant={isEditing ? 'destructive' : 'outline'}
-                size="sm"
-                onClick={handleEditToggle}
-              >
-                {isEditing ? (
-                  <>
-                    <XCircle className="mr-2 h-4 w-4" /> Cancel
-                  </>
-                ) : (
-                  <>
-                    <Edit className="mr-2 h-4 w-4" /> Edit
-                  </>
-                )}
-              </Button>
-
-              <Button
-                onClick={() => handleSaveDailyProduction(false)}
-                className="bg-green-600 hover:bg-green-700"
-                size="sm"
-                disabled={!isEditing || !hasUnsavedChanges}
-              >
-                <Save className="mr-2 h-4 w-4" /> Save
-              </Button>
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Input
-              placeholder="🔍 Filter by SAP Code..."
-              value={sapCodeFilter}
-              onChange={e => setSapCodeFilter(e.target.value)}
-              className="max-w-sm"
-            />
-            <Input
-              placeholder="🔍 Filter by SKU..."
-              value={skuFilter}
-              onChange={e => setSkuFilter(e.target.value)}
-              className="max-w-sm"
-            />
-          </div>
-
-          {/* Production Table */}
-          <div className="border rounded-lg max-h-[60vh] overflow-auto">
-            <Table>
-              <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
-                <TableRow>
-                  <TableHead className="w-[150px]">SKU</TableHead>
-                  <TableHead className="w-[120px]">Trolley No</TableHead>
-                  <TableHead className="w-[200px]">Bobbin No(s)</TableHead>
-                  <TableHead className="w-[120px] text-right">Production Quantity (pcs)</TableHead>
-                  <TableHead className="w-[140px] text-right">Current Total</TableHead>
-                  <TableHead className="w-[140px] text-right">Overall Total</TableHead>
+      <div className="border rounded-lg max-h-[60vh] overflow-auto">
+        <Table>
+          <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
+            <TableRow>
+              <TableHead className="w-[150px]">SKU</TableHead>
+              <TableHead className="w-[120px]">Trolley No</TableHead>
+              <TableHead className="w-[200px]">Bobbin No(s)</TableHead>
+              <TableHead className="w-[120px] text-right">
+                Production Quantity (pcs)
+              </TableHead>
+              <TableHead className="w-[140px] text-right">
+                Current Total
+              </TableHead>
+              <TableHead className="w-[140px] text-right">
+                Overall Total
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredSkus.length > 0 ? (
+              filteredSkus.map((req) => (
+                <TableRow
+                  key={req.sapCode}
+                  className="hover:bg-blue-50 transition-colors"
+                >
+                  <TableCell className="font-medium">{req.sku}</TableCell>
+                  <TableCell>
+                    <Input
+                      className="w-full"
+                      placeholder="T-123"
+                      disabled={!isEditing}
+                      value={
+                        dailyProductionEntries[req.sapCode]?.trolleyNo || ''
+                      }
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        handleDailyProductionChange(
+                          req.sapCode,
+                          'trolleyNo',
+                          e.target.value
+                        )
+                      }
+                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) =>
+                        handleKeyDown(e, req.sapCode, 'trolleyNo')
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      className="w-full"
+                      placeholder="B-1, B-2, B-3"
+                      disabled={!isEditing}
+                      value={
+                        dailyProductionEntries[req.sapCode]?.bobbinNo || ''
+                      }
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        handleDailyProductionChange(
+                          req.sapCode,
+                          'bobbinNo',
+                          e.target.value
+                        )
+                      }
+                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) =>
+                        handleKeyDown(e, req.sapCode, 'bobbinNo')
+                      }
+                    />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <QuantityInput
+                      disabled={!isEditing}
+                      value={
+                        dailyProductionEntries[req.sapCode]?.quantity || 0
+                      }
+                      onChange={(value) =>
+                        handleDailyProductionChange(
+                          req.sapCode,
+                          'quantity',
+                          String(value)
+                        )
+                      }
+                    />
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-blue-700">
+                    {(
+                      (dailyProductionEntries[req.sapCode]?.quantity || 0) +
+                      ((dailyProductionEntries[req.sapCode]?.bobbinNo || '')
+                        .split(',')
+                        .filter(Boolean).length *
+                        110)
+                    ).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-green-700">
+                    {(
+                      totalProductionPerSku[req.sapCode] || 0
+                    ).toLocaleString()}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSkus.length > 0 ? (
-                  filteredSkus.map((req, index) => (
-                    <TableRow
-                      key={req.sapCode}
-                      className="hover:bg-blue-50 transition-colors"
-                    >
-                      <TableCell className="font-medium">{req.sku}</TableCell>
-                      <TableCell>
-                        <Input
-                          className="w-full"
-                          placeholder="T-123"
-                          disabled={!isEditing}
-                          data-sku={req.sapCode}
-                          data-field="trolleyNo"
-                          value={
-                            dailyProductionEntries[req.sapCode]?.trolleyNo || ''
-                          }
-                          onChange={e =>
-                            handleDailyProductionChange(
-                              req.sapCode,
-                              'trolleyNo',
-                              e.target.value
-                            )
-                          }
-                          onKeyDown={e => handleKeyDown(e, req.sapCode, 'trolleyNo')}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          className="w-full"
-                          placeholder="B-1, B-2, B-3"
-                          disabled={!isEditing}
-                          data-sku={req.sapCode}
-                          data-field="bobbinNo"
-                          value={
-                            dailyProductionEntries[req.sapCode]?.bobbinNo || ''
-                          }
-                          onChange={e =>
-                            handleDailyProductionChange(
-                              req.sapCode,
-                              'bobbinNo',
-                              e.target.value
-                            )
-                          }
-                          onKeyDown={e => handleKeyDown(e, req.sapCode, 'bobbinNo')}
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Input
-                          type="number"
-                          className="w-full text-right"
-                          placeholder="0"
-                          disabled={!isEditing}
-                          data-sku={req.sapCode}
-                          data-field="quantity"
-                          value={
-                            dailyProductionEntries[req.sapCode]?.quantity || ''
-                          }
-                          onChange={e =>
-                            handleDailyProductionChange(
-                              req.sapCode,
-                              'quantity',
-                              e.target.value
-                            )
-                          }
-                          onKeyDown={e => handleKeyDown(e, req.sapCode, 'quantity')}
-                        />
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-blue-700">
-                        {(
-                          (dailyProductionEntries[req.sapCode]?.quantity || 0) +
-                          ((dailyProductionEntries[req.sapCode]?.bobbinNo || '').split(',').filter(Boolean).length * 110)
-                        ).toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-green-700">
-                        {(totalProductionPerSku[req.sapCode] || 0).toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="h-32 text-center text-muted-foreground"
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <p className="text-lg">📋 No SKUs available</p>
-                        <p className="text-sm">Please create a production plan in the Admin panel.</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="h-32 text-center text-muted-foreground"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-lg">📋 No SKUs available</p>
+                    <p className="text-sm">
+                      Please create a production plan in the Admin panel.
+                    </p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
-
-    

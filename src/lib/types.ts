@@ -157,3 +157,10 @@ export interface CuringLogEntry {
     cavity2_sku: string;
     cavity2_qty: number;
 }
+
+export type SignUpInput = {
+  name: string;
+  email: string;
+  mobile: string;
+  password: string;
+};

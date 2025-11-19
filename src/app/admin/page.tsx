@@ -43,6 +43,7 @@ import {
   UserPlus,
   Calendar,
   Ruler,
+  Factory,
 } from 'lucide-react';
 import {useToast} from '@/hooks/use-toast';
 import {Badge} from '@/components/ui/badge';
@@ -355,6 +356,11 @@ export default function AdminPage() {
   const [newPlanSku, setNewPlanSku] = useState('');
   const [newPlanSapCode, setNewPlanSapCode] = useState('');
   const [newPlanQuantity, setNewPlanQuantity] = useState(0);
+  
+  // Curing plan states
+  const [curingPlan, setCuringPlan] = useState([]);
+  const [newPressId, setNewPressId] = useState('');
+  const [monthlyPlanSkus, setMonthlyPlanSkus] = useState([]);
 
   const [password, setPassword] = useState('');
   const [isRenaming, setIsRenaming] = useState<string | null>(null);
@@ -398,13 +404,14 @@ export default function AdminPage() {
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [ops, shifts, machs, plan, usersData, standards] = await Promise.all([
+      const [ops, shifts, machs, plan, usersData, standards, existingCuringPlan] = await Promise.all([
         actions.getOperators(),
         actions.getShifts(),
         actions.getMachines(),
         actions.getProductionPlan(),
         actions.getUsers(),
         actions.getSkuStandards(),
+        actions.getCuringPlan(),
       ]);
       setOperators(ops);
       setManagedShifts(shifts);
@@ -413,6 +420,18 @@ export default function AdminPage() {
       setEditablePlan(flattenProductionPlan(plan));
       setUsers(usersData);
       setSkuStandards(standards);
+      setCuringPlan(existingCuringPlan);
+      
+      // Extract unique SKUs from production plan for curing
+      const skuMap = new Map();
+      plan.forEach(item => {
+        item.skus.forEach(sku => {
+          if (sku.sapCode && !skuMap.has(sku.sapCode)) {
+            skuMap.set(sku.sapCode, sku);
+          }
+        });
+      });
+      setMonthlyPlanSkus(Array.from(skuMap.values()));
     } catch (error) {
       console.error('Failed to load initial data', error);
       toast({
@@ -835,6 +854,73 @@ export default function AdminPage() {
       toast({title: "User Deleted"});
     } catch (error) {
       toast({variant: 'destructive', title: "Deletion Failed"});
+    }
+  };
+  
+  const handleAddPress = () => {
+    if (!newPressId) {
+      toast({variant: 'destructive', title: 'Select a press first'});
+      return;
+    }
+    
+    if (curingPlan.some(p => p.pressId === newPressId)) {
+      toast({variant: 'destructive', title: 'Press already added'});
+      return;
+    }
+    
+    const newPress = {
+      pressId: newPressId,
+      leftCavity: { sku: '', sapCode: '', quantity: 0 },
+      rightCavity: { sku: '', sapCode: '', quantity: 0 }
+    };
+    
+    setCuringPlan(prev => [...prev, newPress]);
+    setNewPressId('');
+    toast({title: 'Press added to plan'});
+  };
+  
+  const handleUpdateCavity = (pressIndex, cavity, field, value) => {
+    setCuringPlan(prev => prev.map((press, index) => {
+      if (index === pressIndex) {
+        const updatedCavity = { ...press[cavity], [field]: value };
+        
+        // Auto-fill SAP code when SKU is selected
+        if (field === 'sku') {
+          const selectedSku = monthlyPlanSkus.find(sku => sku.sku === value);
+          if (selectedSku) {
+            updatedCavity.sapCode = selectedSku.sapCode;
+          }
+        }
+        
+        return { ...press, [cavity]: updatedCavity };
+      }
+      return press;
+    }));
+  };
+  
+  const handleAddCavityEntry = (pressIndex, cavity) => {
+    const press = curingPlan[pressIndex];
+    const cavityData = press[cavity];
+    
+    if (!cavityData.sku || !cavityData.sapCode || cavityData.quantity === 0) {
+      toast({variant: 'destructive', title: 'Fill all cavity fields'});
+      return;
+    }
+    
+    toast({title: `${cavity} cavity entry added`});
+  };
+  
+  const handleRemovePress = (index) => {
+    setCuringPlan(prev => prev.filter((_, i) => i !== index));
+    toast({title: 'Press removed'});
+  };
+  
+  const handleSaveCuringPlan = async () => {
+    try {
+      await actions.saveCuringPlan(curingPlan);
+      toast({title: 'Curing plan saved to database'});
+    } catch (error) {
+      toast({variant: 'destructive', title: 'Failed to save curing plan'});
     }
   };
   
@@ -1427,6 +1513,278 @@ export default function AdminPage() {
           onSaveChanges={handleSaveAllMachineChanges}
           machineType="CuringPress"
         />
+      )
+    },
+    {
+      value: 'curing-plan',
+      title: 'Curing Monthly Plan',
+      description: 'Upload and manage monthly curing production plans',
+      icon: Factory,
+      content: (
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly Curing Production Plan</CardTitle>
+            <CardDescription>
+              Upload Excel file with monthly curing plan for all presses. This plan will be used in curing production entry.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="p-4 border-2 border-dashed border-muted rounded-lg bg-muted/10">
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <UploadCloud className="h-12 w-12 text-muted-foreground" />
+                <div className="text-center">
+                  <h3 className="font-semibold mb-2">Upload Monthly Curing Plan</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Upload Excel file with columns: Press No, SKU, SAP Code, Monthly Target
+                  </p>
+                  <Input
+                    id="curing-plan-upload"
+                    type="file"
+                    className="sr-only"
+                    accept=".xls,.xlsx"
+                    onChange={() => toast({title: 'Curing plan upload feature coming soon'})}
+                  />
+                  <Button asChild variant="outline">
+                    <Label htmlFor="curing-plan-upload" className="cursor-pointer">
+                      <FileSpreadsheet className="mr-2 h-4 w-4" />
+                      Select Excel File
+                    </Label>
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <h4 className="text-md font-semibold">File Format Template</h4>
+              <p className="text-sm text-muted-foreground">
+                Your Excel file should contain: <strong>Press No</strong> (CP-01, CP-02, etc.), 
+                <strong>SKU</strong>, <strong>SAP Code</strong>, and <strong>Monthly Target</strong>.
+              </p>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Add Press to Plan</CardTitle>
+                <CardDescription>
+                  Add curing presses and configure each cavity separately.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-4 items-end">
+                  <div className="space-y-2 flex-1">
+                    <Label>Select Curing Press</Label>
+                    <Select value={newPressId} onValueChange={setNewPressId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Press" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {machines.filter(m => m.type === 'CuringPress').map(m => (
+                          <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={handleAddPress}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Press
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-4">
+              {curingPlan.map((press, pressIndex) => {
+                const pressName = machines.find(m => m.id === press.pressId)?.name;
+                return (
+                  <Card key={press.pressId}>
+                    <CardHeader className="pb-4">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-lg">{pressName}</CardTitle>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemovePress(pressIndex)}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Left Cavity */}
+                      <div className="border rounded-lg p-4 bg-blue-50">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+                          <Label className="font-semibold">Left Cavity</Label>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                          <div className="space-y-2">
+                            <Label>SKU</Label>
+                            <Select
+                              value={press.leftCavity.sku}
+                              onValueChange={val => handleUpdateCavity(pressIndex, 'leftCavity', 'sku', val)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select SKU" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {monthlyPlanSkus.map(sku => (
+                                  <SelectItem key={sku.sapCode} value={sku.sku}>
+                                    {sku.sku}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>SAP Code</Label>
+                            <Select
+                              value={press.leftCavity.sapCode}
+                              onValueChange={val => handleUpdateCavity(pressIndex, 'leftCavity', 'sapCode', val)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select SAP Code" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {monthlyPlanSkus.map(sku => (
+                                  <SelectItem key={sku.sapCode} value={sku.sapCode}>
+                                    {sku.sapCode} ({sku.sku})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Quantity</Label>
+                            <Input
+                              type="number"
+                              value={press.leftCavity.quantity === 0 ? '' : press.leftCavity.quantity}
+                              onChange={e => handleUpdateCavity(pressIndex, 'leftCavity', 'quantity', Number(e.target.value) || 0)}
+                              placeholder="0"
+                            />
+                          </div>
+                          <Button 
+                            onClick={() => handleAddCavityEntry(pressIndex, 'leftCavity')}
+                            size="sm"
+                          >
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Add Left
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Right Cavity */}
+                      <div className="border rounded-lg p-4 bg-green-50">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                          <Label className="font-semibold">Right Cavity</Label>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                          <div className="space-y-2">
+                            <Label>SKU</Label>
+                            <Select
+                              value={press.rightCavity.sku}
+                              onValueChange={val => handleUpdateCavity(pressIndex, 'rightCavity', 'sku', val)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select SKU" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {monthlyPlanSkus.map(sku => (
+                                  <SelectItem key={sku.sapCode} value={sku.sku}>
+                                    {sku.sku}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>SAP Code</Label>
+                            <Select
+                              value={press.rightCavity.sapCode}
+                              onValueChange={val => handleUpdateCavity(pressIndex, 'rightCavity', 'sapCode', val)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select SAP Code" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {monthlyPlanSkus.map(sku => (
+                                  <SelectItem key={sku.sapCode} value={sku.sapCode}>
+                                    {sku.sapCode} ({sku.sku})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Quantity</Label>
+                            <Input
+                              type="number"
+                              value={press.rightCavity.quantity === 0 ? '' : press.rightCavity.quantity}
+                              onChange={e => handleUpdateCavity(pressIndex, 'rightCavity', 'quantity', Number(e.target.value) || 0)}
+                              placeholder="0"
+                            />
+                          </div>
+                          <Button 
+                            onClick={() => handleAddCavityEntry(pressIndex, 'rightCavity')}
+                            size="sm"
+                          >
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Add Right
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+              
+              {curingPlan.length === 0 && (
+                <Card>
+                  <CardContent className="text-center py-8 text-muted-foreground">
+                    No presses added yet. Add a press to start configuring the curing plan.
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+            
+            {curingPlan.length > 0 && (
+              <Card>
+                <CardFooter className="justify-end">
+                  <Button onClick={handleSaveCuringPlan}>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Complete Plan
+                  </Button>
+                </CardFooter>
+              </Card>
+            )}
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">How Curing Production Works</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-foreground">42 Presses:</span>
+                    <span>Each curing press (CP-01 to CP-42) has 2 independent cavities (Left & Right)</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-foreground">Flexible SKUs:</span>
+                    <span>Each cavity can run any SKU from this plan. Same or different SKUs per cavity.</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-foreground">Multiple Changes:</span>
+                    <span>SKUs can be changed 3+ times per shift as needed for production requirements.</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold text-foreground">Production Entry:</span>
+                    <span>Operators select SKUs from this plan during production entry for each cavity independently.</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </CardContent>
+        </Card>
       )
     },
     {

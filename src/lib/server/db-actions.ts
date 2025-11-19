@@ -1,7 +1,7 @@
 
 'use server';
 
-import {db} from './database';
+import {connect, db} from './database';
 import type {
   Operator,
   Machine,
@@ -17,18 +17,20 @@ import type {
   ReportDataRow,
   SkuStandard,
   CuringLogEntry,
+  SignUpInput,
 } from '../types';
 import {format} from 'date-fns';
 import bcrypt from 'bcryptjs';
-import type {SignUpInput} from '@/app/signup/page';
 
 export async function getOperators(): Promise<Operator[]> {
+  await connect();
   return db.all('SELECT * FROM operators ORDER BY name');
 }
 
 export async function getMachines(
   type: 'TBM' | 'CuringPress' | 'all' = 'all'
 ): Promise<Machine[]> {
+  await connect();
   const orderByClause =
     "ORDER BY type, CAST(SUBSTR(name, INSTR(name, ' ') + 1) AS INTEGER)";
   let machines;
@@ -42,17 +44,19 @@ export async function getMachines(
   }
 
   // Convert isAvailable from 0/1 to boolean
-  return machines.map(m => ({
+  return machines.map((m: Machine) => ({
     ...m,
     isAvailable: Boolean(m.isAvailable),
   }));
 }
 
 export async function getShifts(): Promise<ShiftInfo[]> {
+  await connect();
   return db.all('SELECT * FROM shifts');
 }
 
 export async function getProductionPlan(): Promise<ProductionPlanItem[]> {
+  await connect();
   const allPlanItems = await db.all(
     'SELECT machineId, sku, sapCode, quantity FROM productionPlanItems ORDER BY machineId'
   );
@@ -78,14 +82,15 @@ export async function getProductionPlan(): Promise<ProductionPlanItem[]> {
 }
 
 export async function getProductionLogs(): Promise<ReportDataRow[]> {
+  await connect();
   const [operators, machines, logs] = await Promise.all([
     db.all('SELECT cardNo, name FROM operators'),
     db.all('SELECT id, name FROM machines'),
     db.all('SELECT * FROM productionLogEntries ORDER BY date, shiftName, round, machineId, id'),
   ]);
 
-  const operatorMap = new Map(operators.map(op => [op.cardNo, op.name]));
-  const machineMap = new Map(machines.map(m => [m.id, m.name]));
+  const operatorMap = new Map(operators.map((op: Operator) => [op.cardNo, op.name]));
+  const machineMap = new Map(machines.map((m: Machine) => [m.id, m.name]));
   
   const reportRows: ReportDataRow[] = [];
 
@@ -118,10 +123,11 @@ export async function getProductionLogForShift(
   date: Date,
   shift: ShiftInfo
 ): Promise<ProductionLog> {
+  await connect();
   const dateKey = format(date, 'yyyy-MM-dd');
   const shiftName = shift.name.replace(/\s+/g, '-');
 
-  const rows = await db.all<FlatProductionLogEntry[]>(
+  const rows = await db.all(
     'SELECT * FROM productionLogEntries WHERE date = ? AND shiftName = ? ORDER BY round, machineId',
     [dateKey, shiftName]
   );
@@ -170,12 +176,13 @@ export async function getProductionLogForShift(
 }
 
 export async function getDailyTreadProductionLog() {
+  await connect();
   const rows = await db.all('SELECT * FROM dailyTreadProduction');
   const log: Record<
     string,
     Record<string, Record<string, DailyProductionEntry>>
   > = {};
-  rows.forEach(row => {
+  rows.forEach((row: {id: string; data: string}) => {
     try {
       log[row.id] = JSON.parse(row.data);
     } catch (e) {
@@ -186,6 +193,7 @@ export async function getDailyTreadProductionLog() {
 }
 
 export async function getTreadOpeningStock(): Promise<TreadStock[]> {
+  await connect();
   return db.all('SELECT * FROM treadOpeningStock');
 }
 
@@ -193,6 +201,7 @@ export async function updateOperator(
   cardNo: string,
   data: Partial<Operator>
 ) {
+  await connect();
   const fields = Object.keys(data)
     .map(k => `${k} = ?`)
     .join(', ');
@@ -208,6 +217,7 @@ export async function renameOperator(
   newCardNo: string,
   newOperatorData: Operator
 ) {
+  await connect();
   await db.exec('BEGIN TRANSACTION');
   try {
     const {name, builderNo, skillRating, isAbsent} = newOperatorData;
@@ -228,6 +238,7 @@ export async function renameOperator(
 }
 
 export async function addOperator(data: Operator) {
+  await connect();
   await db.run(
     'INSERT INTO operators (cardNo, name, builderNo, skillRating, isAbsent) VALUES (?, ?, ?, ?, ?)',
     data.cardNo,
@@ -239,10 +250,12 @@ export async function addOperator(data: Operator) {
 }
 
 export async function deleteOperator(cardNo: string) {
+  await connect();
   await db.run('DELETE FROM operators WHERE cardNo = ?', cardNo);
 }
 
 export async function updateShifts(shifts: ShiftInfo[]) {
+  await connect();
   for (const shift of shifts) {
     await db.run(
       'UPDATE shifts SET startTime = ?, endTime = ? WHERE name = ?',
@@ -254,6 +267,7 @@ export async function updateShifts(shifts: ShiftInfo[]) {
 }
 
 export async function updateProductionPlan(plan: ProductionPlanItem[]) {
+  await connect();
   await db.exec('BEGIN TRANSACTION');
   try {
     await db.run('DELETE FROM productionPlanItems');
@@ -277,16 +291,19 @@ export async function updateProductionPlan(plan: ProductionPlanItem[]) {
 }
 
 export async function clearProductionPlan() {
+  await connect();
   await db.run('DELETE FROM productionPlanItems');
 }
 
 export async function clearAllProductionData() {
+  await connect();
   await db.run('DELETE FROM productionLogEntries');
   await db.run('DELETE FROM dailyTreadProduction');
   await db.run('DELETE FROM treadOpeningStock');
 }
 
 export async function updateMachines(machines: Machine[]) {
+  await connect();
   await db.exec('BEGIN TRANSACTION');
   try {
     for (const machine of machines) {
@@ -306,6 +323,7 @@ export async function updateMachines(machines: Machine[]) {
 }
 
 export async function addMachine(machine: Machine) {
+  await connect();
   await db.run(
     'INSERT INTO machines (id, name, isAvailable, type) VALUES (?, ?, ?, ?)',
     machine.id,
@@ -316,6 +334,7 @@ export async function addMachine(machine: Machine) {
 }
 
 export async function deleteMachine(id: string) {
+  await connect();
   await db.run('DELETE FROM machines WHERE id = ?', id);
 }
 
@@ -325,6 +344,7 @@ export async function saveProductionRound(
   round: string,
   entries: MachineProductionData[]
 ) {
+  await connect();
   const dateKey = format(date, 'yyyy-MM-dd');
   const shiftName = shift.name.replace(/\s+/g, '-');
 
@@ -402,6 +422,7 @@ export async function saveProductionRound(
 }
 
 export async function clearShiftData(date: Date, shift: ShiftInfo) {
+  await connect();
   const dateKey = format(date, 'yyyy-MM-dd');
   const shiftName = shift.name.replace(/\s+/g, '-');
   await db.run(
@@ -415,6 +436,7 @@ export async function saveDailyProductionLog(
   shiftName: string,
   logForShift: Record<string, DailyProductionEntry>
 ): Promise<{success: boolean; error?: string}> {
+  await connect();
   try {
     const existingData = await db.get(
       'SELECT data FROM dailyTreadProduction WHERE id = ?',
@@ -448,6 +470,7 @@ export async function saveDailyProductionLog(
 }
 
 export async function saveTreadOpeningStock(stock: TreadStock[]) {
+  await connect();
   await db.exec('BEGIN TRANSACTION');
   try {
     for (const item of stock) {
@@ -468,6 +491,7 @@ export async function saveTreadOpeningStock(stock: TreadStock[]) {
 }
 
 export async function saveCuringLogEntry(entry: CuringLogEntry) {
+  await connect();
   try {
     await db.run(
       'INSERT INTO curingLogEntries (press_no, cavity1_sku, cavity1_qty, cavity2_sku, cavity2_qty) VALUES (?, ?, ?, ?, ?)',
@@ -488,6 +512,7 @@ export async function saveCuringLogEntry(entry: CuringLogEntry) {
 export async function signUpUser(
   data: SignUpInput
 ): Promise<{success: boolean; message?: string}> {
+  await connect();
   const {name, email, mobile, password} = data;
   try {
     const existingUser = await db.get(
@@ -519,7 +544,8 @@ export async function verifyUserLogin(
   email: string,
   pass: string
 ): Promise<{success: boolean; message?: string; user?: User}> {
-  const user = await db.get<User>(
+  await connect();
+  const user = await db.get(
     'SELECT * FROM users WHERE lower(email) = ?',
     email.toLowerCase()
   );
@@ -558,25 +584,30 @@ export async function verifyUserLogin(
 }
 
 export async function getUsers(): Promise<User[]> {
+  await connect();
   return db.all(
     'SELECT id, name, email, mobile, isApproved, isAdmin FROM users ORDER BY name'
   );
 }
 
 export async function approveUser(userId: number) {
+  await connect();
   await db.run('UPDATE users SET isApproved = TRUE WHERE id = ?', userId);
 }
 
 export async function deleteUser(userId: number) {
+  await connect();
   await db.run('DELETE FROM users WHERE id = ?', userId);
 }
 
 // Sku Standards
 export async function getSkuStandards(): Promise<SkuStandard[]> {
+  await connect();
   return db.all('SELECT * FROM skuStandards');
 }
 
 export async function updateSkuStandards(standards: SkuStandard[]) {
+  await connect();
   await db.exec('BEGIN TRANSACTION');
   try {
     for (const standard of standards) {
@@ -593,6 +624,42 @@ export async function updateSkuStandards(standards: SkuStandard[]) {
   } catch (error) {
     await db.exec('ROLLBACK');
     console.error('Failed to update SKU standards:', error);
+    throw error;
+  }
+}
+
+export async function getCuringPlan() {
+  await connect();
+  try {
+    const rows = await db.all('SELECT * FROM curingPlan');
+    return rows.map(row => ({
+      pressId: row.pressId,
+      leftCavity: JSON.parse(row.leftCavity || '{}'),
+      rightCavity: JSON.parse(row.rightCavity || '{}')
+    }));
+  } catch (error) {
+    console.log('Curing plan table not found, returning empty array');
+    return [];
+  }
+}
+
+export async function saveCuringPlan(curingPlan: any[]) {
+  await connect();
+  await db.exec('BEGIN TRANSACTION');
+  try {
+    await db.run('DELETE FROM curingPlan');
+    for (const press of curingPlan) {
+      await db.run(
+        'INSERT INTO curingPlan (pressId, leftCavity, rightCavity) VALUES (?, ?, ?)',
+        press.pressId,
+        JSON.stringify(press.leftCavity),
+        JSON.stringify(press.rightCavity)
+      );
+    }
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    console.error('Failed to save curing plan:', error);
     throw error;
   }
 }

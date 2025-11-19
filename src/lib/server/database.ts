@@ -11,10 +11,17 @@ import bcrypt from 'bcryptjs';
 
 // This is a top-level await, which is supported in modern TypeScript and Node.js.
 // It ensures that the database is connected before any other module that imports this file can use it.
-export const db = await open({
-  filename: './database.db',
-  driver: sqlite3.Database,
-});
+export let db;
+
+export async function connect() {
+  if (db) return;
+
+  db = await open({
+    filename: './database.db',
+    driver: sqlite3.Database,
+  });
+  await setup();
+}
 
 async function setup() {
   await db.exec('PRAGMA journal_mode = WAL;');
@@ -122,6 +129,11 @@ async function setup() {
       stdWeight REAL,
       stdHourlyProduction INTEGER
     );
+    CREATE TABLE IF NOT EXISTS curingPlan (
+      pressId TEXT PRIMARY KEY,
+      leftCavity TEXT,
+      rightCavity TEXT
+    );
   `);
   
   // Seed Admin user
@@ -209,4 +221,4 @@ async function setup() {
   }
 }
 
-setup();
+connect();
