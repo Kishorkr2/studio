@@ -251,9 +251,14 @@ export default function CuringEntryPage() {
         </header>
 
         <Card>
-            <CardHeader>
-                <CardTitle>Add Production Entries</CardTitle>
-                <CardDescription>Click "Add Entry" to add new rows. Fill the details for each production run.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Add Production Entries</CardTitle>
+                  <CardDescription>Fill the details for each production run.</CardDescription>
+                </div>
+                 <Button onClick={handleAddEntry}>
+                    <Plus className="mr-2 h-4 w-4" /> Add Entry
+                </Button>
             </CardHeader>
             <CardContent className="space-y-4">
                 {entries.map((entry, index) => (
@@ -291,22 +296,18 @@ export default function CuringEntryPage() {
                              <Input type="number" placeholder="0" value={entry.quantity} onChange={e => handleEntryChange(entry.id, 'quantity', Number(e.target.value))} />
                         </div>
                         <div className="flex items-end h-full">
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveEntry(entry.id)} className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveEntry(entry.id)} className="text-destructive hover:bg-destructive/10">
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
                     </div>
                 ))}
-                
-                <div className="flex justify-between items-center mt-4">
-                     <Button onClick={handleAddEntry} variant="outline">
-                        <Plus className="mr-2 h-4 w-4" /> Add Entry
-                    </Button>
-                    <Button onClick={handleSaveAll} disabled={isSaving || entries.length === 0}>
-                        <Save className="mr-2 h-4 w-4" /> Save All Entries
-                    </Button>
-                </div>
             </CardContent>
+            <CardFooter className="justify-end">
+                <Button onClick={handleSaveAll} disabled={isSaving || entries.length === 0} size="lg">
+                    <Save className="mr-2 h-4 w-4" /> Save All Entries
+                </Button>
+            </CardFooter>
         </Card>
 
         <Card>
@@ -355,5 +356,3 @@ export default function CuringEntryPage() {
     </div>
   );
 }
-
-    
