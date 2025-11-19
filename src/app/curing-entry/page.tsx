@@ -4,18 +4,29 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Save, Calendar as CalendarIcon, Plus, X, List, Factory, Trash2 } from 'lucide-react';
+import { Save, Calendar as CalendarIcon, Plus, X, List, Factory, Trash2, Check, ChevronsUpDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, startOfToday } from 'date-fns';
 import type { SkuPlan, Machine, ProductionLog, ShiftInfo } from '@/lib/types';
 import * as actions from '@/app/actions';
 import { Loader } from '@/components/ui/loader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth-provider';
@@ -55,6 +66,66 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
   return shifts[0];
 };
 
+const Combobox = ({
+  options,
+  value,
+  onSelect,
+  placeholder,
+  searchPlaceholder
+} : {
+  options: {value: string, label: string}[],
+  value: string,
+  onSelect: (value: string) => void,
+  placeholder: string,
+  searchPlaceholder: string
+}) => {
+  const [open, setOpen] = useState(false)
+  
+  const selectedLabel = options.find((option) => option.value === value)?.label
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
+          {value ? selectedLabel : placeholder}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandGroup className="max-h-60 overflow-y-auto">
+            {options.map((option) => (
+              <CommandItem
+                key={option.value}
+                value={option.label}
+                onSelect={() => {
+                  onSelect(option.value === value ? "" : option.value)
+                  setOpen(false)
+                }}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    value === option.value ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                {option.label}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export default function CuringEntryPage() {
   const [allSkus, setAllSkus] = useState<SkuPlan[]>([]);
   const [allPresses, setAllPresses] = useState<Machine[]>([]);
@@ -62,7 +133,7 @@ export default function CuringEntryPage() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
   
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
@@ -209,7 +280,11 @@ export default function CuringEntryPage() {
             quantity: sku.quantity,
             cavity: sku.leftQty && sku.leftQty > 0 ? 'L' : (sku.rightQty && sku.rightQty > 0 ? 'R' : 'N/A')
         })));
-  }, [productionLog])
+  }, [productionLog]);
+  
+  const pressOptions = useMemo(() => allPresses.map(p => ({ value: p.id, label: p.name })), [allPresses]);
+  const skuOptions = useMemo(() => allSkus.map(s => ({ value: s.sku, label: `${s.sku} (${s.sapCode})` })), [allSkus]);
+
 
   if (loading) return <div className="flex justify-center items-center min-h-screen"><Loader /></div>;
   
@@ -265,12 +340,13 @@ export default function CuringEntryPage() {
                     <div key={entry.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center p-4 border rounded-lg bg-background">
                         <div className="space-y-2">
                            {index === 0 && <Label>Press No.</Label>}
-                           <Select value={entry.pressId} onValueChange={(v) => handleEntryChange(entry.id, 'pressId', v)}>
-                                <SelectTrigger><SelectValue placeholder="Select Press"/></SelectTrigger>
-                                <SelectContent>
-                                    {allPresses.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                           <Combobox
+                              options={pressOptions}
+                              value={entry.pressId}
+                              onSelect={(v) => handleEntryChange(entry.id, 'pressId', v)}
+                              placeholder="Select Press"
+                              searchPlaceholder="Search press..."
+                           />
                         </div>
                         <div className="space-y-2">
                             {index === 0 && <Label>Cavity</Label>}
@@ -284,12 +360,13 @@ export default function CuringEntryPage() {
                         </div>
                         <div className="space-y-2">
                              {index === 0 && <Label>SKU</Label>}
-                             <Select value={entry.sku} onValueChange={(v) => handleEntryChange(entry.id, 'sku', v)}>
-                                <SelectTrigger><SelectValue placeholder="Select SKU"/></SelectTrigger>
-                                <SelectContent>
-                                    {allSkus.map(s => <SelectItem key={s.sapCode} value={s.sku}>{s.sku} ({s.sapCode})</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <Combobox
+                              options={skuOptions}
+                              value={entry.sku}
+                              onSelect={(v) => handleEntryChange(entry.id, 'sku', v)}
+                              placeholder="Select SKU"
+                              searchPlaceholder="Search SKU..."
+                           />
                         </div>
                         <div className="space-y-2">
                              {index === 0 && <Label>Quantity</Label>}
