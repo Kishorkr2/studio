@@ -314,7 +314,7 @@ export default function CuringEntryPage() {
                         mode="single" 
                         selected={selectedDate} 
                         onSelect={handleDateChange} 
-                        disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                        disabled={(date) => date > new Date(new Date().setHours(0,0,0,0))}
                         initialFocus 
                       />
                     </PopoverContent>
