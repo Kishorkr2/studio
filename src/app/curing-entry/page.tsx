@@ -20,9 +20,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Save, Calendar as CalendarIcon, Plus, X, List, Factory, Trash2, Check, ChevronsUpDown } from 'lucide-react';
+import { Save, Calendar as CalendarIcon, Plus, X, Check, ChevronsUpDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { format, startOfToday } from 'date-fns';
+import { format } from 'date-fns';
 import type { SkuPlan, Machine, ProductionLog, ShiftInfo } from '@/lib/types';
 import * as actions from '@/app/actions';
 import { Loader } from '@/components/ui/loader';
@@ -133,7 +133,7 @@ export default function CuringEntryPage() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
-  const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
   
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
@@ -173,6 +173,8 @@ export default function CuringEntryPage() {
 
   const fetchProductionLog = useCallback(async (date: Date, shift: ShiftInfo) => {
     try {
+      // Dates are stored in YYYY-MM-DD format, which is timezone-agnostic on the server.
+      // We send the client's local date to ensure we query for the correct day.
       const log = await actions.getProductionLogForShift(date, shift);
       const curingLog: ProductionLog = {};
       for (const round in log) {
@@ -238,6 +240,7 @@ export default function CuringEntryPage() {
     
     try {
       const round = 'Curing';
+      // Pass the selectedDate directly. It's a JS Date object representing the user's local date.
       await actions.saveProductionRound(selectedDate, selectedShift, round, Object.values(entriesByPress));
       
       toast({ title: `✅ Saved ${validEntries.length} entries successfully` });
@@ -307,7 +310,13 @@ export default function CuringEntryPage() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={selectedDate} onSelect={handleDateChange} initialFocus />
+                      <Calendar 
+                        mode="single" 
+                        selected={selectedDate} 
+                        onSelect={handleDateChange} 
+                        disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                        initialFocus 
+                      />
                     </PopoverContent>
                   </Popover>
                  <Select value={selectedShift?.name} onValueChange={handleShiftChange}>
@@ -331,7 +340,7 @@ export default function CuringEntryPage() {
                   <CardTitle>Add Production Entries</CardTitle>
                   <CardDescription>Fill the details for each production run.</CardDescription>
                 </div>
-                 <Button onClick={handleAddEntry}>
+                 <Button onClick={handleAddEntry} className="bg-primary hover:bg-primary/90">
                     <Plus className="mr-2 h-4 w-4" /> Add Entry
                 </Button>
             </CardHeader>
@@ -350,7 +359,7 @@ export default function CuringEntryPage() {
                         </div>
                         <div className="space-y-2">
                             {index === 0 && <Label>Cavity</Label>}
-                            <Select value={entry.cavity} onValueChange={(v) => handleEntryChange(entry.id, 'cavity', v)}>
+                            <Select value={entry.cavity} onValueChange={(v: 'L' | 'R') => handleEntryChange(entry.id, 'cavity', v)}>
                                 <SelectTrigger><SelectValue placeholder="Cavity"/></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="L">Left</SelectItem>
@@ -381,7 +390,7 @@ export default function CuringEntryPage() {
                 ))}
             </CardContent>
             <CardFooter className="justify-end">
-                <Button onClick={handleSaveAll} disabled={isSaving || entries.length === 0} size="lg">
+                <Button onClick={handleSaveAll} disabled={isSaving || entries.length === 0} size="lg" className="bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl transition-shadow">
                     <Save className="mr-2 h-4 w-4" /> Save All Entries
                 </Button>
             </CardFooter>
