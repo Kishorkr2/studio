@@ -12,7 +12,6 @@ import {
 import {
   Command,
   CommandEmpty,
-  CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
@@ -155,7 +154,7 @@ export default function CuringEntryPage() {
   const [editingEntry, setEditingEntry] = useState<EditingEntry | null>(null);
 
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, canMakeEntry } = useAuth();
   const { toast } = useToast();
 
   const loadInitialData = useCallback(async () => {
@@ -509,7 +508,7 @@ export default function CuringEntryPage() {
             </div>
         </header>
 
-        {editingEntry && (
+        {canMakeEntry && editingEntry && (
             <Card>
                 <CardHeader>
                     <CardTitle>Edit Production Entry</CardTitle>
@@ -566,74 +565,76 @@ export default function CuringEntryPage() {
             </Card>
         )}
 
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Add Production Entries</CardTitle>
-                  <CardDescription>Fill the details for each production run.</CardDescription>
-                </div>
-                 <Button onClick={handleAddEntry} className="bg-primary hover:bg-primary/90">
-                    <Plus className="mr-2 h-4 w-4" /> Add Entry
-                </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {entries.map((entry, index) => (
-                    <div key={entry.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center p-4 border rounded-lg bg-background">
-                        <div className="space-y-2">
-                           {index === 0 && <Label>Press No.</Label>}
-                           <Combobox
-                              options={pressOptions}
-                              value={entry.pressId}
-                              onSelect={(v) => handleEntryChange(entry.id, 'pressId', v)}
-                              placeholder="Select Press"
-                              searchPlaceholder="Search press..."
-                           />
-                        </div>
-                        <div className="space-y-2">
-                            {index === 0 && <Label>Cavity</Label>}
-                            <Select value={entry.cavity} onValueChange={(v: 'L' | 'R') => handleEntryChange(entry.id, 'cavity', v)}>
-                                <SelectTrigger><SelectValue placeholder="Cavity"/></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="L">Left</SelectItem>
-                                    <SelectItem value="R">Right</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                             {index === 0 && <Label>SKU</Label>}
+        {canMakeEntry && (
+          <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Add Production Entries</CardTitle>
+                    <CardDescription>Fill the details for each production run.</CardDescription>
+                  </div>
+                  <Button onClick={handleAddEntry} className="bg-primary hover:bg-primary/90">
+                      <Plus className="mr-2 h-4 w-4" /> Add Entry
+                  </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                  {entries.map((entry, index) => (
+                      <div key={entry.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center p-4 border rounded-lg bg-background">
+                          <div className="space-y-2">
+                            {index === 0 && <Label>Press No.</Label>}
                             <Combobox
-                              options={skuOptions}
-                              value={entry.sku}
-                              onSelect={(v) => handleEntryChange(entry.id, 'sku', v)}
-                              placeholder="Select SKU"
-                              searchPlaceholder="Search SKU..."
-                           />
-                        </div>
-                        <div className="space-y-2">
-                             {index === 0 && <Label>Quantity</Label>}
-                             <Input type="number" placeholder="0" value={entry.quantity} onChange={e => handleEntryChange(entry.id, 'quantity', Number(e.target.value))} />
-                        </div>
-                        <div className="flex items-end h-full">
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveEntry(entry.id)} className="text-destructive hover:bg-destructive/10">
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
-                ))}
-            </CardContent>
-            {entries.length > 0 && (
-                <CardFooter className="justify-end">
-                    <Button onClick={handleSaveAll} disabled={isSaving || editingEntry !== null || !selectedShift} size="lg" className="bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl transition-shadow">
-                        <Save className="mr-2 h-4 w-4" /> Save All Entries
-                    </Button>
-                </CardFooter>
-            )}
-        </Card>
+                                options={pressOptions}
+                                value={entry.pressId}
+                                onSelect={(v) => handleEntryChange(entry.id, 'pressId', v)}
+                                placeholder="Select Press"
+                                searchPlaceholder="Search press..."
+                            />
+                          </div>
+                          <div className="space-y-2">
+                              {index === 0 && <Label>Cavity</Label>}
+                              <Select value={entry.cavity} onValueChange={(v: 'L' | 'R') => handleEntryChange(entry.id, 'cavity', v)}>
+                                  <SelectTrigger><SelectValue placeholder="Cavity"/></SelectTrigger>
+                                  <SelectContent>
+                                      <SelectItem value="L">Left</SelectItem>
+                                      <SelectItem value="R">Right</SelectItem>
+                                  </SelectContent>
+                              </Select>
+                          </div>
+                          <div className="space-y-2">
+                              {index === 0 && <Label>SKU</Label>}
+                              <Combobox
+                                options={skuOptions}
+                                value={entry.sku}
+                                onSelect={(v) => handleEntryChange(entry.id, 'sku', v)}
+                                placeholder="Select SKU"
+                                searchPlaceholder="Search SKU..."
+                            />
+                          </div>
+                          <div className="space-y-2">
+                              {index === 0 && <Label>Quantity</Label>}
+                              <Input type="number" placeholder="0" value={entry.quantity} onChange={e => handleEntryChange(entry.id, 'quantity', Number(e.target.value))} />
+                          </div>
+                          <div className="flex items-end h-full">
+                              <Button variant="ghost" size="icon" onClick={() => handleRemoveEntry(entry.id)} className="text-destructive hover:bg-destructive/10">
+                                  <X className="h-4 w-4" />
+                              </Button>
+                          </div>
+                      </div>
+                  ))}
+              </CardContent>
+              {entries.length > 0 && (
+                  <CardFooter className="justify-end">
+                      <Button onClick={handleSaveAll} disabled={isSaving || editingEntry !== null || !selectedShift} size="lg" className="bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl transition-shadow">
+                          <Save className="mr-2 h-4 w-4" /> Save All Entries
+                      </Button>
+                  </CardFooter>
+              )}
+          </Card>
+        )}
 
         <Card>
             <CardHeader>
                 <CardTitle>Saved Production for {selectedShiftName} on {selectedDate && format(selectedDate, 'PPP')}</CardTitle>
-                <CardDescription>These entries have been saved to the database. Click Edit to make corrections.</CardDescription>
+                <CardDescription>These entries have been saved to the database. {canMakeEntry && "Click Edit to make corrections."}</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="border rounded-lg overflow-x-auto max-h-96">
@@ -645,13 +646,13 @@ export default function CuringEntryPage() {
                                 <TableHead>SKU</TableHead>
                                 <TableHead>SAP Code</TableHead>
                                 <TableHead className="text-right">Quantity</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                {canMakeEntry && <TableHead className="text-right">Actions</TableHead>}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {savedEntries.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={canMakeEntry ? 6 : 5} className="h-24 text-center text-muted-foreground">
                                         No saved entries for this shift and date.
                                     </TableCell>
                                 </TableRow>
@@ -667,11 +668,13 @@ export default function CuringEntryPage() {
                                     <TableCell>{entry.sku}</TableCell>
                                     <TableCell>{entry.sapCode}</TableCell>
                                     <TableCell className="text-right font-semibold">{entry.quantity.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(entry)}>
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                    </TableCell>
+                                    {canMakeEntry && (
+                                      <TableCell className="text-right">
+                                          <Button variant="ghost" size="icon" onClick={() => handleEditClick(entry)}>
+                                              <Edit className="h-4 w-4" />
+                                          </Button>
+                                      </TableCell>
+                                    )}
                                 </TableRow>
                             ))}
                         </TableBody>

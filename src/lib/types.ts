@@ -8,6 +8,7 @@ export interface User {
   password: string; // Hashed password from DB
   isApproved: boolean;
   isAdmin: boolean;
+  canMakeEntry: boolean;
 }
 
 export interface Operator {
@@ -168,5 +169,3 @@ export type SignUpInput = {
   mobile: string;
   password: string;
 };
-
-    

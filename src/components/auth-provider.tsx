@@ -1,14 +1,15 @@
+
 'use client';
 
 import {createContext, useContext, useState, useEffect, useCallback} from 'react';
 import {usePathname, useRouter} from 'next/navigation';
 import {Loader} from './ui/loader';
 import type {User} from '@/lib/types';
-import * as actions from '@/app/actions';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  canMakeEntry: boolean;
   login: (email: string, password: string) => Promise<any>;
   logout: () => {name: string | undefined};
 }
@@ -22,6 +23,7 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
   const pathname = usePathname();
 
   const isAuthenticated = !!user;
+  const canMakeEntry = user?.canMakeEntry || false;
 
   const loadUserFromStorage = useCallback(() => {
     try {
@@ -126,7 +128,7 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
   }
 
   return (
-    <AuthContext.Provider value={{user, isAuthenticated, login, logout}}>
+    <AuthContext.Provider value={{user, isAuthenticated, canMakeEntry, login, logout}}>
       {children}
     </AuthContext.Provider>
   );

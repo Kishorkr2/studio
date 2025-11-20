@@ -44,6 +44,7 @@ import {
   Calendar,
   Ruler,
   Factory,
+  KeyRound,
 } from 'lucide-react';
 import {useToast} from '@/hooks/use-toast';
 import {Badge} from '@/components/ui/badge';
@@ -80,13 +81,13 @@ interface EditableSkuPlan extends SkuPlan {
   machineId: string;
 }
 
-function UserManagement({users, onApprove, onDelete}: {users: User[], onApprove: (id: number) => void, onDelete: (id: number) => void}) {
+function UserManagement({users, onApprove, onDelete, onPermissionChange}: {users: User[], onApprove: (id: number) => void, onDelete: (id: number) => void, onPermissionChange: (id: number, canMakeEntry: boolean) => void}) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>User Management</CardTitle>
         <CardDescription>
-          Approve or remove registered users.
+          Approve or remove registered users and manage entry permissions.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -96,8 +97,8 @@ function UserManagement({users, onApprove, onDelete}: {users: User[], onApprove:
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Mobile</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Permissions</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -106,13 +107,23 @@ function UserManagement({users, onApprove, onDelete}: {users: User[], onApprove:
                 <TableRow key={user.id}>
                   <TableCell>{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.mobile}</TableCell>
                   <TableCell>
                     {user.isApproved ? (
                        <Badge variant="secondary" className="text-green-600">Approved</Badge>
                     ) : (
                       <Badge variant="outline">Pending</Badge>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <div className='flex items-center gap-2'>
+                        <Switch
+                            id={`permission-${user.id}`}
+                            checked={user.canMakeEntry}
+                            onCheckedChange={(checked) => onPermissionChange(user.id, checked)}
+                            disabled={!user.isApproved}
+                        />
+                        <Label htmlFor={`permission-${user.id}`} className='text-sm text-muted-foreground'>Allow Entry</Label>
+                    </div>
                   </TableCell>
                   <TableCell className="text-right space-x-2">
                     {!user.isApproved && (
@@ -856,6 +867,16 @@ export default function AdminPage() {
       toast({variant: 'destructive', title: "Deletion Failed"});
     }
   };
+
+  const handlePermissionChange = async (userId: number, canMakeEntry: boolean) => {
+    try {
+        await actions.updateUserPermissions(userId, canMakeEntry);
+        setUsers(prev => prev.map(u => u.id === userId ? {...u, canMakeEntry} : u));
+        toast({title: `Permissions updated for user.`});
+    } catch(error) {
+        toast({variant: 'destructive', title: `Failed to update permissions`});
+    }
+  };
   
   const handleAddPress = () => {
     if (!newPressId) {
@@ -959,7 +980,7 @@ export default function AdminPage() {
       title: 'User Management',
       description: 'Manage user accounts and permissions',
       icon: Users,
-      content: <UserManagement users={users} onApprove={handleApproveUser} onDelete={handleDeleteUser} />
+      content: <UserManagement users={users} onApprove={handleApproveUser} onDelete={handleDeleteUser} onPermissionChange={handlePermissionChange} />
     },
     {
       value: 'operators',

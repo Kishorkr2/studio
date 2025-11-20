@@ -697,7 +697,10 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     <div className="flex flex-col h-screen">
       <header className="flex-shrink-0 p-2 md:p-4 border-b">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-           <h1 className="text-lg font-bold tracking-tight">Curing Prod Entry</h1>
+           <div>
+             <h1 className="text-lg font-bold tracking-tight">Curing Prod Entry</h1>
+             <p className="text-sm text-blue-600 font-medium">Created by Production Dept Unit 2</p>
+           </div>
           <div className="flex items-center gap-2">
              <Card>
               <CardContent className="p-2">
@@ -830,105 +833,117 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         {curingEntries.map((entry, index) => (
           <Card key={index}>
             <CardContent className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
-                <div className="space-y-2">
-                  <Label>Press No</Label>
-                  <Select
-                    value={entry.pressId || ''}
-                    onValueChange={val => handleCuringEntryChange(index, 'pressId', val)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Press" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allCuringPresses.filter(p => p.isAvailable).map(press => (
-                        <SelectItem key={press.id} value={press.id}>
-                          {press.name}
+              <div className="flex flex-col md:flex-row gap-4 items-end">
+                <div className="flex-1 min-w-[120px] max-w-[200px]">
+                  <div className="space-y-2">
+                    <Label>Press No</Label>
+                    <Select
+                      value={entry.pressId || ''}
+                      onValueChange={val => handleCuringEntryChange(index, 'pressId', val)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Press" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allCuringPresses.filter(p => p.isAvailable).map(press => (
+                          <SelectItem key={press.id} value={press.id}>
+                            {press.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex-1 min-w-[120px] max-w-[180px]">
+                  <div className="space-y-2">
+                    <Label>Cavity</Label>
+                    <Select
+                      value={entry.cavity || ''}
+                      onValueChange={val => handleCuringEntryChange(index, 'cavity', val)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Cavity" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="left">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                            Left Cavity
+                          </div>
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Cavity</Label>
-                  <Select
-                    value={entry.cavity || ''}
-                    onValueChange={val => handleCuringEntryChange(index, 'cavity', val)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Cavity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="left">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                          Left Cavity
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="right">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                          Right Cavity
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Operator</Label>
-                  <Select
-                    value={entry.operatorId || ''}
-                    onValueChange={val => handleCuringEntryChange(index, 'operatorId', val)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Operator" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableOperators.map(op => (
-                        <SelectItem key={op.cardNo} value={op.cardNo}>
-                          {op.name} ({op.cardNo})
+                        <SelectItem value="right">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                            Right Cavity
+                          </div>
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>SKU</Label>
-                  <Select
-                    value={entry.sku || ''}
-                    onValueChange={val => handleCuringEntryChange(index, 'sku', val)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select SKU" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allSkusFromPlan.map(skuPlan => (
-                        <SelectItem key={`${skuPlan.sku}-${skuPlan.sapCode}`} value={skuPlan.sku}>
-                          {skuPlan.sku} ({skuPlan.sapCode})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex-[1.5] min-w-[150px] max-w-[250px]">
+                  <div className="space-y-2">
+                    <Label>Operator</Label>
+                    <Select
+                      value={entry.operatorId || ''}
+                      onValueChange={val => handleCuringEntryChange(index, 'operatorId', val)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Operator" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableOperators.map(op => (
+                          <SelectItem key={op.cardNo} value={op.cardNo}>
+                            {op.name} ({op.cardNo})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Quantity</Label>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    min="0"
-                    value={entry.quantity === 0 ? '' : entry.quantity}
-                    onChange={e => handleCuringEntryChange(index, 'quantity', parseInt(e.target.value) || 0)}
-                  />
+                <div className="flex-[2] min-w-[200px] max-w-[300px]">
+                  <div className="space-y-2">
+                    <Label>SKU</Label>
+                    <Select
+                      value={entry.sku || ''}
+                      onValueChange={val => handleCuringEntryChange(index, 'sku', val)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select SKU" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allSkusFromPlan.map(skuPlan => (
+                          <SelectItem key={`${skuPlan.sku}-${skuPlan.sapCode}`} value={skuPlan.sku}>
+                            {skuPlan.sku} ({skuPlan.sapCode})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemoveCuringEntry(index)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                <div className="flex-1 min-w-[100px] max-w-[150px]">
+                  <div className="space-y-2">
+                    <Label>Quantity</Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      min="0"
+                      value={entry.quantity === 0 ? '' : entry.quantity}
+                      onChange={e => handleCuringEntryChange(index, 'quantity', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+                <div className="flex-shrink-0">
+                  <div className="flex gap-2 pt-6">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveCuringEntry(index)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>

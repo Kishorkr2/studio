@@ -76,11 +76,11 @@ export const getUsers = async () => dbActions.getUsers();
 export const approveUser = async (userId: number) =>
   dbActions.approveUser(userId);
 export const deleteUser = async (userId: number) => dbActions.deleteUser(userId);
+export const updateUserPermissions = async (userId: number, canMakeEntry: boolean) =>
+  dbActions.updateUserPermissions(userId, canMakeEntry);
 export const getCuringPlan = async () => dbActions.getCuringPlan();
 export const saveCuringPlan = async (curingPlan: any[]) => dbActions.saveCuringPlan(curingPlan);
 
 // SKU Standards
 export const getSkuStandards = async () => dbActions.getSkuStandards();
 export const updateSkuStandards = async (standards: SkuStandard[]) => dbActions.updateSkuStandards(standards);
-
-    

@@ -8,6 +8,7 @@ import {
   initialProductionPlan,
 } from '../data';
 import bcrypt from 'bcryptjs';
+import type { Machine } from '../types';
 
 // This is a top-level await, which is supported in modern TypeScript and Node.js.
 // It ensures that the database is connected before any other module that imports this file can use it.
@@ -26,6 +27,11 @@ export async function connect() {
 async function setup() {
   await db.exec('PRAGMA journal_mode = WAL;');
   
+  const userColumns = await db.all("PRAGMA table_info(users)").catch(() => []);
+  if (!userColumns.some(col => col.name === 'canMakeEntry')) {
+    await db.exec('ALTER TABLE users ADD COLUMN canMakeEntry BOOLEAN DEFAULT FALSE').catch(() => {});
+  }
+
   // Only recreate table if it doesn't exist properly
   const tableInfo = await db.all("PRAGMA table_info(productionLogEntries)").catch(() => []);
   if (tableInfo.length === 0) {
@@ -58,7 +64,8 @@ async function setup() {
       mobile TEXT NOT NULL,
       password TEXT NOT NULL,
       isApproved BOOLEAN DEFAULT FALSE,
-      isAdmin BOOLEAN DEFAULT FALSE
+      isAdmin BOOLEAN DEFAULT FALSE,
+      canMakeEntry BOOLEAN DEFAULT FALSE
     );
     CREATE TABLE IF NOT EXISTS operators (
       cardNo TEXT PRIMARY KEY,
@@ -141,9 +148,12 @@ async function setup() {
   if (!adminUser) {
     const hashedPassword = await bcrypt.hash('ralson@123', 10);
     await db.run(
-      'INSERT INTO users (name, email, mobile, password, isApproved, isAdmin) VALUES (?, ?, ?, ?, ?, ?)',
-      'Ralson Admin', 'ralson@ralson.com', '1234567890', hashedPassword, true, true
+      'INSERT INTO users (name, email, mobile, password, isApproved, isAdmin, canMakeEntry) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'Ralson Admin', 'ralson@ralson.com', '1234567890', hashedPassword, true, true, true
     );
+  } else {
+    // Ensure admin user has all rights on restart
+    await db.run('UPDATE users SET isAdmin = ?, canMakeEntry = ? WHERE email = ?', true, true, 'ralson@ralson.com');
   }
 
   const operatorCount = await db.get('SELECT COUNT(*) as count FROM operators');

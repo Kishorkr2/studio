@@ -86,7 +86,7 @@ export async function getProductionLogs(): Promise<ReportDataRow[]> {
   const [operators, machines, logs] = await Promise.all([
     db.all('SELECT cardNo, name FROM operators'),
     db.all('SELECT id, name FROM machines'),
-    db.all('SELECT * FROM productionLogEntries ORDER BY date, shiftName, round, machineId, id'),
+    db.all('SELECT * FROM productionLogEntries ORDER BY date DESC, shiftName, round, machineId, id'),
   ]);
 
   const operatorMap = new Map(operators.map((op: Operator) => [op.cardNo, op.name]));
@@ -95,8 +95,6 @@ export async function getProductionLogs(): Promise<ReportDataRow[]> {
   const reportRows: ReportDataRow[] = [];
 
   for (const log of logs) {
-    // Only process entries that have an SKU and quantity
-    if (log.sku && log.quantity > 0) {
       reportRows.push({
         id: log.id,
         date: log.date,
@@ -113,7 +111,6 @@ export async function getProductionLogs(): Promise<ReportDataRow[]> {
         userName: log.userName,
         remark: log.remark,
       });
-    }
   }
 
   return reportRows;
@@ -622,6 +619,7 @@ export async function verifyUserLogin(
       mobile: user.mobile,
       isApproved: Boolean(user.isApproved),
       isAdmin: Boolean(user.isAdmin),
+      canMakeEntry: Boolean(user.canMakeEntry),
       password: '', // This should not be sent to client
   };
 
@@ -631,7 +629,7 @@ export async function verifyUserLogin(
 export async function getUsers(): Promise<User[]> {
   await connect();
   return db.all(
-    'SELECT id, name, email, mobile, isApproved, isAdmin FROM users ORDER BY name'
+    'SELECT id, name, email, mobile, isApproved, isAdmin, canMakeEntry FROM users ORDER BY name'
   );
 }
 
@@ -644,6 +642,12 @@ export async function deleteUser(userId: number) {
   await connect();
   await db.run('DELETE FROM users WHERE id = ?', userId);
 }
+
+export async function updateUserPermissions(userId: number, canMakeEntry: boolean) {
+  await connect();
+  await db.run('UPDATE users SET canMakeEntry = ? WHERE id = ?', canMakeEntry, userId);
+}
+
 
 // Sku Standards
 export async function getSkuStandards(): Promise<SkuStandard[]> {
@@ -708,5 +712,3 @@ export async function saveCuringPlan(curingPlan: any[]) {
     throw error;
   }
 }
-
-    
