@@ -1,28 +1,30 @@
+
 'use client';
 
+import * as React from 'react';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from '../../../components/ui/card';
-import { Button } from '../../../components/ui/button';
-import { Calendar } from '../../../components/ui/calendar';
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '../../../components/ui/popover';
+} from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select';
-import { Input } from '../../../components/ui/input';
-import { Switch } from '../../../components/ui/switch';
-import { Label } from '../../../components/ui/label';
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   CalendarIcon,
   Copy,
@@ -33,9 +35,9 @@ import {
   ChevronUp,
   ChevronDown,
 } from 'lucide-react';
-import { cn } from '../../../lib/utils';
+import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import type { ShiftInfo } from '../../../lib/types';
+import type { ShiftInfo } from '@/lib/types';
 
 interface SummaryCardProps {
   title: string;

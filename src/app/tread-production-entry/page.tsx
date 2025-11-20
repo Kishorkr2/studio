@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -8,22 +9,22 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../../components/ui/table';
-import { useToast } from '../../../hooks/use-toast';
+} from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
 import type {
   ProductionPlanItem,
   ShiftInfo,
   SkuPlan,
   DailyProductionEntry,
   Machine,
-} from '../../../lib/types';
+} from '@/lib/types';
 import { format } from 'date-fns';
-import { Skeleton } from '../../../components/ui/skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import * as actions from '../actions';
 import { SummaryCard, Controls, QuantityInput } from './components';
 import { Box, Package, PackageCheck } from 'lucide-react';
-import { Input } from '../../../components/ui/input';
-import { Card, CardContent } from '../../../components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface EnrichedSkuPlan extends SkuPlan {
   tbmName: string;
