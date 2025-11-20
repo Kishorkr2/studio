@@ -23,7 +23,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Save, Calendar as CalendarIcon, Plus, X, Check, ChevronsUpDown, Edit, FileDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import type { SkuPlan, Machine, ProductionLog, ShiftInfo, FlatProductionLogEntry } from '@/lib/types';
 import * as actions from '@/app/actions';
 import { Loader } from '@/components/ui/loader';
@@ -140,7 +140,11 @@ export default function CuringEntryPage() {
   const [isSaving, setIsSaving] = useState(false);
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
+  const [selectedShiftName, setSelectedShiftName] = useState<string>('');
+
+  const selectedShift = useMemo(() => {
+    return allShifts.find(s => s.name === selectedShiftName);
+  }, [selectedShiftName, allShifts]);
   
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
 
@@ -169,7 +173,9 @@ export default function CuringEntryPage() {
       
       const currentShift = getCurrentShift(shiftsData);
       if (currentShift) {
-        setSelectedShift(currentShift);
+        setSelectedShiftName(currentShift.name);
+      } else if (shiftsData.length > 0) {
+        setSelectedShiftName(shiftsData[0].name);
       }
     } catch (error) {
       console.error('Failed to load initial data', error);
@@ -179,30 +185,49 @@ export default function CuringEntryPage() {
     }
   }, [toast]);
 
-  const fetchProductionLog = useCallback(async (date: Date, shift: ShiftInfo) => {
+  const fetchProductionLog = useCallback(async (date: Date, shiftName: string) => {
     try {
-      const log = await actions.getProductionLogForShift(date, shift);
+      let combinedLog: ProductionLog = {};
+      if (shiftName === "All Shifts") {
+        for (const shift of allShifts) {
+          const log = await actions.getProductionLogForShift(date, shift);
+          for (const round in log) {
+            if (!combinedLog[round]) {
+              combinedLog[round] = { entries: [], status: 'synced' };
+            }
+            combinedLog[round].entries.push(...log[round].entries);
+          }
+        }
+      } else {
+        const shift = allShifts.find(s => s.name === shiftName);
+        if (shift) {
+          const log = await actions.getProductionLogForShift(date, shift);
+          combinedLog = log;
+        }
+      }
+      
       const curingLog: ProductionLog = {};
-      for (const round in log) {
+      for (const round in combinedLog) {
         curingLog[round] = {
-          ...log[round],
-          entries: log[round].entries.filter(e => e.machineId.startsWith('CP-')),
+          ...combinedLog[round],
+          entries: combinedLog[round].entries.filter(e => e.machineId.startsWith('CP-')),
         };
       }
       setProductionLog(curingLog);
+
     } catch (error) {
       console.error('Failed to fetch production log:', error);
       toast({ variant: 'destructive', title: 'Error fetching shift data.' });
     }
-  }, [toast]);
+  }, [toast, allShifts]);
 
   useEffect(() => { loadInitialData(); }, [loadInitialData]);
 
   useEffect(() => {
-    if (selectedDate && selectedShift) {
-      fetchProductionLog(selectedDate, selectedShift);
+    if (selectedDate && selectedShiftName) {
+      fetchProductionLog(selectedDate, selectedShiftName);
     }
-  }, [selectedDate, selectedShift, fetchProductionLog]);
+  }, [selectedDate, selectedShiftName, fetchProductionLog]);
   
   useEffect(() => {
     if (editingEntry) {
@@ -237,7 +262,7 @@ export default function CuringEntryPage() {
   const handleSaveAll = async () => {
     const validEntries = entries.filter(e => e.pressId && e.cavity && e.sku && e.quantity && Number(e.quantity) > 0);
     if (validEntries.length === 0) { toast({ variant: 'destructive', title: 'No entries to save' }); return; }
-    if (!selectedDate || !selectedShift) { toast({ variant: 'destructive', title: 'Date or Shift not selected' }); return; }
+    if (!selectedDate || !selectedShift) { toast({ variant: 'destructive', title: 'A specific shift must be selected to save entries.' }); return; }
 
     setIsSaving(true);
     
@@ -257,7 +282,7 @@ export default function CuringEntryPage() {
       
       toast({ title: `✅ Saved ${validEntries.length} entries successfully` });
       setEntries([{ id: Date.now(), pressId: '', cavity: '', sku: '', sapCode: '', quantity: '' }]);
-      await fetchProductionLog(selectedDate, selectedShift);
+      await fetchProductionLog(selectedDate, selectedShift.name);
     } catch (error) {
       console.error('Save failed', error);
       toast({ variant: 'destructive', title: 'Save failed' });
@@ -268,14 +293,13 @@ export default function CuringEntryPage() {
   
   const handleDateChange = (date: Date | undefined) => {
       if (date) {
-        setSelectedDate(date);
+        setSelectedDate(startOfDay(date));
       }
       setIsDatePickerOpen(false);
   }
 
   const handleShiftChange = (shiftName: string) => {
-    const newShift = allShifts.find(s => s.name === shiftName);
-    setSelectedShift(newShift);
+    setSelectedShiftName(shiftName);
   };
   
   const handleEditClick = (entry: FlatProductionLogEntry) => {
@@ -288,13 +312,19 @@ export default function CuringEntryPage() {
   };
 
   const handleUpdateEntry = async () => {
-    if (!editingEntry || !selectedDate || !selectedShift) return;
+    if (!editingEntry || !selectedDate) return;
+    const shiftForEntry = allShifts.find(s => s.name === editingEntry.shiftName);
+    if (!shiftForEntry) {
+        toast({variant: 'destructive', title: 'Cannot Update', description: 'Original shift for the entry could not be found.'});
+        return;
+    }
+
     setIsSaving(true);
     try {
       await actions.updateSingleProductionLog(editingEntry);
       toast({ title: "✅ Entry updated successfully" });
       setEditingEntry(null);
-      await fetchProductionLog(selectedDate, selectedShift);
+      await fetchProductionLog(selectedDate, selectedShiftName);
     } catch (error) {
       console.error('Update failed', error);
       toast({ variant: 'destructive', title: 'Update failed' });
@@ -419,12 +449,12 @@ export default function CuringEntryPage() {
                 quantity: sku.quantity,
                 cavity: sku.leftQty && sku.leftQty > 0 ? 'L' : (sku.rightQty && sku.rightQty > 0 ? 'R' : 'N/A'),
                 date: selectedDate.toISOString(),
-                shiftName: selectedShift?.name || '',
+                shiftName: selectedShiftName || '',
                 round: log.status, // Not quite right, but what we have
                 operatorId: machineEntry.operatorId
             } as unknown as FlatProductionLogEntry))
         ));
-  }, [productionLog, selectedDate, selectedShift]);
+  }, [productionLog, selectedDate, selectedShiftName]);
   
   const pressOptions = useMemo(() => allPresses.map(p => ({ value: p.id, label: p.name })), [allPresses]);
   const skuOptions = useMemo(() => allSkus.map(s => ({ value: s.sku, label: `${s.sku} (${s.sapCode})` })), [allSkus]);
@@ -460,9 +490,10 @@ export default function CuringEntryPage() {
                       />
                     </PopoverContent>
                   </Popover>
-                 <Select value={selectedShift?.name} onValueChange={handleShiftChange}>
+                 <Select value={selectedShiftName} onValueChange={handleShiftChange}>
                     <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Shift" /></SelectTrigger>
                     <SelectContent>
+                        <SelectItem value="All Shifts">All Shifts</SelectItem>
                         {allShifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name} ({s.startTime}-{s.endTime})</SelectItem>)}
                     </SelectContent>
                 </Select>
@@ -592,7 +623,7 @@ export default function CuringEntryPage() {
             </CardContent>
             {entries.length > 0 && (
                 <CardFooter className="justify-end">
-                    <Button onClick={handleSaveAll} disabled={isSaving || editingEntry !== null} size="lg" className="bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl transition-shadow">
+                    <Button onClick={handleSaveAll} disabled={isSaving || editingEntry !== null || !selectedShift} size="lg" className="bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl transition-shadow">
                         <Save className="mr-2 h-4 w-4" /> Save All Entries
                     </Button>
                 </CardFooter>
@@ -601,7 +632,7 @@ export default function CuringEntryPage() {
 
         <Card>
             <CardHeader>
-                <CardTitle>Saved Production for {selectedShift?.name} on {selectedDate && format(selectedDate, 'PPP')}</CardTitle>
+                <CardTitle>Saved Production for {selectedShiftName} on {selectedDate && format(selectedDate, 'PPP')}</CardTitle>
                 <CardDescription>These entries have been saved to the database. Click Edit to make corrections.</CardDescription>
             </CardHeader>
             <CardContent>
