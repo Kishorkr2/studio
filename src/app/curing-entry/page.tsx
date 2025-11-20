@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Save, Calendar as CalendarIcon, Plus, X, Check, ChevronsUpDown, Edit } from 'lucide-react';
+import { Save, Calendar as CalendarIcon, Plus, X, Check, ChevronsUpDown, Edit, FileDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import type { SkuPlan, Machine, ProductionLog, ShiftInfo, FlatProductionLogEntry } from '@/lib/types';
@@ -31,6 +31,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth-provider';
+import * as XLSX from 'xlsx';
 
 interface NewEntry {
   id: number;
@@ -302,6 +303,103 @@ export default function CuringEntryPage() {
     }
   };
 
+  const handleExportExcel = async () => {
+    if (!selectedDate || !allShifts.length) {
+      toast({ variant: 'destructive', title: 'Cannot Export', description: 'Date or shift info is missing.' });
+      return;
+    }
+
+    const dayShift = allShifts.find(s => s.name.toLowerCase().includes('day'));
+    const nightShift = allShifts.find(s => s.name.toLowerCase().includes('night'));
+
+    if (!dayShift || !nightShift) {
+      toast({ variant: 'destructive', title: 'Shift Info Missing', description: 'Could not find Day and Night shifts.' });
+      return;
+    }
+
+    const [dayLog, nightLog] = await Promise.all([
+      actions.getProductionLogForShift(selectedDate, dayShift),
+      actions.getProductionLogForShift(selectedDate, nightShift),
+    ]);
+
+    const aggregatedData: { [key: string]: { pressNo: string, cavity: string, day: number, night: number } } = {};
+
+    const processLog = (log: ProductionLog, shiftType: 'day' | 'night') => {
+      Object.values(log).forEach(round => {
+        round.entries.forEach(entry => {
+          entry.skus.forEach(sku => {
+            const pressName = allPresses.find(p => p.id === entry.machineId)?.name || entry.machineId;
+            const key = `${entry.machineId}-${sku.sapCode}`; // Group by press and SKU
+            
+            if (!aggregatedData[key]) {
+              aggregatedData[key] = { pressNo: pressName, cavity: sku.sku, day: 0, night: 0 };
+            }
+
+            if (shiftType === 'day') {
+              aggregatedData[key].day += sku.quantity;
+            } else {
+              aggregatedData[key].night += sku.quantity;
+            }
+          });
+        });
+      });
+    };
+
+    processLog(dayLog, 'day');
+    processLog(nightLog, 'night');
+
+    const exportData = Object.values(aggregatedData).map(item => ({
+      'Press No': item.pressNo,
+      'Cavity': item.cavity,
+      'Day Shift Prod': item.day,
+      'Night Shift Prod': item.night,
+      'Total Production': item.day + item.night,
+    }));
+    
+    if (exportData.length === 0) {
+      toast({ variant: 'destructive', title: 'No Data', description: 'No production data found for the selected date.' });
+      return;
+    }
+
+    const ws_name = 'Curing Linup';
+    const wb = XLSX.utils.book_new();
+
+    // Create worksheet with custom header
+    const ws_data = [
+        ["Curing Linup"], // Main Title
+        [], // Empty row for spacing if needed
+        ["Press No", "Cavity", "Day Shift Prod", "Night Shift Prod", "Total Production"],
+        ...exportData.map(item => [
+            item['Press No'],
+            item['Cavity'],
+            item['Day Shift Prod'],
+            item['Night Shift Prod'],
+            item['Total Production'],
+        ])
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+    // Merge cells for the main title
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+
+    // Apply some styling
+    ws['A1'].s = { font: { bold: true, sz: 16 }, alignment: { horizontal: 'center' } };
+
+    const headerRange = XLSX.utils.decode_range("A3:E3");
+    for (let C = headerRange.s.c; C <= headerRange.e.c; ++C) {
+        const cell = ws[XLSX.utils.encode_cell({ r: headerRange.s.r, c: C })];
+        if(cell) {
+          cell.s = { font: { bold: true } };
+        }
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, ws_name);
+    XLSX.writeFile(wb, `Curing_Linup_${format(selectedDate, 'yyyy-MM-dd')}.xlsx`);
+
+    toast({ title: 'Export Successful', description: 'Excel file has been downloaded.' });
+  };
+
   const shiftTotalProduction = useMemo(() => {
     return Object.values(productionLog)
       .flatMap(log => log.entries)
@@ -368,6 +466,9 @@ export default function CuringEntryPage() {
                         {allShifts.map(s => <SelectItem key={s.name} value={s.name}>{s.name} ({s.startTime}-{s.endTime})</SelectItem>)}
                     </SelectContent>
                 </Select>
+                 <Button onClick={handleExportExcel} variant="outline">
+                    <FileDown className="mr-2 h-4 w-4" /> Export Excel
+                  </Button>
                  <Card>
                     <CardContent className="p-2 flex flex-col items-center justify-center">
                         <p className="text-xs font-medium text-muted-foreground">Shift Total</p>
@@ -550,5 +651,3 @@ export default function CuringEntryPage() {
     </div>
   );
 }
-
-    
