@@ -47,6 +47,20 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
 
   useEffect(() => {
     loadUserFromStorage();
+    
+    // Listen for changes in localStorage from other tabs/windows
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'auth') {
+        loadUserFromStorage();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+
   }, [loadUserFromStorage]);
 
   const login = async (email: string, password: string) => {
@@ -67,13 +81,14 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
 
       const data = await res.json();
       if (data?.success && data?.user) {
-        setUser(data.user);
+        const newUser = data.user;
+        setUser(newUser);
         const expiry = new Date().getTime() + 7 * 24 * 60 * 60 * 1000; // 7 days
-        localStorage.setItem(
-          'auth',
-          JSON.stringify({user: data.user, expiry})
-        );
-        return {success: true, user: data.user};
+        const authData = {user: newUser, expiry};
+        localStorage.setItem('auth', JSON.stringify(authData));
+        // Manually trigger a storage event for the current tab to pick up changes.
+        window.dispatchEvent(new StorageEvent('storage', {key: 'auth', newValue: JSON.stringify(authData)}));
+        return {success: true, user: newUser};
       }
 
       return {
@@ -93,6 +108,7 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
     const loggedOutUser = user;
     setUser(null);
     localStorage.removeItem('auth');
+     window.dispatchEvent(new StorageEvent('storage', {key: 'auth', newValue: null}));
     router.push('/login');
     return {name: loggedOutUser?.name};
   };

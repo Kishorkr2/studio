@@ -22,7 +22,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Save, Calendar as CalendarIcon, Plus, X, Check, ChevronsUpDown, Edit, FileDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { format, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import type { SkuPlan, Machine, ProductionLog, ShiftInfo, FlatProductionLogEntry } from '@/lib/types';
 import * as actions from '@/app/actions';
 import { Loader } from '@/components/ui/loader';
@@ -292,7 +292,7 @@ export default function CuringEntryPage() {
   
   const handleDateChange = (date: Date | undefined) => {
       if (date) {
-        setSelectedDate(startOfDay(date));
+        setSelectedDate(date);
       }
       setIsDatePickerOpen(false);
   }
@@ -356,12 +356,15 @@ export default function CuringEntryPage() {
     const processLog = (log: ProductionLog, shiftType: 'day' | 'night') => {
       Object.values(log).forEach(round => {
         round.entries.forEach(entry => {
+          const pressName = allPresses.find(p => p.id === entry.machineId)?.name || entry.machineId;
           entry.skus.forEach(sku => {
-            const pressName = allPresses.find(p => p.id === entry.machineId)?.name || entry.machineId;
-            const key = `${entry.machineId}-${sku.sapCode}`; // Group by press and SKU
+            const cavity = sku.leftQty && sku.leftQty > 0 ? "L" : (sku.rightQty && sku.rightQty > 0 ? "R" : "N/A");
+            if (cavity === "N/A") return;
+
+            const key = `${entry.machineId}-${cavity}-${sku.sapCode}`; // Group by press, cavity and SKU
             
             if (!aggregatedData[key]) {
-              aggregatedData[key] = { pressNo: pressName, cavity: sku.sku, day: 0, night: 0 };
+              aggregatedData[key] = { pressNo: pressName, cavity: `${sku.sku} (${cavity})`, day: 0, night: 0 };
             }
 
             if (shiftType === 'day') {
@@ -393,27 +396,15 @@ export default function CuringEntryPage() {
     const ws_name = 'Curing Linup';
     const wb = XLSX.utils.book_new();
 
-    // Create worksheet with custom header
-    const ws_data = [
+    const ws_data: (string | number)[][] = [
         ["Curing Linup"], // Main Title
-        [], // Empty row for spacing if needed
-        ["Press No", "Cavity", "Day Shift Prod", "Night Shift Prod", "Total Production"],
-        ...exportData.map(item => [
-            item['Press No'],
-            item['Cavity'],
-            item['Day Shift Prod'],
-            item['Night Shift Prod'],
-            item['Total Production'],
-        ])
     ];
-
-    const ws = XLSX.utils.aoa_to_sheet(ws_data);
-
-    // Merge cells for the main title
+    XLSX.utils.sheet_add_aoa(wb, ws_data, { origin: "A1" });
+    
+    const ws = XLSX.utils.json_to_sheet(exportData, {origin: "A3"});
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
 
-    // Apply some styling
-    ws['A1'].s = { font: { bold: true, sz: 16 }, alignment: { horizontal: 'center' } };
+    ws['A1'] = { v: "Curing Linup", t: 's', s: { font: { bold: true, sz: 16 }, alignment: { horizontal: 'center' } } };
 
     const headerRange = XLSX.utils.decode_range("A3:E3");
     for (let C = headerRange.s.c; C <= headerRange.e.c; ++C) {
@@ -440,16 +431,16 @@ export default function CuringEntryPage() {
       return Object.values(productionLog)
         .flatMap(log => log.entries.flatMap(machineEntry => 
             machineEntry.skus.map(sku => ({
-                id: Math.random(), // This is not ideal, but db doesn't return id here. The action should.
+                id: machineEntry.id || Math.random(),
                 machineId: machineEntry.machineId,
                 name: machineEntry.name,
                 sku: sku.sku,
                 sapCode: sku.sapCode,
                 quantity: sku.quantity,
                 cavity: sku.leftQty && sku.leftQty > 0 ? 'L' : (sku.rightQty && sku.rightQty > 0 ? 'R' : 'N/A'),
-                date: selectedDate.toISOString(),
+                date: selectedDate.toISOString().split('T')[0],
                 shiftName: selectedShiftName || '',
-                round: log.status, // Not quite right, but what we have
+                round: log.status,
                 operatorId: machineEntry.operatorId
             } as unknown as FlatProductionLogEntry))
         ));
@@ -657,7 +648,7 @@ export default function CuringEntryPage() {
                                     </TableCell>
                                 </TableRow>
                             )}
-                            {savedEntries.map((entry, index) => (
+                            {savedEntries.map((entry) => (
                                 <TableRow key={entry.id}>
                                     <TableCell className="font-medium">{entry.name}</TableCell>
                                     <TableCell>
