@@ -153,7 +153,7 @@ async function setup() {
     );
   } else {
     // Ensure admin user has all rights on restart
-    await db.run('UPDATE users SET isAdmin = ?, canMakeEntry = ? WHERE email = ?', true, true, 'ralson@ralson.com');
+    await db.run('UPDATE users SET isAdmin = ?, canMakeEntry = ?, isApproved = ? WHERE email = ?', true, true, true, 'ralson@ralson.com');
   }
 
   const operatorCount = await db.get('SELECT COUNT(*) as count FROM operators');
