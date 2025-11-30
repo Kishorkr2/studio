@@ -572,7 +572,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       return;
     }
     
-    // Convert curing entries to the expected format
     const entriesByMachine = new Map();
     curingEntries.forEach(entry => {
       if (!entry.pressId || !entry.sku || !entry.quantity) return;
@@ -600,12 +599,14 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     });
     
     const entriesToSave = Array.from(entriesByMachine.values());
-    await actions.saveProductionRound(
-      selectedDate,
-      selectedShift,
-      selectedRound,
-      entriesToSave
-    );
+    if (entriesToSave.length > 0) {
+      await actions.saveProductionRound(
+        selectedDate,
+        selectedShift,
+        selectedRound,
+        entriesToSave
+      );
+    }
     
     toast({
       title: 'Round Data Saved',
@@ -987,3 +988,5 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
+
+    
