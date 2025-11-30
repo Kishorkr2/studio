@@ -183,67 +183,47 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
 
   const loadEntriesForRound = useCallback(
     (round: string, log: ProductionLog, presses: Machine[], plan: any[]) => {
-      if (!plan) return;
+      if (!plan || !presses) return;
+  
       const logForRound = log[round]?.entries || [];
       const newEntries = presses
         .filter(machine => machine.isAvailable)
         .map(machine => {
           const loggedEntry = logForRound.find(e => e.machineId === machine.id);
-          const skus = loggedEntry?.skus?.filter(s => s.sku || s.sapCode) || [];
           const operatorId =
-            loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id];
+            loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id] || '';
+  
+          let skus = loggedEntry?.skus?.filter(s => s.sku || s.sapCode) || [];
           
-          // Auto-populate SKUs from curing plan if no logged entry exists
-          let initialSkus = skus;
           if (skus.length === 0) {
             const pressConfig = plan.find(p => p.pressId === machine.id);
             if (pressConfig) {
-              const leftSku = pressConfig.leftCavity?.sku;
-              const rightSku = pressConfig.rightCavity?.sku;
+              const leftSku = pressConfig.leftCavity;
+              const rightSku = pressConfig.rightCavity;
               
-              if (leftSku && rightSku && leftSku === rightSku) {
-                // Same SKU in both cavities
-                initialSkus = [{
-                  sku: leftSku,
-                  sapCode: pressConfig.leftCavity.sapCode,
-                  quantity: 0,
-                  leftQty: 0,
-                  rightQty: 0
-                }];
-              } else {
-                // Different SKUs or only one cavity has SKU
-                initialSkus = [];
-                if (leftSku) {
-                  initialSkus.push({
-                    sku: leftSku,
-                    sapCode: pressConfig.leftCavity.sapCode,
-                    quantity: 0,
-                    leftQty: 0,
-                    rightQty: 0
-                  });
-                }
-                if (rightSku && rightSku !== leftSku) {
-                  initialSkus.push({
-                    sku: rightSku,
-                    sapCode: pressConfig.rightCavity.sapCode,
-                    quantity: 0,
-                    leftQty: 0,
-                    rightQty: 0
-                  });
-                }
+              const skusFromPlan = [];
+              if (leftSku && leftSku.sku) {
+                skusFromPlan.push({ sku: leftSku.sku, sapCode: leftSku.sapCode, quantity: 0, leftQty: 0, rightQty: 0 });
               }
-            }
-            // Fallback to empty SKU if no plan data
-            if (initialSkus.length === 0) {
-              initialSkus = [{sku: '', sapCode: '', quantity: 0, leftQty: 0, rightQty: 0}];
+              if (rightSku && rightSku.sku && rightSku.sku !== leftSku.sku) {
+                skusFromPlan.push({ sku: rightSku.sku, sapCode: rightSku.sapCode, quantity: 0, leftQty: 0, rightQty: 0 });
+              }
+              if (rightSku && rightSku.sku && rightSku.sku === leftSku.sku && skusFromPlan.length > 0) {
+                 // It's already there, just needs to be configured for both cavities.
+              }
+              skus = skusFromPlan;
             }
           }
-          
+  
+          if (skus.length === 0) {
+            skus.push({sku: '', sapCode: '', quantity: 0, leftQty: 0, rightQty: 0});
+          }
+  
           return {
             machineId: machine.id,
             name: machine.name,
-            operatorId: operatorId || '',
-            skus: initialSkus,
+            operatorId: operatorId,
+            skus: skus,
           };
         });
       setEntries(newEntries);
@@ -384,7 +364,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     setAvailableOperators(allOperators.filter(op => !op.isAbsent));
   }, [allOperators]);
 
-  // Initialize with one empty entry
   useEffect(() => {
     if (curingEntries.length === 0) {
       setCuringEntries([{
@@ -393,7 +372,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         operatorId: '',
         sku: '',
         sapCode: '',
-        quantity: 0
+        quantity: ''
       }]);
     }
   }, [curingEntries.length]);
@@ -592,9 +571,9 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       const skuEntry = {
         sku: entry.sku,
         sapCode: entry.sapCode,
-        quantity: entry.quantity,
-        leftQty: entry.cavity === 'left' ? entry.quantity : 0,
-        rightQty: entry.cavity === 'right' ? entry.quantity : 0,
+        quantity: Number(entry.quantity),
+        leftQty: entry.cavity === 'left' ? Number(entry.quantity) : 0,
+        rightQty: entry.cavity === 'right' ? Number(entry.quantity) : 0,
       };
       machineEntry.skus.push(skuEntry);
     });
@@ -648,7 +627,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   }, [selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound, allCuringPresses, curingPlanData]);
 
   const roundTotal = useMemo(() => {
-    return curingEntries.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
+    return curingEntries.reduce((acc, entry) => acc + (Number(entry.quantity) || 0), 0);
   }, [curingEntries]);
 
   const cumulativeTotal = useMemo(() => {

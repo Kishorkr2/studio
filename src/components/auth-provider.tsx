@@ -82,12 +82,12 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
       const data = await res.json();
       if (data?.success && data?.user) {
         const newUser = data.user;
-        setUser(newUser);
         const expiry = new Date().getTime() + 7 * 24 * 60 * 60 * 1000; // 7 days
         const authData = {user: newUser, expiry};
         localStorage.setItem('auth', JSON.stringify(authData));
         // Manually trigger a storage event for the current tab to pick up changes.
         window.dispatchEvent(new StorageEvent('storage', {key: 'auth', newValue: JSON.stringify(authData)}));
+        setUser(newUser);
         return {success: true, user: newUser};
       }
 
@@ -155,3 +155,5 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
+
+    
