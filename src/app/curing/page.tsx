@@ -145,14 +145,14 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   
   const [allSkusFromPlan, setAllSkusFromPlan] = useState<SkuPlan[]>([]);
   const [greenTyreStock, setGreenTyreStock] = useState<TreadStock[]>([]);
-  const [curingPlanData, setCuringPlanData] = useState([]);
+  const [curingPlanData, setCuringPlanData] = useState<any[]>([]);
 
   const [roundTimes, setRoundTimes] = useState<string[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>('');
   const [entries, setEntries] = useState<MachineProductionData[]>([]);
   const [productionLog, setProductionLog] = useState<ProductionLog>({});
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
-  const [curingEntries, setCuringEntries] = useState([]);
+  const [curingEntries, setCuringEntries] = useState<any[]>([]);
   
   const machineOperatorMapRef = useRef<Record<string, string>>({});
   const [isFetchingLog, setIsFetchingLog] = useState(false);
@@ -182,7 +182,8 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   }, []);
 
   const loadEntriesForRound = useCallback(
-    (round: string, log: ProductionLog, presses: Machine[]) => {
+    (round: string, log: ProductionLog, presses: Machine[], plan: any[]) => {
+      if (!plan) return;
       const logForRound = log[round]?.entries || [];
       const newEntries = presses
         .filter(machine => machine.isAvailable)
@@ -195,7 +196,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
           // Auto-populate SKUs from curing plan if no logged entry exists
           let initialSkus = skus;
           if (skus.length === 0) {
-            const pressConfig = curingPlanData.find(p => p.pressId === machine.id);
+            const pressConfig = plan.find(p => p.pressId === machine.id);
             if (pressConfig) {
               const leftSku = pressConfig.leftCavity?.sku;
               const rightSku = pressConfig.rightCavity?.sku;
@@ -247,7 +248,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         });
       setEntries(newEntries);
     },
-    [curingPlanData]
+    []
   );
   
   const fetchAndSetLog = useCallback(async (date: Date, shift: ShiftInfo) => {
@@ -366,7 +367,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
             setSelectedRound(currentRound);
     
             machineOperatorMapRef.current = getLocalStorageItem('curingMachineOperatorMap', {});
-            // loadEntriesForRound will be called by useEffect when curingPlanData is set
+            loadEntriesForRound(currentRound, log, machinesData, curingPlan || []);
           }
         } catch (error) {
           console.error('Failed to load initial data:', error);
@@ -401,7 +402,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     if (!selectedShift) return;
     await actions.clearShiftData(selectedDate, selectedShift);
     setProductionLog({});
-    loadEntriesForRound(selectedRound, {}, allCuringPresses);
+    loadEntriesForRound(selectedRound, {}, allCuringPresses, curingPlanData);
     machineOperatorMapRef.current = {};
     setLocalStorageItem('curingMachineOperatorMap', {});
     toast({
@@ -410,7 +411,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         selectedShift.name
       } on ${format(selectedDate, 'PPP')} have been removed.`,
     });
-  }, [selectedDate, selectedShift, toast, selectedRound, loadEntriesForRound, allCuringPresses]);
+  }, [selectedDate, selectedShift, toast, selectedRound, loadEntriesForRound, allCuringPresses, curingPlanData]);
 
   useEffect(() => {
     if (setPageActions && selectedShift) {
@@ -460,7 +461,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   const handleSelectedRoundChange = (round: string) => {
     setSelectedRound(round);
     setLocalStorageItem('curingSelectedRound', round);
-    loadEntriesForRound(round, productionLog, allCuringPresses);
+    loadEntriesForRound(round, productionLog, allCuringPresses, curingPlanData);
   };
 
   const handleOperatorChange = (machineId: string, operatorId: string) => {
@@ -629,10 +630,10 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         const log = await fetchAndSetLog(selectedDate, newShift);
         const currentRound = newRoundTimes[0] || '';
         setSelectedRound(currentRound);
-        loadEntriesForRound(currentRound, log, allCuringPresses);
+        loadEntriesForRound(currentRound, log, allCuringPresses, curingPlanData);
       }
     },
-    [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound, allCuringPresses]
+    [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound, allCuringPresses, curingPlanData]
   );
 
   const handleDateChange = useCallback(async (date: Date | undefined) => {
@@ -641,10 +642,10 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       setProductionLog({});
       setEntries([]);
       const log = await fetchAndSetLog(date, selectedShift);
-      loadEntriesForRound(selectedRound, log, allCuringPresses);
+      loadEntriesForRound(selectedRound, log, allCuringPresses, curingPlanData);
     }
     setIsDatePickerOpen(false);
-  }, [selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound, allCuringPresses]);
+  }, [selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound, allCuringPresses, curingPlanData]);
 
   const roundTotal = useMemo(() => {
     return curingEntries.reduce((acc, entry) => acc + (entry.quantity || 0), 0);
