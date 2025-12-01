@@ -98,7 +98,6 @@ const getLocalStorageItem = (key: string, defaultValue: any) => {
     return item ? JSON.parse(item) : defaultValue;
   } catch (error) {
     console.warn(`Error reading localStorage key "${key}":`, error);
-    // If parsing fails, it's likely old/invalid data, so we should clear it
     window.localStorage.removeItem(key);
     return defaultValue;
   }
@@ -883,5 +882,3 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
     </div>
   );
 }
-
-    
