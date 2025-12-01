@@ -6,7 +6,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import type { AppLayoutProps } from '@/components/app-layout';
@@ -74,7 +73,6 @@ import {useToast} from '@/hooks/use-toast';
 import {cn} from '@/lib/utils';
 import type {
   Machine,
-  MachineProductionData,
   Operator,
   ProductionLog,
   ShiftInfo,
@@ -82,6 +80,16 @@ import type {
   SkuPlan
 } from '@/lib/types';
 import { Loader } from '@/components/ui/loader';
+
+interface CuringEntry {
+  id: number;
+  pressId: string;
+  cavity: 'left' | 'right' | '';
+  operatorId: string;
+  sku: string;
+  sapCode: string;
+  quantity: number | '';
+}
 
 const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === 'undefined') return defaultValue;
@@ -136,27 +144,27 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   const {toast} = useToast();
   const {user} = useAuth();
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
-  const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
-  const [allCuringPresses, setAllCuringPresses] = useState<Machine[]>([]);
-  const [allOperators, setAllOperators] = useState<Operator[]>([]);
-  
-  const [allSkusFromPlan, setAllSkusFromPlan] = useState<SkuPlan[]>([]);
-  const [greenTyreStock, setGreenTyreStock] = useState<TreadStock[]>([]);
-  const [curingPlanData, setCuringPlanData] = useState<any[]>([]);
-
-  const [roundTimes, setRoundTimes] = useState<string[]>([]);
-  const [selectedRound, setSelectedRound] = useState<string>('');
-  const [entries, setEntries] = useState<MachineProductionData[]>([]);
-  const [productionLog, setProductionLog] = useState<ProductionLog>({});
-  const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
-  const [curingEntries, setCuringEntries] = useState<any[]>([]);
-  
-  const machineOperatorMapRef = useRef<Record<string, string>>({});
   const [isFetchingLog, setIsFetchingLog] = useState(false);
 
+  // Data State
+  const [allShifts, setAllShifts] = useState<ShiftInfo[]>([]);
+  const [allCuringPresses, setAllCuringPresses] = useState<Machine[]>([]);
+  const [allOperators, setAllOperators] = useState<Operator[]>([]);
+  const [allSkusFromPlan, setAllSkusFromPlan] = useState<SkuPlan[]>([]);
+  const [greenTyreStock, setGreenTyreStock] = useState<TreadStock[]>([]);
+  const [productionLog, setProductionLog] = useState<ProductionLog>({});
+
+  // UI/Selection State
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedShift, setSelectedShift] = useState<ShiftInfo | undefined>();
+  const [selectedRound, setSelectedRound] = useState<string>('');
+  const [roundTimes, setRoundTimes] = useState<string[]>([]);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  
+  // Entry State
+  const [curingEntries, setCuringEntries] = useState<CuringEntry[]>([]);
+
+  const availableOperators = useMemo(() => allOperators.filter(op => !op.isAbsent), [allOperators]);
 
   const generateRoundTimes = useCallback((shift: ShiftInfo): string[] => {
     if (!shift) return [];
@@ -180,56 +188,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       return `${String(displayHour).padStart(2, '0')}:00 ${ampm}`;
     });
   }, []);
-
-  const loadEntriesForRound = useCallback(
-    (round: string, log: ProductionLog, presses: Machine[], plan: any[]) => {
-      if (!plan || !presses) return;
-  
-      const logForRound = log[round]?.entries || [];
-      const newEntries = presses
-        .filter(machine => machine.isAvailable)
-        .map(machine => {
-          const loggedEntry = logForRound.find(e => e.machineId === machine.id);
-          const operatorId =
-            loggedEntry?.operatorId || machineOperatorMapRef.current[machine.id] || '';
-  
-          let skus = loggedEntry?.skus?.filter(s => s.sku || s.sapCode) || [];
-          
-          if (skus.length === 0) {
-            const pressConfig = plan.find(p => p.pressId === machine.id);
-            if (pressConfig) {
-              const leftSku = pressConfig.leftCavity;
-              const rightSku = pressConfig.rightCavity;
-              
-              const skusFromPlan = [];
-              if (leftSku && leftSku.sku) {
-                skusFromPlan.push({ sku: leftSku.sku, sapCode: leftSku.sapCode, quantity: 0, leftQty: 0, rightQty: 0 });
-              }
-              if (rightSku && rightSku.sku && rightSku.sku !== leftSku.sku) {
-                skusFromPlan.push({ sku: rightSku.sku, sapCode: rightSku.sapCode, quantity: 0, leftQty: 0, rightQty: 0 });
-              }
-              if (rightSku && rightSku.sku && rightSku.sku === leftSku.sku && skusFromPlan.length > 0) {
-                 // It's already there, just needs to be configured for both cavities.
-              }
-              skus = skusFromPlan;
-            }
-          }
-  
-          if (skus.length === 0) {
-            skus.push({sku: '', sapCode: '', quantity: 0, leftQty: 0, rightQty: 0});
-          }
-  
-          return {
-            machineId: machine.id,
-            name: machine.name,
-            operatorId: operatorId,
-            skus: skus,
-          };
-        });
-      setEntries(newEntries);
-    },
-    []
-  );
   
   const fetchAndSetLog = useCallback(async (date: Date, shift: ShiftInfo) => {
     setIsFetchingLog(true);
@@ -245,6 +203,38 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       setIsFetchingLog(false);
     }
   }, [toast]);
+
+  const loadEntriesForRound = useCallback((round: string, log: ProductionLog) => {
+      const logForRound = log[round]?.entries || [];
+      
+      const newEntries: CuringEntry[] = logForRound.flatMap(machineEntry => {
+        return machineEntry.skus.map(sku => ({
+          id: Math.random(),
+          pressId: machineEntry.machineId,
+          cavity: sku.leftQty && sku.leftQty > 0 ? 'left' : 'right',
+          operatorId: machineEntry.operatorId || '',
+          sku: sku.sku,
+          sapCode: sku.sapCode,
+          quantity: sku.quantity
+        }));
+      });
+
+      if (newEntries.length === 0) {
+        setCuringEntries([{
+          id: Date.now(),
+          pressId: '',
+          cavity: '',
+          operatorId: '',
+          sku: '',
+          sapCode: '',
+          quantity: ''
+        }]);
+      } else {
+        setCuringEntries(newEntries);
+      }
+    },
+    []
+  );
   
   useEffect(() => {
     const loadInitialData = async () => {
@@ -258,7 +248,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
             openingStock,
             dailyLogs,
             historyLogs,
-            curingPlan,
           ] = await Promise.all([
             actions.getShifts(),
             actions.getMachines('CuringPress'),
@@ -267,7 +256,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
             actions.getTreadOpeningStock(),
             actions.getDailyTreadProductionLog(),
             actions.getProductionLogs(),
-            actions.getCuringPlan(),
           ]);
     
           setAllShifts(shiftsData);
@@ -331,7 +319,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
             };
           });
           setGreenTyreStock(stock);
-          setCuringPlanData(curingPlan || []);
     
           const currentShift = getCurrentShift(shiftsData);
           
@@ -346,8 +333,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
             const currentRound = newRoundTimes.includes(savedRound) ? savedRound : newRoundTimes[0] || '';
             setSelectedRound(currentRound);
     
-            machineOperatorMapRef.current = getLocalStorageItem('curingMachineOperatorMap', {});
-            loadEntriesForRound(currentRound, log, machinesData, curingPlan || []);
+            loadEntriesForRound(currentRound, log);
           }
         } catch (error) {
           console.error('Failed to load initial data:', error);
@@ -357,40 +343,20 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         }
       }
     loadInitialData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    setAvailableOperators(allOperators.filter(op => !op.isAbsent));
-  }, [allOperators]);
-
-  useEffect(() => {
-    if (curingEntries.length === 0) {
-      setCuringEntries([{
-        pressId: '',
-        cavity: '',
-        operatorId: '',
-        sku: '',
-        sapCode: '',
-        quantity: ''
-      }]);
-    }
-  }, [curingEntries.length]);
+  }, [generateRoundTimes, loadEntriesForRound, toast, fetchAndSetLog]);
 
   const handleClearShiftData = useCallback(async () => {
-    if (!selectedShift) return;
+    if (!selectedShift || !selectedDate) return;
     await actions.clearShiftData(selectedDate, selectedShift);
     setProductionLog({});
-    loadEntriesForRound(selectedRound, {}, allCuringPresses, curingPlanData);
-    machineOperatorMapRef.current = {};
-    setLocalStorageItem('curingMachineOperatorMap', {});
+    setCuringEntries([{
+        id: Date.now(), pressId: '', cavity: '', operatorId: '', sku: '', sapCode: '', quantity: ''
+    }]);
     toast({
       title: 'Shift Data Cleared',
-      description: `All production entries for ${
-        selectedShift.name
-      } on ${format(selectedDate, 'PPP')} have been removed.`,
+      description: `All production entries for ${selectedShift.name} on ${format(selectedDate, 'PPP')} have been removed.`,
     });
-  }, [selectedDate, selectedShift, toast, selectedRound, loadEntriesForRound, allCuringPresses, curingPlanData]);
+  }, [selectedDate, selectedShift, toast]);
 
   useEffect(() => {
     if (setPageActions && selectedShift) {
@@ -440,88 +406,29 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
   const handleSelectedRoundChange = (round: string) => {
     setSelectedRound(round);
     setLocalStorageItem('curingSelectedRound', round);
-    loadEntriesForRound(round, productionLog, allCuringPresses, curingPlanData);
+    loadEntriesForRound(round, productionLog);
   };
-
-  const handleOperatorChange = (machineId: string, operatorId: string) => {
-    setEntries(prev =>
-      prev.map(entry =>
-        entry.machineId === machineId ? {...entry, operatorId} : entry
-      )
-    );
-    machineOperatorMapRef.current[machineId] = operatorId;
-    setLocalStorageItem('curingMachineOperatorMap', machineOperatorMapRef.current);
-  };
-
-  const handleSkuChange = (
-    machineId: string,
-    skuIndex: number,
-    newSku: string
-  ) => {
-    const newSkuPlan = allSkusFromPlan.find(s => s.sku === newSku);
-    setEntries(prev =>
-      prev.map(entry => {
-        if (entry.machineId === machineId) {
-          const updatedSkus = [...entry.skus];
-          updatedSkus[skuIndex] = {
-            ...updatedSkus[skuIndex],
-            sku: newSku,
-            sapCode: newSkuPlan?.sapCode || '',
-          };
-          return {...entry, skus: updatedSkus};
-        }
-        return entry;
-      })
-    );
-  };
-
-  const handleQuantityChange = (
-    machineId: string,
-    skuIndex: number,
-    side: 'left' | 'right',
-    quantity: number
-  ) => {
-    setEntries(prev =>
-      prev.map(entry => {
-        if (entry.machineId === machineId) {
-          const updatedSkus = [...entry.skus];
-          const currentSku = updatedSkus[skuIndex];
-          const newQty = isNaN(quantity) ? 0 : quantity;
-          
-          if(side === 'left') {
-            currentSku.leftQty = newQty;
-          } else {
-            currentSku.rightQty = newQty;
-          }
-          currentSku.quantity = (currentSku.leftQty || 0) + (currentSku.rightQty || 0)
-
-          return {...entry, skus: updatedSkus};
-        }
-        return entry;
-      })
-    );
-  };
-
+  
   const handleAddCuringEntry = () => {
     setCuringEntries(prev => [...prev, {
+      id: Date.now(),
       pressId: '',
       cavity: '',
       operatorId: '',
       sku: '',
       sapCode: '',
-      quantity: 0
+      quantity: ''
     }]);
   };
 
-  const handleRemoveCuringEntry = (index: number) => {
-    setCuringEntries(prev => prev.filter((_, i) => i !== index));
+  const handleRemoveCuringEntry = (id: number) => {
+    setCuringEntries(prev => prev.filter((e) => e.id !== id));
   };
 
-  const handleCuringEntryChange = (index: number, field: string, value: any) => {
-    setCuringEntries(prev => prev.map((entry, i) => {
-      if (i === index) {
+  const handleCuringEntryChange = (id: number, field: keyof CuringEntry, value: any) => {
+    setCuringEntries(prev => prev.map(entry => {
+      if (entry.id === id) {
         const updated = { ...entry, [field]: value };
-        // Auto-fill SAP code when SKU is selected
         if (field === 'sku') {
           const selectedSku = allSkusFromPlan.find(s => s.sku === value);
           if (selectedSku) {
@@ -551,11 +458,19 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       });
       return;
     }
+
+    const validEntries = curingEntries.filter(e => e.pressId && e.cavity && e.sku && e.quantity && Number(e.quantity) > 0);
+    
+    if (validEntries.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'No valid entries to save.'
+      });
+      return;
+    }
     
     const entriesByMachine = new Map();
-    curingEntries.forEach(entry => {
-      if (!entry.pressId || !entry.sku || !entry.quantity) return;
-      
+    validEntries.forEach(entry => {
       if (!entriesByMachine.has(entry.pressId)) {
         entriesByMachine.set(entry.pressId, {
           machineId: entry.pressId,
@@ -568,39 +483,38 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       }
       
       const machineEntry = entriesByMachine.get(entry.pressId);
+      const quantity = Number(entry.quantity)
       const skuEntry = {
         sku: entry.sku,
         sapCode: entry.sapCode,
-        quantity: Number(entry.quantity),
-        leftQty: entry.cavity === 'left' ? Number(entry.quantity) : 0,
-        rightQty: entry.cavity === 'right' ? Number(entry.quantity) : 0,
+        quantity: quantity,
+        leftQty: entry.cavity === 'left' ? quantity : 0,
+        rightQty: entry.cavity === 'right' ? quantity : 0,
       };
       machineEntry.skus.push(skuEntry);
     });
     
-    const entriesToSave = Array.from(entriesByMachine.values());
-    if (entriesToSave.length > 0) {
-      await actions.saveProductionRound(
+    await actions.saveProductionRound(
         selectedDate,
         selectedShift,
         selectedRound,
-        entriesToSave
-      );
-    }
+        Array.from(entriesByMachine.values())
+    );
+    await fetchAndSetLog(selectedDate, selectedShift);
     
     toast({
       title: 'Round Data Saved',
       description: `Data for round ${selectedRound} has been saved.`,
       action: <Save className="text-green-500" />,
     });
-  }, [selectedDate, selectedShift, selectedRound, curingEntries, allCuringPresses, toast, user]);
+  }, [selectedDate, selectedShift, selectedRound, curingEntries, allCuringPresses, toast, user, fetchAndSetLog]);
 
   const handleShiftChange = useCallback(
     async (name: string) => {
       const newShift = allShifts.find(s => s.name === name);
       if (newShift && newShift?.name !== selectedShift?.name) {
         setProductionLog({});
-        setEntries([]);
+        setCuringEntries([]);
         setSelectedShift(newShift);
         
         const newRoundTimes = generateRoundTimes(newShift);
@@ -609,33 +523,32 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
         const log = await fetchAndSetLog(selectedDate, newShift);
         const currentRound = newRoundTimes[0] || '';
         setSelectedRound(currentRound);
-        loadEntriesForRound(currentRound, log, allCuringPresses, curingPlanData);
+        loadEntriesForRound(currentRound, log);
       }
     },
-    [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound, allCuringPresses, curingPlanData]
+    [allShifts, selectedShift, generateRoundTimes, fetchAndSetLog, selectedDate, loadEntriesForRound]
   );
 
   const handleDateChange = useCallback(async (date: Date | undefined) => {
     if (date && selectedShift) {
       setSelectedDate(date);
       setProductionLog({});
-      setEntries([]);
+      setCuringEntries([]);
       const log = await fetchAndSetLog(date, selectedShift);
-      loadEntriesForRound(selectedRound, log, allCuringPresses, curingPlanData);
+      loadEntriesForRound(selectedRound, log);
     }
     setIsDatePickerOpen(false);
-  }, [selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound, allCuringPresses, curingPlanData]);
+  }, [selectedShift, fetchAndSetLog, loadEntriesForRound, selectedRound]);
 
   const roundTotal = useMemo(() => {
     return curingEntries.reduce((acc, entry) => acc + (Number(entry.quantity) || 0), 0);
   }, [curingEntries]);
 
   const cumulativeTotal = useMemo(() => {
-    const total = Object.values(productionLog)
+    return Object.values(productionLog)
       .flatMap(logEntry => logEntry.entries)
       .flatMap(machineEntry => machineEntry.skus)
       .reduce((acc, sku) => acc + (sku.quantity || 0), 0);
-    return total;
   }, [productionLog]);
 
   if (loading) {
@@ -812,7 +725,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
            </Card>
         )}
         {curingEntries.map((entry, index) => (
-          <Card key={index}>
+          <Card key={entry.id}>
             <CardContent className="p-4">
               <div className="flex flex-col md:flex-row gap-4 items-end">
                 <div className="flex-1 min-w-[120px] max-w-[200px]">
@@ -820,7 +733,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                     <Label>Press No</Label>
                     <Select
                       value={entry.pressId || ''}
-                      onValueChange={val => handleCuringEntryChange(index, 'pressId', val)}
+                      onValueChange={val => handleCuringEntryChange(entry.id, 'pressId', val)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select Press" />
@@ -840,7 +753,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                     <Label>Cavity</Label>
                     <Select
                       value={entry.cavity || ''}
-                      onValueChange={val => handleCuringEntryChange(index, 'cavity', val)}
+                      onValueChange={val => handleCuringEntryChange(entry.id, 'cavity', val)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select Cavity" />
@@ -867,7 +780,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                     <Label>Operator</Label>
                     <Select
                       value={entry.operatorId || ''}
-                      onValueChange={val => handleCuringEntryChange(index, 'operatorId', val)}
+                      onValueChange={val => handleCuringEntryChange(entry.id, 'operatorId', val)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select Operator" />
@@ -887,7 +800,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                     <Label>SKU</Label>
                     <Select
                       value={entry.sku || ''}
-                      onValueChange={val => handleCuringEntryChange(index, 'sku', val)}
+                      onValueChange={val => handleCuringEntryChange(entry.id, 'sku', val)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select SKU" />
@@ -910,20 +823,22 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                       placeholder="0"
                       min="0"
                       value={entry.quantity === 0 ? '' : entry.quantity}
-                      onChange={e => handleCuringEntryChange(index, 'quantity', parseInt(e.target.value) || 0)}
+                      onChange={e => handleCuringEntryChange(entry.id, 'quantity', parseInt(e.target.value) || 0)}
                     />
                   </div>
                 </div>
                 <div className="flex-shrink-0">
                   <div className="flex gap-2 pt-6">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemoveCuringEntry(index)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {curingEntries.length > 1 &&
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveCuringEntry(entry.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    }
                   </div>
                 </div>
               </div>
