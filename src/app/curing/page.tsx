@@ -8,7 +8,6 @@ import {
   useMemo,
   useState,
 } from 'react';
-import type { AppLayoutProps } from '@/components/app-layout';
 import {format} from 'date-fns';
 import {
   CalendarIcon,
@@ -139,7 +138,7 @@ const getCurrentShift = (shifts: ShiftInfo[]): ShiftInfo | undefined => {
   return shifts[0];
 };
 
-export default function CuringPage({setPageActions}: AppLayoutProps) {
+export default function CuringPage() {
   const {toast} = useToast();
   const {user} = useAuth();
   const [loading, setLoading] = useState(true);
@@ -356,51 +355,6 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
       description: `All production entries for ${selectedShift.name} on ${format(selectedDate, 'PPP')} have been removed.`,
     });
   }, [selectedDate, selectedShift, toast]);
-
-  useEffect(() => {
-    if (setPageActions && selectedShift) {
-      const pageActions = (
-        <>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>Page Actions</DropdownMenuLabel>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <DropdownMenuItem
-                onSelect={e => e.preventDefault()}
-                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-              >
-                <Eraser className="mr-2 h-4 w-4" />
-                Clear Shift Data
-              </DropdownMenuItem>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete all production data for the
-                  selected shift ({selectedShift.name} on{' '}
-                  {format(selectedDate, 'PPP')}). This
-                  action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearShiftData}>
-                  Continue
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
-      );
-      setPageActions(pageActions);
-    }
-    return () => {
-      if (setPageActions) {
-        setPageActions(null);
-      }
-    };
-  }, [handleClearShiftData, selectedDate, selectedShift, setPageActions]);
 
   const handleSelectedRoundChange = (round: string) => {
     setSelectedRound(round);
@@ -676,6 +630,35 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                 ))}
               </SelectContent>
             </Select>
+             <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+                >
+                  <Eraser className="mr-2 h-4 w-4" />
+                  Clear Shift Data
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all production data for the
+                    selected shift ({selectedShift?.name} on{' '}
+                    {selectedDate ? format(selectedDate, 'PPP') : ''}). This
+                    action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearShiftData}>
+                    Continue
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </header>
@@ -803,7 +786,7 @@ export default function CuringPage({setPageActions}: AppLayoutProps) {
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select SKU" />
-                      </SelectTrigger>
+                      </Trigger>
                       <SelectContent>
                         {allSkusFromPlan.map(skuPlan => (
                           <SelectItem key={`${skuPlan.sku}-${skuPlan.sapCode}`} value={skuPlan.sku}>

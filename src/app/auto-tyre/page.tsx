@@ -4,7 +4,7 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
-import { ArrowRight, Flame, LayoutDashboard, Spline, ListPlus, ClipboardList, AreaChart } from "lucide-react";
+import { ArrowRight, Flame, LayoutDashboard, Spline, ListPlus, ClipboardList, AreaChart, Wrench } from "lucide-react";
 
 const featureCards = [
     {
@@ -42,6 +42,12 @@ const featureCards = [
         description: "Access GT and Tread production planning modules.",
         href: "/planning/gt",
         icon: <Spline className="w-8 h-8 text-green-500" />
+    },
+    {
+        title: "Breakdown Reporting",
+        description: "Log and track machine breakdowns and maintenance.",
+        href: "/breakdown-reporting",
+        icon: <Wrench className="w-8 h-8 text-yellow-500" />
     },
 ];
 
