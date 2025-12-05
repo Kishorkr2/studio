@@ -12,7 +12,7 @@ import type { Machine } from '../types';
 
 // This is a top-level await, which is supported in modern TypeScript and Node.js.
 // It ensures that the database is connected before any other module that imports this file can use it.
-export let db;
+export let db: any;
 
 export async function connect() {
   if (db) return;
@@ -28,7 +28,7 @@ async function setup() {
   await db.exec('PRAGMA journal_mode = WAL;');
   
   const userColumns = await db.all("PRAGMA table_info(users)").catch(() => []);
-  if (!userColumns.some(col => col.name === 'canMakeEntry')) {
+  if (!userColumns.some((col: any) => col.name === 'canMakeEntry')) {
     await db.exec('ALTER TABLE users ADD COLUMN canMakeEntry BOOLEAN DEFAULT FALSE').catch(() => {});
   }
 
@@ -39,7 +39,7 @@ async function setup() {
   }
 
   const existingColumns = await db.all("PRAGMA table_info(machines)").catch(() => []);
-  const hasTypeColumn = existingColumns.some(col => col.name === 'type');
+  const hasTypeColumn = existingColumns.some((col: any) => col.name === 'type');
 
   if (!hasTypeColumn) {
     await db.exec('ALTER TABLE machines RENAME TO machines_old;').catch(() => {});

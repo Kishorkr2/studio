@@ -401,7 +401,7 @@ export default function CuringEntryPage() {
     ];
     XLSX.utils.sheet_add_aoa(wb, ws_data, { origin: "A1" });
     
-    const ws = XLSX.utils.json_to_sheet(exportData, {origin: "A3"});
+    const ws = XLSX.utils.json_to_sheet(exportData);
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
 
     ws['A1'] = { v: "Curing Linup", t: 's', s: { font: { bold: true, sz: 16 }, alignment: { horizontal: 'center' } } };

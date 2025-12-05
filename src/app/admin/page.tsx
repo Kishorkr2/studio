@@ -369,9 +369,9 @@ export default function AdminPage() {
   const [newPlanQuantity, setNewPlanQuantity] = useState(0);
   
   // Curing plan states
-  const [curingPlan, setCuringPlan] = useState([]);
+  const [curingPlan, setCuringPlan] = useState<any[]>([]);
   const [newPressId, setNewPressId] = useState('');
-  const [monthlyPlanSkus, setMonthlyPlanSkus] = useState([]);
+  const [monthlyPlanSkus, setMonthlyPlanSkus] = useState<SkuPlan[]>([]);
 
   const [password, setPassword] = useState('');
   const [isRenaming, setIsRenaming] = useState<string | null>(null);
@@ -900,7 +900,7 @@ export default function AdminPage() {
     toast({title: 'Press added to plan'});
   };
   
-  const handleUpdateCavity = (pressIndex, cavity, field, value) => {
+  const handleUpdateCavity = (pressIndex: number, cavity: string, field: string, value: any) => {
     setCuringPlan(prev => prev.map((press, index) => {
       if (index === pressIndex) {
         const updatedCavity = { ...press[cavity], [field]: value };
@@ -919,7 +919,7 @@ export default function AdminPage() {
     }));
   };
   
-  const handleAddCavityEntry = (pressIndex, cavity) => {
+  const handleAddCavityEntry = (pressIndex: number, cavity: string) => {
     const press = curingPlan[pressIndex];
     const cavityData = press[cavity];
     
@@ -931,7 +931,7 @@ export default function AdminPage() {
     toast({title: `${cavity} cavity entry added`});
   };
   
-  const handleRemovePress = (index) => {
+  const handleRemovePress = (index: number) => {
     setCuringPlan(prev => prev.filter((_, i) => i !== index));
     toast({title: 'Press removed'});
   };
